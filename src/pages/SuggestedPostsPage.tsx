@@ -2,12 +2,12 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
-import { PenLine, Loader2, Copy, Calendar, Check, Sparkles, ImageIcon, RefreshCw, ChevronDown, ArrowRight } from "lucide-react";
+import { PenLine, Loader2, Copy, Calendar, Check, Sparkles, ImageIcon, RefreshCw, ChevronDown, ArrowRight, Images } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 
@@ -15,6 +15,7 @@ export default function SuggestedPostsPage() {
   const navigate = useNavigate();
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatingVisualId, setGeneratingVisualId] = useState<string | null>(null);
+  const [batchProgress, setBatchProgress] = useState<{ done: number; total: number } | null>(null);
   const [topic, setTopic] = useState("");
   const [postCount, setPostCount] = useState(5);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -63,19 +64,8 @@ export default function SuggestedPostsPage() {
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      toast.success(`${data.posts?.length || 0} posts générés ! Génération des visuels en cours...`);
+      toast.success(`${data.posts?.length || 0} posts générés !`);
       refetch();
-
-      // Auto-generate visuals for each new post
-      if (data?.posts) {
-        for (const post of data.posts) {
-          try {
-            await supabase.functions.invoke("generate-visual", { body: { post_id: post.id } });
-          } catch { /* silent - user can regenerate manually */ }
-        }
-        refetch();
-        toast.success("Visuels générés !");
-      }
     } catch (e: any) {
       toast.error(e.message || "Erreur lors de la génération");
     } finally {
@@ -100,9 +90,31 @@ export default function SuggestedPostsPage() {
     }
   };
 
+  const handleBatchVisuals = async () => {
+    const postsWithoutVisual = posts?.filter(p => !p.image_url) || [];
+    if (postsWithoutVisual.length === 0) {
+      toast.info("Tous les posts ont déjà un visuel");
+      return;
+    }
+    setBatchProgress({ done: 0, total: postsWithoutVisual.length });
+    const batchSize = 3;
+    let done = 0;
+    for (let i = 0; i < postsWithoutVisual.length; i += batchSize) {
+      const batch = postsWithoutVisual.slice(i, i + batchSize);
+      const results = await Promise.allSettled(
+        batch.map(p => supabase.functions.invoke("generate-visual", { body: { post_id: p.id } }))
+      );
+      done += results.length;
+      setBatchProgress({ done, total: postsWithoutVisual.length });
+    }
+    setBatchProgress(null);
+    refetch();
+    toast.success(`Visuels générés pour ${done} posts !`);
+  };
+
   const handleCopy = (content: string) => {
     navigator.clipboard.writeText(content);
-    toast.success("Copié dans le presse-papier !");
+    toast.success("Copié !");
   };
 
   const handleSaveEdit = async (id: string) => {
@@ -110,29 +122,19 @@ export default function SuggestedPostsPage() {
       .from("suggested_posts")
       .update({ content: editContent })
       .eq("id", id);
-    if (error) {
-      toast.error("Erreur de sauvegarde");
-    } else {
-      toast.success("Post modifié !");
-      setEditingId(null);
-      refetch();
-    }
+    if (error) toast.error("Erreur de sauvegarde");
+    else { toast.success("Post modifié !"); setEditingId(null); refetch(); }
   };
 
   const handleSchedulePost = async (id: string) => {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     tomorrow.setHours(9, 0, 0, 0);
-
     const { error } = await supabase.functions.invoke("schedule-posts", {
       body: { schedule: [{ post_id: id, scheduled_at: tomorrow.toISOString() }] },
     });
-    if (error) {
-      toast.error("Erreur de planification");
-    } else {
-      toast.success("Post planifié pour demain 9h !");
-      refetch();
-    }
+    if (error) toast.error("Erreur de planification");
+    else { toast.success("Post planifié pour demain 9h !"); refetch(); }
   };
 
   const statusColors: Record<string, string> = {
@@ -140,49 +142,42 @@ export default function SuggestedPostsPage() {
     scheduled: "bg-yellow-500/10 text-yellow-600",
     published: "bg-green-500/10 text-green-600",
   };
-
   const statusLabels: Record<string, string> = {
-    draft: "Brouillon",
-    scheduled: "Planifié",
-    published: "Publié",
+    draft: "Brouillon", scheduled: "Planifié", published: "Publié",
   };
 
   return (
     <AppLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Posts Suggérés</h1>
-            <p className="text-muted-foreground">Générez des publications virales avec visuels IA</p>
-          </div>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Posts Suggérés</h1>
+          <p className="text-muted-foreground">Générez des publications virales avec visuels IA</p>
         </div>
 
-        {/* Generator */}
         <Card>
           <CardContent className="flex flex-col gap-3 pt-6">
             <div className="flex flex-col sm:flex-row gap-3">
-              <Input
-                placeholder="Thème optionnel (ex: leadership, IA, productivité…)"
-                value={topic}
-                onChange={(e) => setTopic(e.target.value)}
-                className="flex-1"
-              />
+              <Input placeholder="Thème optionnel…" value={topic} onChange={(e) => setTopic(e.target.value)} className="flex-1" />
               <div className="flex items-center gap-2 min-w-[180px]">
                 <label className="text-sm text-muted-foreground whitespace-nowrap">Nombre :</label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={20}
-                  value={postCount}
-                  onChange={(e) => setPostCount(Math.max(1, Math.min(20, Number(e.target.value))))}
-                  className="w-20"
-                />
+                <Input type="number" min={1} max={20} value={postCount} onChange={(e) => setPostCount(Math.max(1, Math.min(20, Number(e.target.value))))} className="w-20" />
               </div>
             </div>
-            <Button onClick={handleGenerate} disabled={isGenerating || !latestAnalysisId} className="sm:w-fit">
-              {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              {isGenerating ? "Génération…" : `Générer ${postCount} post${postCount > 1 ? "s" : ""}`}
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={handleGenerate} disabled={isGenerating || !latestAnalysisId}>
+                {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                {isGenerating ? "Génération…" : `Générer ${postCount} post${postCount > 1 ? "s" : ""}`}
+              </Button>
+              {posts && posts.length > 0 && (
+                <Button variant="outline" onClick={handleBatchVisuals} disabled={!!batchProgress}>
+                  {batchProgress ? (
+                    <><Loader2 className="h-4 w-4 animate-spin" /> {batchProgress.done}/{batchProgress.total}</>
+                  ) : (
+                    <><Images className="h-4 w-4" /> Générer tous les visuels</>
+                  )}
+                </Button>
+              )}
+            </div>
           </CardContent>
           {!latestAnalysisId && (
             <CardContent className="pt-0">
@@ -191,74 +186,58 @@ export default function SuggestedPostsPage() {
           )}
         </Card>
 
-        {/* Posts list */}
         <div className="space-y-4">
-          {posts?.slice(0, visibleCount).map((post) => {
-            const imageUrl = (post as any).image_url;
-            return (
-              <Card key={post.id} className="overflow-hidden">
-                <CardHeader className="pb-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className={statusColors[post.status] || ""}>
-                        {statusLabels[post.status] || post.status}
-                      </Badge>
-                      {post.topic && <Badge variant="secondary">{post.topic}</Badge>}
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Sparkles className="h-3.5 w-3.5 text-primary" />
-                      <span className="text-sm font-bold text-primary">{post.virality_score}/100</span>
-                    </div>
+          {posts?.slice(0, visibleCount).map((post) => (
+            <Card key={post.id} className="overflow-hidden">
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className={statusColors[post.status] || ""}>{statusLabels[post.status] || post.status}</Badge>
+                    {post.topic && <Badge variant="secondary">{post.topic}</Badge>}
                   </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {imageUrl && (
-                    <div className="rounded-lg overflow-hidden border">
-                      <img src={imageUrl} alt="Visuel du post" className="w-full max-h-[400px] object-cover" />
+                  <div className="flex items-center gap-1">
+                    <Sparkles className="h-3.5 w-3.5 text-primary" />
+                    <span className="text-sm font-bold text-primary">{post.virality_score}/100</span>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {post.image_url && (
+                  <div className="rounded-lg overflow-hidden border">
+                    <img src={post.image_url} alt="Visuel" className="w-full max-h-[400px] object-cover" loading="lazy" />
+                  </div>
+                )}
+                {editingId === post.id ? (
+                  <>
+                    <Textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} className="min-h-[200px]" />
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={() => handleSaveEdit(post.id)}><Check className="h-3.5 w-3.5" /> Sauvegarder</Button>
+                      <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}>Annuler</Button>
                     </div>
-                  )}
-                  {editingId === post.id ? (
-                    <>
-                      <Textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} className="min-h-[200px]" />
-                      <div className="flex gap-2">
-                        <Button size="sm" onClick={() => handleSaveEdit(post.id)}>
-                          <Check className="h-3.5 w-3.5" /> Sauvegarder
-                        </Button>
-                        <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}>Annuler</Button>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <p className="whitespace-pre-wrap text-sm leading-relaxed">{post.content}</p>
-                      <div className="flex flex-wrap gap-2 pt-2">
-                        <Button size="sm" variant="outline" onClick={() => handleCopy(post.content)}>
-                          <Copy className="h-3.5 w-3.5" /> Copier
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={() => { setEditingId(post.id); setEditContent(post.content); }}>
-                          <PenLine className="h-3.5 w-3.5" /> Modifier
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={() => handleGenerateVisual(post.id)} disabled={generatingVisualId === post.id}>
-                          {generatingVisualId === post.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : imageUrl ? <RefreshCw className="h-3.5 w-3.5" /> : <ImageIcon className="h-3.5 w-3.5" />}
-                          {imageUrl ? "Regénérer visuel" : "Générer visuel"}
-                        </Button>
-                        {post.status === "draft" && (
-                          <Button size="sm" variant="outline" onClick={() => handleSchedulePost(post.id)}>
-                            <Calendar className="h-3.5 w-3.5" /> Planifier
-                          </Button>
-                        )}
-                      </div>
-                    </>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
+                  </>
+                ) : (
+                  <>
+                    <p className="whitespace-pre-wrap text-sm leading-relaxed">{post.content}</p>
+                    <div className="flex flex-wrap gap-2 pt-2">
+                      <Button size="sm" variant="outline" onClick={() => handleCopy(post.content)}><Copy className="h-3.5 w-3.5" /> Copier</Button>
+                      <Button size="sm" variant="outline" onClick={() => { setEditingId(post.id); setEditContent(post.content); }}><PenLine className="h-3.5 w-3.5" /> Modifier</Button>
+                      <Button size="sm" variant="outline" onClick={() => handleGenerateVisual(post.id)} disabled={generatingVisualId === post.id}>
+                        {generatingVisualId === post.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : post.image_url ? <RefreshCw className="h-3.5 w-3.5" /> : <ImageIcon className="h-3.5 w-3.5" />}
+                        {post.image_url ? "Regénérer visuel" : "Générer visuel"}
+                      </Button>
+                      {post.status === "draft" && (
+                        <Button size="sm" variant="outline" onClick={() => handleSchedulePost(post.id)}><Calendar className="h-3.5 w-3.5" /> Planifier</Button>
+                      )}
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          ))}
 
           {posts && posts.length > 0 && (
             <div className="flex justify-center pt-2">
-              <Button onClick={() => navigate("/planifier")} className="gap-2">
-                Planifier les posts <ArrowRight className="h-4 w-4" />
-              </Button>
+              <Button onClick={() => navigate("/planifier")} className="gap-2">Planifier les posts <ArrowRight className="h-4 w-4" /></Button>
             </div>
           )}
 
