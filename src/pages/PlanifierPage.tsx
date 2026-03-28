@@ -114,6 +114,9 @@ export default function PlanifierPage() {
                       {post.scheduled_at ? format(new Date(post.scheduled_at), "HH:mm") : ""}
                     </div>
                   </div>
+                  {post.image_url && post.image_url.startsWith("http") && (
+                    <img src={post.image_url} alt="Visuel" className="h-20 w-20 rounded-md object-cover shrink-0" />
+                  )}
                   <div className="flex-1 min-w-0">
                     <p className="text-sm line-clamp-3">{post.content}</p>
                     <div className="flex gap-2 mt-3">
@@ -139,7 +142,12 @@ export default function PlanifierPage() {
             <CardContent className="space-y-4">
               {draftPosts.map((post) => (
                 <div key={post.id} className="rounded-lg border p-4 space-y-3">
-                  <p className="text-sm line-clamp-3">{post.content}</p>
+                  <div className="flex gap-3">
+                    {post.image_url && post.image_url.startsWith("http") && (
+                      <img src={post.image_url} alt="Visuel" className="h-16 w-16 rounded-md object-cover shrink-0" />
+                    )}
+                    <p className="text-sm line-clamp-3">{post.content}</p>
+                  </div>
                   <div className="flex flex-col sm:flex-row gap-2">
                     <Input
                       type="datetime-local"
@@ -171,6 +179,9 @@ export default function PlanifierPage() {
               {publishedPosts.map((post) => (
                 <div key={post.id} className="flex items-start gap-3 rounded-lg border p-3 opacity-70">
                   <Badge className="bg-green-500/10 text-green-600 shrink-0">Publié</Badge>
+                  {post.image_url && post.image_url.startsWith("http") && (
+                    <img src={post.image_url} alt="Visuel" className="h-12 w-12 rounded object-cover shrink-0" />
+                  )}
                   <div className="min-w-0">
                     <p className="text-sm line-clamp-2">{post.content}</p>
                     <p className="text-xs text-muted-foreground mt-1">

@@ -59,7 +59,7 @@ serve(async (req) => {
     if (postErr || !post) throw new Error("Post not found");
 
     const contentPreview = post.content.substring(0, 300);
-    const imagePrompt = `Professional LinkedIn post visual. Topic: "${post.topic || 'professional content'}". Content: "${contentPreview}". Style: Clean, modern, professional infographic suitable for LinkedIn feed. Bold typography, modern blue/teal colors, minimal design. Square format. Do NOT include long text, focus on visual metaphors.`;
+    const imagePrompt = `Visuel professionnel pour une publication LinkedIn. Thème : "${post.topic || 'contenu professionnel'}". Contenu : "${contentPreview}". Style : Design épuré, moderne et professionnel de type infographie pour le fil LinkedIn. Typographie audacieuse, couleurs bleu/turquoise modernes, design minimaliste. Format carré. NE PAS inclure de texte long, privilégier les métaphores visuelles. Tout texte visible doit être en FRANÇAIS.`;
 
     console.log("Creating Kie AI task for post:", post_id);
 
