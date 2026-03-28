@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +23,7 @@ interface SearchResult {
 const AddProfile = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   // Manual add state
   const [linkedinUrl, setLinkedinUrl] = useState("");
@@ -34,7 +36,7 @@ const AddProfile = () => {
 
   const addMutation = useMutation({
     mutationFn: async (profile: { linkedin_url: string; name: string; avatar_url?: string; headline?: string }) => {
-      const { error } = await supabase.from("tracked_profiles").insert(profile);
+      const { error } = await supabase.from("tracked_profiles").insert({ ...profile, user_id: user?.id } as any);
       if (error) throw error;
     },
     onSuccess: () => {
