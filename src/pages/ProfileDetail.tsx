@@ -59,6 +59,22 @@ const ProfileDetail = () => {
     enabled: posts.length > 0,
   });
 
+  const fetchPostsMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("fetch-profile-posts", {
+        body: { profile_id: id, max_pages: 5 },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["profile_posts", id] });
+      queryClient.invalidateQueries({ queryKey: ["profile_interactions", id] });
+      toast.success(`${data.total_posts} publications extraites`);
+    },
+    onError: () => toast.error("Erreur lors de l'extraction"),
+  });
+
   const deleteMutation = useMutation({
     mutationFn: async () => {
       const { error } = await supabase
