@@ -14,7 +14,130 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      linkedin_posts: {
+        Row: {
+          comments_count: number
+          content: string | null
+          created_at: string
+          id: string
+          likes_count: number
+          post_url: string | null
+          posted_at: string | null
+          profile_id: string
+          shares_count: number
+          unipile_post_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          comments_count?: number
+          content?: string | null
+          created_at?: string
+          id?: string
+          likes_count?: number
+          post_url?: string | null
+          posted_at?: string | null
+          profile_id: string
+          shares_count?: number
+          unipile_post_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          comments_count?: number
+          content?: string | null
+          created_at?: string
+          id?: string
+          likes_count?: number
+          post_url?: string | null
+          posted_at?: string | null
+          profile_id?: string
+          shares_count?: number
+          unipile_post_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "linkedin_posts_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "tracked_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      post_interactions: {
+        Row: {
+          author_avatar_url: string | null
+          author_linkedin_url: string | null
+          author_name: string | null
+          comment_text: string | null
+          created_at: string
+          id: string
+          interaction_type: string
+          post_id: string
+        }
+        Insert: {
+          author_avatar_url?: string | null
+          author_linkedin_url?: string | null
+          author_name?: string | null
+          comment_text?: string | null
+          created_at?: string
+          id?: string
+          interaction_type: string
+          post_id: string
+        }
+        Update: {
+          author_avatar_url?: string | null
+          author_linkedin_url?: string | null
+          author_name?: string | null
+          comment_text?: string | null
+          created_at?: string
+          id?: string
+          interaction_type?: string
+          post_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_interactions_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "linkedin_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tracked_profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          headline: string | null
+          id: string
+          linkedin_url: string
+          name: string
+          unipile_account_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          headline?: string | null
+          id?: string
+          linkedin_url: string
+          name: string
+          unipile_account_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          headline?: string | null
+          id?: string
+          linkedin_url?: string
+          name?: string
+          unipile_account_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
