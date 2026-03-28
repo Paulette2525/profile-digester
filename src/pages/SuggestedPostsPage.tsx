@@ -153,16 +153,29 @@ export default function SuggestedPostsPage() {
 
         {/* Generator */}
         <Card>
-          <CardContent className="flex flex-col sm:flex-row gap-3 pt-6">
-            <Input
-              placeholder="Thème optionnel (ex: leadership, IA, productivité…)"
-              value={topic}
-              onChange={(e) => setTopic(e.target.value)}
-              className="flex-1"
-            />
-            <Button onClick={handleGenerate} disabled={isGenerating || !latestAnalysisId}>
+          <CardContent className="flex flex-col gap-3 pt-6">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Input
+                placeholder="Thème optionnel (ex: leadership, IA, productivité…)"
+                value={topic}
+                onChange={(e) => setTopic(e.target.value)}
+                className="flex-1"
+              />
+              <div className="flex items-center gap-2 min-w-[180px]">
+                <label className="text-sm text-muted-foreground whitespace-nowrap">Nombre :</label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={postCount}
+                  onChange={(e) => setPostCount(Math.max(1, Math.min(20, Number(e.target.value))))}
+                  className="w-20"
+                />
+              </div>
+            </div>
+            <Button onClick={handleGenerate} disabled={isGenerating || !latestAnalysisId} className="sm:w-fit">
               {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              {isGenerating ? "Génération…" : "Générer des posts"}
+              {isGenerating ? "Génération…" : `Générer ${postCount} post${postCount > 1 ? "s" : ""}`}
             </Button>
           </CardContent>
           {!latestAnalysisId && (
