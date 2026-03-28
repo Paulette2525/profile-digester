@@ -7,6 +7,18 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+async function getLinkedInAccountId(dsn: string, apiKey: string): Promise<string> {
+  const res = await fetch(`https://${dsn}/api/v1/accounts`, {
+    headers: { "X-API-KEY": apiKey, Accept: "application/json" },
+  });
+  if (!res.ok) throw new Error(`Failed to list accounts: ${res.status}`);
+  const data = await res.json();
+  const items = data.items || [];
+  const linkedin = items.find((a: any) => a.type === "LINKEDIN");
+  if (!linkedin) throw new Error("No LinkedIn account connected in Unipile");
+  return linkedin.id;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -23,6 +35,8 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
+
+    const accountId = await getLinkedInAccountId(UNIPILE_DSN, UNIPILE_API_KEY);
 
     // Get all tracked profiles
     const { data: profiles, error: profilesError } = await supabase
@@ -41,22 +55,49 @@ serve(async (req) => {
 
     for (const profile of profiles) {
       try {
-        // Fetch posts from Unipile API for this profile
-        const accountId = profile.unipile_account_id || profile.linkedin_url;
-        
-        const postsResponse = await fetch(
-          `https://${UNIPILE_DSN}/api/v1/posts?account_id=${encodeURIComponent(accountId)}&limit=20`,
+        // Extract LinkedIn identifier from URL
+        const urlParts = profile.linkedin_url.replace(/\/$/, "").split("/");
+        const identifier = urlParts[urlParts.length - 1];
+
+        // First, try to get the user's profile to get their provider_id
+        const profileRes = await fetch(
+          `https://${UNIPILE_DSN}/api/v1/users/${encodeURIComponent(identifier)}?account_id=${encodeURIComponent(accountId)}`,
           {
-            headers: {
-              "X-API-KEY": UNIPILE_API_KEY,
-              Accept: "application/json",
-            },
+            headers: { "X-API-KEY": UNIPILE_API_KEY, Accept: "application/json" },
+          }
+        );
+
+        let providerId = identifier;
+        if (profileRes.ok) {
+          const profileData = await profileRes.json();
+          providerId = profileData.provider_id || profileData.id || identifier;
+
+          // Update profile info if available
+          if (profileData.name || profileData.first_name) {
+            await supabase
+              .from("tracked_profiles")
+              .update({
+                name: profileData.name || `${profileData.first_name || ""} ${profileData.last_name || ""}`.trim() || profile.name,
+                avatar_url: profileData.profile_picture_url || profileData.avatar_url || profile.avatar_url,
+                headline: profileData.headline || profile.headline,
+                unipile_account_id: providerId,
+              })
+              .eq("id", profile.id);
+          }
+        }
+
+        // Fetch posts from Unipile using the user's provider_id
+        const postsResponse = await fetch(
+          `https://${UNIPILE_DSN}/api/v1/posts?account_id=${encodeURIComponent(accountId)}&author_id=${encodeURIComponent(providerId)}&limit=20`,
+          {
+            headers: { "X-API-KEY": UNIPILE_API_KEY, Accept: "application/json" },
           }
         );
 
         if (!postsResponse.ok) {
-          console.error(`Failed to fetch posts for ${profile.name}: ${postsResponse.status}`);
-          results.push({ profile: profile.name, status: "error", error: postsResponse.statusText });
+          const errText = await postsResponse.text();
+          console.error(`Failed to fetch posts for ${profile.name}: ${postsResponse.status} - ${errText}`);
+          results.push({ profile: profile.name, status: "error", error: `${postsResponse.status}` });
           continue;
         }
 
@@ -65,84 +106,59 @@ serve(async (req) => {
 
         for (const post of items) {
           const postId = post.id || post.post_id;
-          
-          // Upsert the post
-          const { data: upsertedPost, error: postError } = await supabase
-            .from("linkedin_posts")
-            .upsert(
-              {
-                profile_id: profile.id,
-                unipile_post_id: postId,
-                content: post.text || post.content || "",
-                post_url: post.url || post.share_url || null,
-                likes_count: post.likes_count || post.reactions_count || 0,
-                comments_count: post.comments_count || 0,
-                shares_count: post.shares_count || post.reposts_count || 0,
-                posted_at: post.created_at || post.date || null,
-              },
-              { onConflict: "unipile_post_id", ignoreDuplicates: false }
-            )
-            .select()
-            .single();
 
-          if (postError) {
-            console.error(`Error upserting post: ${postError.message}`);
-            continue;
+          // Check if post exists
+          const { data: existing } = await supabase
+            .from("linkedin_posts")
+            .select("id")
+            .eq("unipile_post_id", String(postId))
+            .eq("profile_id", profile.id)
+            .maybeSingle();
+
+          const postData = {
+            profile_id: profile.id,
+            unipile_post_id: String(postId),
+            content: post.text || post.content || "",
+            post_url: post.url || post.share_url || null,
+            likes_count: post.likes_count || post.reactions_count || 0,
+            comments_count: post.comments_count || 0,
+            shares_count: post.shares_count || post.reposts_count || 0,
+            posted_at: post.created_at || post.date || null,
+          };
+
+          let savedPostId: string;
+
+          if (existing) {
+            await supabase
+              .from("linkedin_posts")
+              .update(postData)
+              .eq("id", existing.id);
+            savedPostId = existing.id;
+          } else {
+            const { data: inserted } = await supabase
+              .from("linkedin_posts")
+              .insert(postData)
+              .select("id")
+              .single();
+            savedPostId = inserted?.id || "";
           }
 
-          // Try to fetch reactions/comments for this post
-          if (upsertedPost) {
+          // Fetch comments for this post
+          if (savedPostId) {
             try {
-              const reactionsResponse = await fetch(
-                `https://${UNIPILE_DSN}/api/v1/posts/${postId}/reactions?limit=50`,
-                {
-                  headers: {
-                    "X-API-KEY": UNIPILE_API_KEY,
-                    Accept: "application/json",
-                  },
-                }
+              const commentsRes = await fetch(
+                `https://${UNIPILE_DSN}/api/v1/posts/${postId}/comments?account_id=${encodeURIComponent(accountId)}&limit=50`,
+                { headers: { "X-API-KEY": UNIPILE_API_KEY, Accept: "application/json" } }
               );
-
-              if (reactionsResponse.ok) {
-                const reactionsData = await reactionsResponse.json();
-                const reactions = reactionsData.items || reactionsData.data || [];
-
-                for (const reaction of reactions) {
-                  await supabase.from("post_interactions").upsert({
-                    post_id: upsertedPost.id,
-                    interaction_type: "like",
-                    author_name: reaction.author?.name || reaction.name || "Inconnu",
-                    author_avatar_url: reaction.author?.avatar_url || null,
-                    author_linkedin_url: reaction.author?.url || null,
-                  });
-                }
-              }
-            } catch (e) {
-              console.error("Error fetching reactions:", e);
-            }
-
-            try {
-              const commentsResponse = await fetch(
-                `https://${UNIPILE_DSN}/api/v1/posts/${postId}/comments?limit=50`,
-                {
-                  headers: {
-                    "X-API-KEY": UNIPILE_API_KEY,
-                    Accept: "application/json",
-                  },
-                }
-              );
-
-              if (commentsResponse.ok) {
-                const commentsData = await commentsResponse.json();
-                const comments = commentsData.items || commentsData.data || [];
-
-                for (const comment of comments) {
-                  await supabase.from("post_interactions").upsert({
-                    post_id: upsertedPost.id,
+              if (commentsRes.ok) {
+                const commentsData = await commentsRes.json();
+                for (const comment of (commentsData.items || [])) {
+                  await supabase.from("post_interactions").insert({
+                    post_id: savedPostId,
                     interaction_type: "comment",
                     author_name: comment.author?.name || comment.name || "Inconnu",
-                    author_avatar_url: comment.author?.avatar_url || null,
-                    author_linkedin_url: comment.author?.url || null,
+                    author_avatar_url: comment.author?.profile_picture_url || null,
+                    author_linkedin_url: comment.author?.public_profile_url || null,
                     comment_text: comment.text || comment.content || "",
                   });
                 }
