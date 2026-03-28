@@ -1,70 +1,67 @@
 
 
-## Refonte UI : Sidebar + Pages allegees + Performance
+## Auto-Engagement LinkedIn : Reponses, Messages Prives, Likes
 
-### Probleme actuel
-- Navigation horizontale avec 7 items qui ne scale pas
-- Pages chargent toutes les donnees d'un coup (pas de lazy loading)
-- Contenu dense et non collapse sur certaines pages
-- Pas de structure sidebar adaptee a l'ajout de futures fonctionnalites
+### Objectif
+Ajouter 3 fonctionnalites d'engagement automatique sur les commentaires recus sur les posts LinkedIn publies, pilotees via Unipile + OpenRouter (Claude) pour la generation de reponses.
 
-### Proposition
+### Architecture
 
 ```text
-┌──────────────┬──────────────────────────────────┐
-│              │                                  │
-│  [Logo]      │   Contenu de la page             │
-│              │                                  │
-│  Dashboard   │                                  │
-│  Traitement  │                                  │
-│  Posts       │                                  │
-│  Planifier   │                                  │
-│  Analyser    │                                  │
-│              │                                  │
-│  ─────────   │                                  │
-│  Profils     │                                  │
-│  Config      │                                  │
-│              │                                  │
-│  [collapse]  │                                  │
-└──────────────┴──────────────────────────────────┘
+┌─────────────────────────────────────────────┐
+│           Page "Engagement"                  │
+│  ┌───────────┬───────────┬────────────────┐  │
+│  │ Auto-Reply│ Auto-DM   │ Auto-Like      │  │
+│  │ ON/OFF    │ ON/OFF    │ ON/OFF         │  │
+│  ├───────────┴───────────┴────────────────┤  │
+│  │ Historique des actions automatiques     │  │
+│  │ - Reponse a X sur post Y               │  │
+│  │ - DM envoye a Z                        │  │
+│  │ - Like sur commentaire de W            │  │
+│  └────────────────────────────────────────┘  │
+└─────────────────────────────────────────────┘
 ```
 
-### Changements prevus
+### Etape 1 : Table `auto_engagement_config` + `auto_engagement_logs`
 
-**1. Sidebar collapsible (remplace la navbar horizontale)**
-- Creer `AppSidebar.tsx` avec `Sidebar` de shadcn (deja installe)
-- Groupes : "Workflow" (Dashboard, Traitement, Posts, Planifier, Analyser) et "Gestion" (Profils, Config)
-- Mode mini (icones seules) quand collapse
-- Modifier `AppLayout.tsx` pour utiliser `SidebarProvider` + `SidebarTrigger` dans un header minimal
-- Indicateur LinkedIn dans le sidebar
+**Migration SQL :**
+- `auto_engagement_config` : stocke les toggles (auto_reply, auto_dm, auto_like), le prompt personnalise pour les reponses, le template DM
+- `auto_engagement_logs` : historique des actions (type, post_id, comment_id, author, texte envoye, statut, timestamp)
 
-**2. Lazy loading des pages**
-- `React.lazy()` + `Suspense` pour toutes les routes dans `App.tsx`
-- Reduit le bundle initial et accelere le premier rendu
+### Etape 2 : Edge Function `auto-engage-comments`
 
-**3. Pages allegees**
-- **TraitementPage** : Sections "Charts" et "Facteurs" dans des `Collapsible` (fermes par defaut apres la premiere consultation)
-- **SuggestedPostsPage** : Pagination des posts (10 par page au lieu de tout afficher)
-- **PlanifierPage** : Limiter l'affichage initial a 10 items par section avec "Voir plus"
-- **AnalyserPage** : Idem, limiter a 10 posts avec "Voir plus"
-- **Index (Dashboard)** : Limiter les posts recents a 10 avec "Voir plus"
+Logique :
+1. Recupere les commentaires recents non traites via Unipile (`GET /api/v1/posts/{id}/comments`)
+2. Pour chaque commentaire non encore dans `auto_engagement_logs` :
+   - **Auto-like** : `POST /api/v1/posts/comments/{comment_id}/reactions` via Unipile
+   - **Auto-reply** : Genere une reponse contextuelle via OpenRouter (Claude) puis `POST /api/v1/posts/{post_id}/comments` via Unipile
+   - **Auto-DM** : Envoie un message prive via `POST /api/v1/chats` (creation de chat) puis `POST /api/v1/chats/{chat_id}/messages` via Unipile
+3. Log chaque action dans `auto_engagement_logs`
 
-**4. Optimisation des requetes React Query**
-- Ajouter `staleTime: 5 * 60 * 1000` sur les requetes principales pour eviter les re-fetch inutiles
-- Ajouter `refetchOnWindowFocus: false` sur les queries lourdes
+### Etape 3 : Page UI `/engagement`
 
-### Fichiers modifies
-- `src/components/layout/AppLayout.tsx` — refonte avec SidebarProvider
-- `src/components/layout/AppSidebar.tsx` — nouveau fichier sidebar
-- `src/App.tsx` — lazy loading des routes
-- `src/pages/Index.tsx` — pagination posts + staleTime
-- `src/pages/TraitementPage.tsx` — sections collapsibles + staleTime
-- `src/pages/SuggestedPostsPage.tsx` — pagination + staleTime
-- `src/pages/PlanifierPage.tsx` — "voir plus" + staleTime
-- `src/pages/AnalyserPage.tsx` — "voir plus" + staleTime
+- 3 toggles (auto-reply, auto-dm, auto-like) avec switch ON/OFF
+- Champ textarea pour le prompt de reponse et le template DM
+- Tableau/liste des actions recentes avec statut (succes/erreur)
+- Bouton "Executer maintenant" pour declencher manuellement
 
-### Ordre d'implementation
-1. Creer AppSidebar + refactorer AppLayout
-2. Lazy loading dans App.tsx
-3. Optimiser chaque page (pagination, collapsibles, staleTime)
+### Etape 4 : Navigation
+
+- Ajouter "Engagement" dans le groupe "Automation" de la sidebar (nouvelle section)
+- Route `/engagement` dans App.tsx avec lazy loading
+
+### Fichiers a creer/modifier
+
+| Fichier | Action |
+|---------|--------|
+| Migration SQL | Creer 2 tables |
+| `supabase/functions/auto-engage-comments/index.ts` | Creer |
+| `src/pages/EngagementPage.tsx` | Creer |
+| `src/App.tsx` | Ajouter route |
+| `src/components/layout/AppSidebar.tsx` | Ajouter section "Automation" |
+
+### Ce qui ne change pas
+- Les edge functions existantes (sync, publish, analyze, generate)
+- Les pages existantes
+- La base de donnees existante
 
