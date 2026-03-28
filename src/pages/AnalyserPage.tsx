@@ -178,7 +178,44 @@ export default function AnalyserPage() {
           </Card>
         </div>
 
-        {/* Performance evolution */}
+        {/* Goal progress */}
+        {memory && (memory.target_followers || memory.target_connections || memory.target_engagement_rate) && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2"><Target className="h-4 w-4" /> Progression vers vos objectifs {memory.goal_timeline ? `(${memory.goal_timeline})` : ""}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {memory.target_followers > 0 && (
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-sm">
+                    <span>Abonnés</span>
+                    <span className="font-medium">{accountStats?.followers || 0} / {memory.target_followers}</span>
+                  </div>
+                  <Progress value={Math.min(100, ((accountStats?.followers || 0) / memory.target_followers) * 100)} />
+                </div>
+              )}
+              {memory.target_connections > 0 && (
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-sm">
+                    <span>Connexions</span>
+                    <span className="font-medium">{accountStats?.connections || 0} / {memory.target_connections}</span>
+                  </div>
+                  <Progress value={Math.min(100, ((accountStats?.connections || 0) / memory.target_connections) * 100)} />
+                </div>
+              )}
+              {memory.target_engagement_rate > 0 && totalImpressions > 0 && (
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-sm">
+                    <span>Taux d'engagement</span>
+                    <span className="font-medium">{((totalLikes + totalComments + totalShares) / totalImpressions * 100).toFixed(1)}% / {memory.target_engagement_rate}%</span>
+                  </div>
+                  <Progress value={Math.min(100, ((totalLikes + totalComments + totalShares) / totalImpressions * 100) / memory.target_engagement_rate * 100)} />
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
         {evolutionData.length > 1 && (
           <Card>
             <CardHeader>
