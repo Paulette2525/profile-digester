@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { LayoutDashboard, Zap, PenLine, Calendar, BarChart3, UserPlus, Settings, Linkedin, MessageSquareHeart } from "lucide-react";
+import { LayoutDashboard, Zap, PenLine, Calendar, BarChart3, UserPlus, Settings, Linkedin, MessageSquareHeart, Brain } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -31,6 +31,7 @@ const automationItems = [
 ];
 
 const managementItems = [
+  { to: "/memoire", label: "Mémoire", icon: Brain },
   { to: "/add-profile", label: "Profils", icon: UserPlus },
   { to: "/settings", label: "Configuration", icon: Settings },
 ];

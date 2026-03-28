@@ -20,7 +20,6 @@ serve(async (req) => {
 
     const { profile_ids } = await req.json().catch(() => ({}));
 
-    // Get profiles
     let profilesQuery = supabase.from("tracked_profiles").select("id, name");
     if (profile_ids && profile_ids.length > 0) {
       profilesQuery = profilesQuery.in("id", profile_ids);
@@ -29,7 +28,6 @@ serve(async (req) => {
     if (pErr) throw pErr;
     if (!profiles || profiles.length === 0) throw new Error("No profiles found");
 
-    // Create analysis record
     const { data: analysis, error: aErr } = await supabase
       .from("virality_analyses")
       .insert({ status: "pending", analysis_json: {} })
@@ -37,7 +35,9 @@ serve(async (req) => {
       .single();
     if (aErr) throw aErr;
 
-    // Get top 10 posts per profile by engagement
+    // Fetch user memory for context
+    const { data: memory } = await supabase.from("user_memory").select("*").limit(1).maybeSingle();
+
     const allTopPosts: any[] = [];
     for (const profile of profiles) {
       const { data: posts } = await supabase
@@ -62,14 +62,25 @@ serve(async (req) => {
       }
     }
 
-    // Sort by total engagement and keep top 30
     allTopPosts.sort((a, b) => b.engagement_total - a.engagement_total);
     const topPosts = allTopPosts.slice(0, 30);
 
-    // Call Lovable AI for analysis
+    let memoryContext = "";
+    if (memory) {
+      memoryContext = `\n\nCONTEXTE DE L'UTILISATEUR:
+- Profession: ${memory.profession || "Non renseigné"}
+- Industrie: ${memory.industry || "Non renseigné"}
+- Audience cible: ${memory.target_audience || "Non renseigné"}
+- Thèmes de contenu souhaités: ${(memory.content_themes as string[])?.join(", ") || "Non renseigné"}
+- Ton de voix préféré: ${memory.tone_of_voice || "Non renseigné"}
+- Domaines d'expertise: ${memory.expertise_areas || "Non renseigné"}
+
+Tiens compte de ce contexte pour orienter l'analyse vers des recommandations pertinentes pour cet utilisateur.`;
+    }
+
     const prompt = `Tu es un expert en marketing LinkedIn et en viralité de contenu.
 
-Analyse ces ${topPosts.length} publications LinkedIn les plus performantes et identifie les facteurs de viralité.
+Analyse ces ${topPosts.length} publications LinkedIn les plus performantes et identifie les facteurs de viralité.${memoryContext}
 
 PUBLICATIONS:
 ${topPosts.map((p, i) => `
@@ -165,13 +176,11 @@ Réponds avec un JSON structuré contenant:
     if (toolCall) {
       analysisResult = JSON.parse(toolCall.function.arguments);
     } else {
-      // Fallback: try to parse from content
       const content = aiData.choices?.[0]?.message?.content || "";
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       analysisResult = jsonMatch ? JSON.parse(jsonMatch[0]) : { error: "Could not parse AI response", raw: content };
     }
 
-    // Add raw post data for reference
     analysisResult.analyzed_posts_count = topPosts.length;
     analysisResult.profiles_analyzed = profiles.map(p => p.name);
 
