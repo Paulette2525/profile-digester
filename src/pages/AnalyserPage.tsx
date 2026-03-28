@@ -14,6 +14,7 @@ import { toast } from "sonner";
 
 export default function AnalyserPage() {
   const [isFetching, setIsFetching] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [visiblePosts, setVisiblePosts] = useState(10);
 
   // Account stats (followers, connections)
