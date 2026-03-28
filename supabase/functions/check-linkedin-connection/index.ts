@@ -6,6 +6,19 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+async function fetchWithRetry(url: string, options: RequestInit, retries = 2): Promise<Response> {
+  for (let i = 0; i <= retries; i++) {
+    const res = await fetch(url, options);
+    if (res.ok || i === retries) return res;
+    if (res.status >= 500) {
+      await new Promise(r => setTimeout(r, 1000 * (i + 1)));
+      continue;
+    }
+    return res;
+  }
+  throw new Error("Unreachable");
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -18,7 +31,7 @@ serve(async (req) => {
       throw new Error("UNIPILE_API_KEY or UNIPILE_DSN not configured");
     }
 
-    const res = await fetch(`https://${UNIPILE_DSN}/api/v1/accounts`, {
+    const res = await fetchWithRetry(`https://${UNIPILE_DSN}/api/v1/accounts`, {
       headers: {
         "X-API-KEY": UNIPILE_API_KEY,
         Accept: "application/json",
