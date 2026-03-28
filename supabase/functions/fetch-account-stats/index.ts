@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -31,10 +32,25 @@ serve(async (req) => {
     const UNIPILE_API_KEY = Deno.env.get("UNIPILE_API_KEY");
     if (!UNIPILE_DSN || !UNIPILE_API_KEY) throw new Error("Unipile credentials not configured");
 
-    const headers = { "X-API-KEY": UNIPILE_API_KEY, Accept: "application/json" };
+    // Extract user from JWT
+    let userId: string | null = null;
+    const authHeader = req.headers.get("Authorization") || "";
+    if (authHeader.startsWith("Bearer ")) {
+      try {
+        const supabase = createClient(
+          Deno.env.get("SUPABASE_URL")!,
+          Deno.env.get("SUPABASE_ANON_KEY")!
+        );
+        const token = authHeader.replace("Bearer ", "");
+        const { data: { user } } = await supabase.auth.getUser(token);
+        userId = user?.id || null;
+      } catch (_) {}
+    }
+
+    const uHeaders = { "X-API-KEY": UNIPILE_API_KEY, Accept: "application/json" };
 
     // 1. Find LinkedIn account
-    const accountsRes = await fetchWithRetry(`https://${UNIPILE_DSN}/api/v1/accounts`, { headers });
+    const accountsRes = await fetchWithRetry(`https://${UNIPILE_DSN}/api/v1/accounts`, { headers: uHeaders });
     if (!accountsRes.ok) {
       return new Response(JSON.stringify({ followers: 0, connections: 0, name: "" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -56,65 +72,76 @@ serve(async (req) => {
     let followers = 0;
     let connections = 0;
 
-    // 2. Get follower count via /api/v1/users/followers (limit=1 to just get the count/cursor)
+    // 2. Get follower count
     try {
       const followersRes = await fetchWithRetry(
         `https://${UNIPILE_DSN}/api/v1/users/followers?account_id=${linkedin.id}&limit=1`,
-        { headers }
+        { headers: uHeaders }
       );
       if (followersRes.ok) {
         const followersData = await followersRes.json();
-        console.log("Followers response keys:", JSON.stringify(Object.keys(followersData)));
-        // The response may have total_count, total, or items array length
         followers = followersData.total_count || followersData.total || followersData.count || 0;
-        // If no total field, try checking if there's pagination info
         if (followers === 0 && followersData.paging?.total) {
           followers = followersData.paging.total;
         }
-        console.log("Followers count:", followers);
-      } else {
-        console.error("Followers endpoint:", followersRes.status, await followersRes.text());
       }
     } catch (e) {
       console.error("Error fetching followers:", e);
     }
 
-    // 3. Get connections count via /api/v1/connections
+    // 3. Get connections count
     try {
       const connectionsRes = await fetchWithRetry(
         `https://${UNIPILE_DSN}/api/v1/connections?account_id=${linkedin.id}&limit=1`,
-        { headers }
+        { headers: uHeaders }
       );
       if (connectionsRes.ok) {
         const connectionsData = await connectionsRes.json();
-        console.log("Connections response keys:", JSON.stringify(Object.keys(connectionsData)));
         connections = connectionsData.total_count || connectionsData.total || connectionsData.count || 0;
         if (connections === 0 && connectionsData.paging?.total) {
           connections = connectionsData.paging.total;
         }
-        console.log("Connections count:", connections);
-      } else {
-        console.error("Connections endpoint:", connectionsRes.status, await connectionsRes.text());
       }
     } catch (e) {
       console.error("Error fetching connections:", e);
     }
 
-    // 4. Fallback: try user profile for network_info
+    // 4. Fallback: try user profile
     if (followers === 0 && connections === 0 && providerId) {
       try {
         const profileRes = await fetchWithRetry(
           `https://${UNIPILE_DSN}/api/v1/users/${providerId}?account_id=${linkedin.id}`,
-          { headers }
+          { headers: uHeaders }
         );
         if (profileRes.ok) {
           const profile = await profileRes.json();
-          console.log("Profile response:", JSON.stringify(profile));
           followers = profile.followers_count || profile.follower_count || profile.network_info?.followers_count || 0;
           connections = profile.connections_count || profile.connection_count || profile.network_info?.connections_count || 0;
         }
       } catch (e) {
         console.error("Error fetching profile:", e);
+      }
+    }
+
+    // 5. Save snapshot to account_stats_history (upsert by user+date)
+    if (userId && (followers > 0 || connections > 0)) {
+      try {
+        const supabaseAdmin = createClient(
+          Deno.env.get("SUPABASE_URL")!,
+          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+        );
+        await supabaseAdmin.from("account_stats_history").upsert(
+          {
+            user_id: userId,
+            followers,
+            connections,
+            snapshot_date: new Date().toISOString().split("T")[0],
+          },
+          { onConflict: "user_id,snapshot_date" }
+        );
+        console.log("Saved stats snapshot:", { followers, connections });
+      } catch (e) {
+        console.error("Error saving snapshot:", e);
       }
     }
 
