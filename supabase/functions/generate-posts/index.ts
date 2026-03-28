@@ -31,12 +31,50 @@ serve(async (req) => {
 
     const factors = analysis.analysis_json;
 
+    // Fetch user memory for personalization
+    const { data: memory } = await supabase.from("user_memory").select("*").limit(1).maybeSingle();
+    const { data: photos } = await supabase.from("user_photos").select("*");
+    const { data: ideas } = await supabase.from("content_ideas").select("*").eq("used", false).limit(count);
+
+    let memoryContext = "";
+    if (memory) {
+      memoryContext = `\n\nINFORMATIONS SUR L'AUTEUR:
+- Nom: ${memory.full_name || "Non renseigné"}
+- Profession: ${memory.profession || "Non renseigné"}
+- Entreprise: ${memory.company || "Non renseigné"}
+- Industrie: ${memory.industry || "Non renseigné"}
+- Audience cible: ${memory.target_audience || "Non renseigné"}
+- Offres/Services: ${memory.offers_description || "Non renseigné"}
+- Ambitions: ${memory.ambitions || "Non renseigné"}
+- Valeurs: ${(memory as any).values || "Non renseigné"}
+- Ton de voix: ${memory.tone_of_voice || "Non renseigné"}
+- Thèmes de contenu: ${(memory.content_themes as string[])?.join(", ") || "Non renseigné"}
+- Types de contenu: ${(memory.content_types as string[])?.join(", ") || "Non renseigné"}
+- Histoire personnelle: ${memory.personal_story || "Non renseigné"}
+- Domaines d'expertise: ${memory.expertise_areas || "Non renseigné"}
+- Formats préférés: ${memory.preferred_formats || "Non renseigné"}
+- Notes additionnelles: ${memory.additional_notes || "Non renseigné"}
+
+IMPORTANT: Utilise ces informations pour rendre chaque post authentique et personnel. Le ton doit correspondre à celui de l'auteur.`;
+    }
+
+    let ideasContext = "";
+    if (ideas && ideas.length > 0) {
+      ideasContext = `\n\nIDÉES DE PUBLICATIONS À INTÉGRER:\n${ideas.map((i: any, idx: number) => `${idx + 1}. ${i.idea_text}`).join("\n")}
+\nEssaie d'intégrer ces idées dans les posts générés quand c'est pertinent.`;
+    }
+
+    let photosContext = "";
+    if (photos && photos.length > 0) {
+      photosContext = `\n\nL'auteur dispose de ${photos.length} photo(s) personnelles. Pour certains posts, suggère l'utilisation d'une photo personnelle en mettant "use_personal_photo": true dans la réponse.`;
+    }
+
     const prompt = `Tu es un expert copywriter LinkedIn. En te basant sur l'analyse de viralité suivante, génère ${count} publications LinkedIn ORIGINALES et UNIQUES.
 
 ANALYSE DE VIRALITÉ:
 ${JSON.stringify(factors, null, 2)}
 
-${topic ? `THÈME SOUHAITÉ: ${topic}` : "Propose des thèmes variés et pertinents."}
+${topic ? `THÈME SOUHAITÉ: ${topic}` : "Propose des thèmes variés et pertinents."}${memoryContext}${ideasContext}${photosContext}
 
 RÈGLES IMPORTANTES:
 - Chaque post doit être UNIQUE et ne PAS copier les exemples analysés
@@ -47,8 +85,9 @@ RÈGLES IMPORTANTES:
 - Varier les structures (storytelling, liste, question, provocation, témoignage)
 - Inclure un CTA clair à la fin
 - Écrire en français
+${memory ? "- Les posts doivent refléter la personnalité, l'expertise et le ton de l'auteur" : ""}
 
-Pour chaque post, fournis: le contenu complet, un topic/thème, et un score de viralité estimé (1-100).`;
+Pour chaque post, fournis: le contenu complet, un topic/thème, un score de viralité estimé (1-100)${photos && photos.length > 0 ? ", et use_personal_photo (boolean)" : ""}.`;
 
     const aiRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
@@ -78,6 +117,7 @@ Pour chaque post, fournis: le contenu complet, un topic/thème, et un score de v
                       content: { type: "string" },
                       topic: { type: "string" },
                       virality_score: { type: "number" },
+                      use_personal_photo: { type: "boolean" },
                     },
                     required: ["content", "topic", "virality_score"],
                   },
@@ -112,20 +152,32 @@ Pour chaque post, fournis: le contenu complet, un topic/thème, et un score de v
       generatedPosts = parsed.posts || [];
     }
 
-    // Save to DB
-    const toInsert = generatedPosts.map(p => ({
-      content: p.content,
-      topic: p.topic,
-      virality_score: Math.min(100, Math.max(0, Math.round(p.virality_score))),
-      source_analysis_id: analysis_id,
-      status: "draft",
-    }));
+    // Pick a random personal photo for posts that suggest it
+    const photoUrls = photos?.map((p: any) => p.image_url) || [];
+
+    const toInsert = generatedPosts.map(p => {
+      const usePhoto = p.use_personal_photo && photoUrls.length > 0;
+      return {
+        content: p.content,
+        topic: p.topic,
+        virality_score: Math.min(100, Math.max(0, Math.round(p.virality_score))),
+        source_analysis_id: analysis_id,
+        status: "draft",
+        image_url: usePhoto ? photoUrls[Math.floor(Math.random() * photoUrls.length)] : null,
+      };
+    });
 
     const { data: saved, error: sErr } = await supabase
       .from("suggested_posts")
       .insert(toInsert)
       .select("*");
     if (sErr) throw sErr;
+
+    // Mark used ideas
+    if (ideas && ideas.length > 0) {
+      const ideaIds = ideas.map((i: any) => i.id);
+      await supabase.from("content_ideas").update({ used: true }).in("id", ideaIds);
+    }
 
     return new Response(JSON.stringify({ success: true, posts: saved }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

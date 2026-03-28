@@ -94,6 +94,27 @@ export type Database = {
           },
         ]
       }
+      content_ideas: {
+        Row: {
+          created_at: string
+          id: string
+          idea_text: string
+          used: boolean
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          idea_text: string
+          used?: boolean
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          idea_text?: string
+          used?: boolean
+        }
+        Relationships: []
+      }
       linkedin_posts: {
         Row: {
           comments_count: number
@@ -280,6 +301,93 @@ export type Database = {
           name?: string
           unipile_account_id?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      user_memory: {
+        Row: {
+          additional_notes: string | null
+          ambitions: string | null
+          company: string | null
+          content_themes: string[] | null
+          content_types: string[] | null
+          created_at: string
+          expertise_areas: string | null
+          full_name: string | null
+          id: string
+          industry: string | null
+          offers_description: string | null
+          personal_story: string | null
+          posting_frequency: string | null
+          preferred_formats: string | null
+          profession: string | null
+          target_audience: string | null
+          tone_of_voice: string | null
+          updated_at: string
+          values: string | null
+        }
+        Insert: {
+          additional_notes?: string | null
+          ambitions?: string | null
+          company?: string | null
+          content_themes?: string[] | null
+          content_types?: string[] | null
+          created_at?: string
+          expertise_areas?: string | null
+          full_name?: string | null
+          id?: string
+          industry?: string | null
+          offers_description?: string | null
+          personal_story?: string | null
+          posting_frequency?: string | null
+          preferred_formats?: string | null
+          profession?: string | null
+          target_audience?: string | null
+          tone_of_voice?: string | null
+          updated_at?: string
+          values?: string | null
+        }
+        Update: {
+          additional_notes?: string | null
+          ambitions?: string | null
+          company?: string | null
+          content_themes?: string[] | null
+          content_types?: string[] | null
+          created_at?: string
+          expertise_areas?: string | null
+          full_name?: string | null
+          id?: string
+          industry?: string | null
+          offers_description?: string | null
+          personal_story?: string | null
+          posting_frequency?: string | null
+          preferred_formats?: string | null
+          profession?: string | null
+          target_audience?: string | null
+          tone_of_voice?: string | null
+          updated_at?: string
+          values?: string | null
+        }
+        Relationships: []
+      }
+      user_photos: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          image_url: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string
         }
         Relationships: []
       }

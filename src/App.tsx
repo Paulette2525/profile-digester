@@ -15,6 +15,7 @@ const SuggestedPostsPage = lazy(() => import("./pages/SuggestedPostsPage"));
 const PlanifierPage = lazy(() => import("./pages/PlanifierPage"));
 const AnalyserPage = lazy(() => import("./pages/AnalyserPage"));
 const EngagementPage = lazy(() => import("./pages/EngagementPage"));
+const MemoirePage = lazy(() => import("./pages/MemoirePage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient({
@@ -47,6 +48,7 @@ const App = () => (
             <Route path="/planifier" element={<PlanifierPage />} />
             <Route path="/analyser" element={<AnalyserPage />} />
             <Route path="/engagement" element={<EngagementPage />} />
+            <Route path="/memoire" element={<MemoirePage />} />
             <Route path="/add-profile" element={<AddProfile />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="*" element={<NotFound />} />
