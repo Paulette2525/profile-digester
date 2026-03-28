@@ -184,7 +184,7 @@ Chaque variante doit inclure des types de contenu diversifiés : Storytelling, V
       throw new Error(`AI gateway error: ${response!.status}`);
     }
 
-    const aiData = await response.json();
+    const aiData = await response!.json();
     const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
     let strategyData;
     if (toolCall?.function?.arguments) {
