@@ -6,7 +6,7 @@ import { PostCard } from "@/components/dashboard/PostCard";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Trash2, ExternalLink, ThumbsUp, MessageCircle } from "lucide-react";
+import { ArrowLeft, Trash2, ExternalLink, ThumbsUp, MessageCircle, Download, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 const ProfileDetail = () => {
