@@ -122,6 +122,7 @@ export type Database = {
           content: string
           created_at: string
           id: string
+          image_url: string | null
           post_performance: Json | null
           published_at: string | null
           scheduled_at: string | null
@@ -135,6 +136,7 @@ export type Database = {
           content: string
           created_at?: string
           id?: string
+          image_url?: string | null
           post_performance?: Json | null
           published_at?: string | null
           scheduled_at?: string | null
@@ -148,6 +150,7 @@ export type Database = {
           content?: string
           created_at?: string
           id?: string
+          image_url?: string | null
           post_performance?: Json | null
           published_at?: string | null
           scheduled_at?: string | null
