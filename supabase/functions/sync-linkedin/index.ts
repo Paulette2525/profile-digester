@@ -115,6 +115,14 @@ serve(async (req) => {
             .eq("profile_id", profile.id)
             .maybeSingle();
 
+          // Parse posted_at - Unipile may return relative strings like "3yr", "1w"
+          let postedAt: string | null = null;
+          const rawDate = post.created_at || post.date || null;
+          if (rawDate) {
+            const parsed = new Date(rawDate);
+            postedAt = isNaN(parsed.getTime()) ? null : parsed.toISOString();
+          }
+
           const postData = {
             profile_id: profile.id,
             unipile_post_id: String(postId),
@@ -123,7 +131,7 @@ serve(async (req) => {
             likes_count: post.likes_count || post.reactions_count || 0,
             comments_count: post.comments_count || 0,
             shares_count: post.shares_count || post.reposts_count || 0,
-            posted_at: post.created_at || post.date || null,
+            posted_at: postedAt,
           };
 
           let savedPostId: string;

@@ -90,6 +90,15 @@ serve(async (req) => {
 
       for (const post of items) {
         const postId = post.id || post.post_id;
+        
+        // Parse posted_at - Unipile may return relative strings like "3yr", "1w"
+        let postedAt: string | null = null;
+        const rawDate = post.created_at || post.date || null;
+        if (rawDate) {
+          const parsed = new Date(rawDate);
+          postedAt = isNaN(parsed.getTime()) ? null : parsed.toISOString();
+        }
+
         const postData = {
           profile_id: profile.id,
           unipile_post_id: String(postId),
@@ -98,7 +107,7 @@ serve(async (req) => {
           likes_count: post.likes_count || post.reactions_count || 0,
           comments_count: post.comments_count || 0,
           shares_count: post.shares_count || post.reposts_count || 0,
-          posted_at: post.created_at || post.date || null,
+          posted_at: postedAt,
         };
 
         const { data: existing } = await supabase
@@ -110,11 +119,13 @@ serve(async (req) => {
 
         let savedPostId: string;
         if (existing) {
-          await supabase.from("linkedin_posts").update(postData).eq("id", existing.id);
+          const { error: updateErr } = await supabase.from("linkedin_posts").update(postData).eq("id", existing.id);
+          if (updateErr) console.error("Update error:", updateErr);
           savedPostId = existing.id;
         } else {
-          const { data: inserted } = await supabase
+          const { data: inserted, error: insertErr } = await supabase
             .from("linkedin_posts").insert(postData).select("id").single();
+          if (insertErr) console.error("Insert error:", insertErr);
           savedPostId = inserted?.id || "";
         }
 
