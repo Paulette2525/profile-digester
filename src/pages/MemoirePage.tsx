@@ -33,6 +33,7 @@ export default function MemoirePage() {
 
   const { data: memory, isLoading: memoryLoading } = useQuery({
     queryKey: ["user-memory"],
+    staleTime: 1000 * 60 * 10,
     queryFn: async () => {
       const { data, error } = await supabase.from("user_memory").select("*").limit(1).maybeSingle();
       if (error) throw error;
@@ -108,6 +109,7 @@ export default function MemoirePage() {
   // ---- Photos ----
   const { data: photos, isLoading: photosLoading } = useQuery({
     queryKey: ["user-photos"],
+    staleTime: 1000 * 60 * 10,
     queryFn: async () => {
       const { data, error } = await supabase.from("user_photos").select("*").order("created_at", { ascending: false });
       if (error) throw error;
@@ -158,6 +160,7 @@ export default function MemoirePage() {
   // ---- Ideas ----
   const { data: ideas, isLoading: ideasLoading } = useQuery({
     queryKey: ["content-ideas"],
+    staleTime: 1000 * 60 * 10,
     queryFn: async () => {
       const { data, error } = await supabase.from("content_ideas").select("*").order("created_at", { ascending: false });
       if (error) throw error;

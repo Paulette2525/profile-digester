@@ -19,6 +19,7 @@ export default function PlanifierPage() {
 
   const { data: posts, refetch } = useQuery({
     queryKey: ["planned-posts"],
+    staleTime: 1000 * 60 * 5,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("suggested_posts")

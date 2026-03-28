@@ -21,6 +21,7 @@ export default function SuggestedPostsPage() {
 
   const { data: analyses } = useQuery({
     queryKey: ["virality-analyses-done"],
+    staleTime: 1000 * 60 * 10,
     queryFn: async () => {
       const { data } = await supabase
         .from("virality_analyses")
@@ -34,11 +35,13 @@ export default function SuggestedPostsPage() {
 
   const { data: posts, refetch } = useQuery({
     queryKey: ["suggested-posts"],
+    staleTime: 1000 * 60 * 5,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("suggested_posts")
         .select("*")
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .limit(50);
       if (error) throw error;
       return data;
     },
