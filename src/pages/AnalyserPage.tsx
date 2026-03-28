@@ -105,7 +105,7 @@ export default function AnalyserPage() {
         </div>
 
         {/* Account stats + main stats */}
-        <div className="grid gap-4 md:grid-cols-4 lg:grid-cols-8">
+        <div className="grid gap-3 grid-cols-2 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-8">
           <Card>
             <CardContent className="flex items-center gap-3 pt-6">
               <div className="rounded-full bg-primary/10 p-2.5">
