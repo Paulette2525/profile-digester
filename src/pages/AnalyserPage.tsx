@@ -1,15 +1,20 @@
+import { useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
-import { BarChart3, TrendingUp, Target } from "lucide-react";
+import { BarChart3, TrendingUp, Target, RefreshCw, Loader2, ThumbsUp, MessageCircle, Share2, Eye } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
+import { toast } from "sonner";
 
 export default function AnalyserPage() {
-  const { data: publishedPosts } = useQuery({
+  const [isFetching, setIsFetching] = useState(false);
+
+  const { data: publishedPosts, refetch } = useQuery({
     queryKey: ["published-posts-analysis"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -22,85 +27,176 @@ export default function AnalyserPage() {
     },
   });
 
+  const handleFetchStats = async () => {
+    setIsFetching(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("fetch-post-stats");
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      const matched = data?.results?.filter((r: any) => r.matched)?.length || 0;
+      toast.success(`Stats récupérées ! ${matched} post(s) mis à jour`);
+      refetch();
+    } catch (e: any) {
+      toast.error(e.message || "Erreur lors de la récupération des stats");
+    } finally {
+      setIsFetching(false);
+    }
+  };
+
   const postsWithPerf = publishedPosts?.filter(p => p.post_performance) || [];
   const postsWithoutPerf = publishedPosts?.filter(p => !p.post_performance) || [];
-
-  const chartData = postsWithPerf.map((p, i) => {
-    const perf = p.post_performance as any;
-    return {
-      name: `Post ${i + 1}`,
-      prédit: p.virality_score || 0,
-      réel: perf?.actual_score || 0,
-      likes: perf?.likes || 0,
-      comments: perf?.comments || 0,
-    };
-  });
 
   const totalPublished = publishedPosts?.length || 0;
   const avgScore = totalPublished > 0
     ? Math.round((publishedPosts?.reduce((acc, p) => acc + (p.virality_score || 0), 0) || 0) / totalPublished)
     : 0;
 
+  // Aggregate real performance stats
+  const totalLikes = postsWithPerf.reduce((acc, p) => acc + ((p.post_performance as any)?.likes || 0), 0);
+  const totalComments = postsWithPerf.reduce((acc, p) => acc + ((p.post_performance as any)?.comments || 0), 0);
+  const totalShares = postsWithPerf.reduce((acc, p) => acc + ((p.post_performance as any)?.shares || 0), 0);
+  const totalImpressions = postsWithPerf.reduce((acc, p) => acc + ((p.post_performance as any)?.impressions || 0), 0);
+
+  const comparisonData = postsWithPerf.map((p, i) => {
+    const perf = p.post_performance as any;
+    return {
+      name: `Post ${i + 1}`,
+      prédit: p.virality_score || 0,
+      réel: perf?.actual_score || 0,
+    };
+  });
+
+  const engagementData = postsWithPerf.map((p, i) => {
+    const perf = p.post_performance as any;
+    return {
+      name: `Post ${i + 1}`,
+      likes: perf?.likes || 0,
+      commentaires: perf?.comments || 0,
+      partages: perf?.shares || 0,
+    };
+  });
+
   return (
     <AppLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Analyser</h1>
-          <p className="text-muted-foreground">Suivez la performance de vos publications LinkedIn</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Analyser</h1>
+            <p className="text-muted-foreground">Suivez la performance réelle de vos publications LinkedIn</p>
+          </div>
+          <Button onClick={handleFetchStats} disabled={isFetching || totalPublished === 0}>
+            {isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            {isFetching ? "Récupération…" : "Récupérer les stats LinkedIn"}
+          </Button>
         </div>
 
         {/* Stats cards */}
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
           <Card>
-            <CardContent className="flex items-center gap-4 pt-6">
-              <div className="rounded-full bg-primary/10 p-3">
-                <TrendingUp className="h-5 w-5 text-primary" />
+            <CardContent className="flex items-center gap-3 pt-6">
+              <div className="rounded-full bg-primary/10 p-2.5">
+                <TrendingUp className="h-4 w-4 text-primary" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{totalPublished}</p>
-                <p className="text-sm text-muted-foreground">Posts publiés</p>
+                <p className="text-xl font-bold">{totalPublished}</p>
+                <p className="text-xs text-muted-foreground">Publiés</p>
               </div>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="flex items-center gap-4 pt-6">
-              <div className="rounded-full bg-primary/10 p-3">
-                <Target className="h-5 w-5 text-primary" />
+            <CardContent className="flex items-center gap-3 pt-6">
+              <div className="rounded-full bg-primary/10 p-2.5">
+                <Target className="h-4 w-4 text-primary" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{avgScore}/100</p>
-                <p className="text-sm text-muted-foreground">Score moyen prédit</p>
+                <p className="text-xl font-bold">{avgScore}/100</p>
+                <p className="text-xs text-muted-foreground">Score moyen</p>
               </div>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="flex items-center gap-4 pt-6">
-              <div className="rounded-full bg-primary/10 p-3">
-                <BarChart3 className="h-5 w-5 text-primary" />
+            <CardContent className="flex items-center gap-3 pt-6">
+              <div className="rounded-full bg-blue-500/10 p-2.5">
+                <ThumbsUp className="h-4 w-4 text-blue-500" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{postsWithPerf.length}</p>
-                <p className="text-sm text-muted-foreground">Avec données de perf</p>
+                <p className="text-xl font-bold">{totalLikes}</p>
+                <p className="text-xs text-muted-foreground">Likes</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="flex items-center gap-3 pt-6">
+              <div className="rounded-full bg-green-500/10 p-2.5">
+                <MessageCircle className="h-4 w-4 text-green-500" />
+              </div>
+              <div>
+                <p className="text-xl font-bold">{totalComments}</p>
+                <p className="text-xs text-muted-foreground">Commentaires</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="flex items-center gap-3 pt-6">
+              <div className="rounded-full bg-orange-500/10 p-2.5">
+                <Share2 className="h-4 w-4 text-orange-500" />
+              </div>
+              <div>
+                <p className="text-xl font-bold">{totalShares}</p>
+                <p className="text-xs text-muted-foreground">Partages</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="flex items-center gap-3 pt-6">
+              <div className="rounded-full bg-purple-500/10 p-2.5">
+                <Eye className="h-4 w-4 text-purple-500" />
+              </div>
+              <div>
+                <p className="text-xl font-bold">{totalImpressions}</p>
+                <p className="text-xs text-muted-foreground">Impressions</p>
               </div>
             </CardContent>
           </Card>
         </div>
 
         {/* Comparison chart */}
-        {chartData.length > 0 && (
+        {comparisonData.length > 0 && (
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Score prédit vs réel</CardTitle>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={chartData}>
+                <BarChart data={comparisonData}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                   <XAxis dataKey="name" tick={{ fontSize: 11 }} />
                   <YAxis tick={{ fontSize: 11 }} />
                   <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "12px" }} />
                   <Bar dataKey="prédit" fill="hsl(var(--primary))" name="Prédit" radius={[4, 4, 0, 0]} />
                   <Bar dataKey="réel" fill="hsl(var(--destructive))" name="Réel" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Engagement chart */}
+        {engagementData.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Engagement par publication</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={engagementData}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} />
+                  <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "12px" }} />
+                  <Bar dataKey="likes" fill="#3b82f6" name="Likes" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="commentaires" fill="#22c55e" name="Commentaires" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="partages" fill="#f97316" name="Partages" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
@@ -128,12 +224,16 @@ export default function AnalyserPage() {
                     <span>Score prédit : <strong className="text-primary">{post.virality_score}/100</strong></span>
                     {perf && (
                       <>
-                        <span>👍 {perf.likes || 0}</span>
-                        <span>💬 {perf.comments || 0}</span>
-                        <span>🔄 {perf.shares || 0}</span>
+                        <span className="flex items-center gap-1"><ThumbsUp className="h-3 w-3" /> {perf.likes || 0}</span>
+                        <span className="flex items-center gap-1"><MessageCircle className="h-3 w-3" /> {perf.comments || 0}</span>
+                        <span className="flex items-center gap-1"><Share2 className="h-3 w-3" /> {perf.shares || 0}</span>
+                        {perf.impressions > 0 && <span className="flex items-center gap-1"><Eye className="h-3 w-3" /> {perf.impressions}</span>}
+                        <span>Score réel : <strong className="text-destructive">{perf.actual_score}/100</strong></span>
                       </>
                     )}
-                    {!perf && <span className="italic">Performance non encore mesurée</span>}
+                    {!perf && (
+                      <span className="italic">Cliquez "Récupérer les stats" pour mesurer la performance</span>
+                    )}
                   </div>
                 </div>
               );
