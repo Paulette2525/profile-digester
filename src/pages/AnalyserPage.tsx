@@ -117,66 +117,90 @@ export default function AnalyserPage() {
           </Button>
         </div>
 
-        {/* Account stats + main stats */}
-        <div className="grid gap-3 grid-cols-2 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-8">
-          <Card>
-            <CardContent className="flex items-center gap-3 pt-6">
-              <div className="rounded-full bg-primary/10 p-2.5">
-                <Users className="h-4 w-4 text-primary" />
-              </div>
-              <div>
-                <p className="text-xl font-bold">{accountLoading ? "…" : (accountStats?.followers || 0)}</p>
-                <p className="text-xs text-muted-foreground">Abonnés</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="flex items-center gap-3 pt-6">
-              <div className="rounded-full bg-primary/10 p-2.5">
-                <UserPlus className="h-4 w-4 text-primary" />
-              </div>
-              <div>
-                <p className="text-xl font-bold">{accountLoading ? "…" : (accountStats?.connections || 0)}</p>
-                <p className="text-xs text-muted-foreground">Connexions</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="flex items-center gap-3 pt-6">
-              <div className="rounded-full bg-primary/10 p-2.5"><TrendingUp className="h-4 w-4 text-primary" /></div>
-              <div><p className="text-xl font-bold">{totalPublished}</p><p className="text-xs text-muted-foreground">Publiés</p></div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="flex items-center gap-3 pt-6">
-              <div className="rounded-full bg-primary/10 p-2.5"><Target className="h-4 w-4 text-primary" /></div>
-              <div><p className="text-xl font-bold">{avgScore}/100</p><p className="text-xs text-muted-foreground">Score moyen</p></div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="flex items-center gap-3 pt-6">
-              <div className="rounded-full bg-blue-500/10 p-2.5"><ThumbsUp className="h-4 w-4 text-blue-500" /></div>
-              <div><p className="text-xl font-bold">{totalLikes}</p><p className="text-xs text-muted-foreground">Likes</p></div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="flex items-center gap-3 pt-6">
-              <div className="rounded-full bg-green-500/10 p-2.5"><MessageCircle className="h-4 w-4 text-green-500" /></div>
-              <div><p className="text-xl font-bold">{totalComments}</p><p className="text-xs text-muted-foreground">Commentaires</p></div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="flex items-center gap-3 pt-6">
-              <div className="rounded-full bg-orange-500/10 p-2.5"><Share2 className="h-4 w-4 text-orange-500" /></div>
-              <div><p className="text-xl font-bold">{totalShares}</p><p className="text-xs text-muted-foreground">Partages</p></div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="flex items-center gap-3 pt-6">
-              <div className="rounded-full bg-purple-500/10 p-2.5"><Eye className="h-4 w-4 text-purple-500" /></div>
-              <div><p className="text-xl font-bold">{totalImpressions}</p><p className="text-xs text-muted-foreground">Impressions</p></div>
-            </CardContent>
-          </Card>
+        {/* Stats sections */}
+        <div className="space-y-5">
+          <div>
+            <p className="text-sm font-medium text-muted-foreground mb-3">Compte LinkedIn</p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <Card>
+                <CardContent className="flex items-center gap-3 p-4">
+                  <div className="rounded-full bg-primary/10 p-2.5"><Users className="h-5 w-5 text-primary" /></div>
+                  <div>
+                    <p className="text-2xl font-bold">{accountLoading ? "…" : (accountStats?.followers || 0)}</p>
+                    <p className="text-sm text-muted-foreground">Abonnés</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="flex items-center gap-3 p-4">
+                  <div className="rounded-full bg-primary/10 p-2.5"><UserPlus className="h-5 w-5 text-primary" /></div>
+                  <div>
+                    <p className="text-2xl font-bold">{accountLoading ? "…" : (accountStats?.connections || 0)}</p>
+                    <p className="text-sm text-muted-foreground">Connexions</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="flex items-center gap-3 p-4">
+                  <div className="rounded-full bg-primary/10 p-2.5"><TrendingUp className="h-5 w-5 text-primary" /></div>
+                  <div>
+                    <p className="text-2xl font-bold">{totalPublished}</p>
+                    <p className="text-sm text-muted-foreground">Publiés</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="flex items-center gap-3 p-4">
+                  <div className="rounded-full bg-primary/10 p-2.5"><Target className="h-5 w-5 text-primary" /></div>
+                  <div>
+                    <p className="text-2xl font-bold">{avgScore}/100</p>
+                    <p className="text-sm text-muted-foreground">Score moyen</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-muted-foreground mb-3">Engagement</p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <Card>
+                <CardContent className="flex items-center gap-3 p-4">
+                  <div className="rounded-full bg-blue-500/10 p-2.5"><ThumbsUp className="h-5 w-5 text-blue-500" /></div>
+                  <div>
+                    <p className="text-2xl font-bold">{totalLikes}</p>
+                    <p className="text-sm text-muted-foreground">Likes</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="flex items-center gap-3 p-4">
+                  <div className="rounded-full bg-green-500/10 p-2.5"><MessageCircle className="h-5 w-5 text-green-500" /></div>
+                  <div>
+                    <p className="text-2xl font-bold">{totalComments}</p>
+                    <p className="text-sm text-muted-foreground">Commentaires</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="flex items-center gap-3 p-4">
+                  <div className="rounded-full bg-orange-500/10 p-2.5"><Share2 className="h-5 w-5 text-orange-500" /></div>
+                  <div>
+                    <p className="text-2xl font-bold">{totalShares}</p>
+                    <p className="text-sm text-muted-foreground">Partages</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="flex items-center gap-3 p-4">
+                  <div className="rounded-full bg-purple-500/10 p-2.5"><Eye className="h-5 w-5 text-purple-500" /></div>
+                  <div>
+                    <p className="text-2xl font-bold">{totalImpressions}</p>
+                    <p className="text-sm text-muted-foreground">Impressions</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
         </div>
 
         {/* Goal progress */}
