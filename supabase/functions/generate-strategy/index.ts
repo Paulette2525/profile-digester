@@ -70,14 +70,8 @@ Génère exactement 3 variantes de stratégie :
 
 Chaque variante doit inclure des types de contenu diversifiés : Storytelling, Viral (hooks forts), Tuto/How-to, News/Actualités, Social Proof (résultats, témoignages).`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+    const aiBody = JSON.stringify({
+        model: "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: "Tu génères des stratégies de contenu LinkedIn en JSON structuré." },
           { role: "user", content: prompt },
@@ -95,9 +89,9 @@ Chaque variante doit inclure des types de contenu diversifiés : Storytelling, V
                   items: {
                     type: "object",
                     properties: {
-                      variant_name: { type: "string", description: "Agressive, Équilibrée, ou Autoritaire" },
+                      variant_name: { type: "string" },
                       variant_emoji: { type: "string" },
-                      frequency: { type: "string", description: "ex: 5-7 posts/semaine" },
+                      frequency: { type: "string" },
                       summary: { type: "string" },
                       positioning: { type: "string" },
                       content_pillars: {
@@ -108,7 +102,7 @@ Chaque variante doit inclure des types de contenu diversifiés : Storytelling, V
                             name: { type: "string" },
                             percentage: { type: "number" },
                             description: { type: "string" },
-                            content_type: { type: "string", description: "Storytelling, Viral, Tuto, News, Social Proof" }
+                            content_type: { type: "string" }
                           },
                           required: ["name", "percentage", "description", "content_type"]
                         }
@@ -159,16 +153,35 @@ Chaque variante doit inclure des types de contenu diversifiés : Storytelling, V
           }
         }],
         tool_choice: { type: "function", function: { name: "create_strategies" } },
-      }),
-    });
+      });
 
-    if (!response.ok) {
-      if (response.status === 429) {
+    // Retry up to 2 times on 502/503
+    let response: Response | null = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: aiBody,
+      });
+      if (response.status !== 502 && response.status !== 503) break;
+      if (attempt < 2) await new Promise(r => setTimeout(r, 2000 * (attempt + 1)));
+    }
+
+    if (!response!.ok) {
+      if (response!.status === 429) {
         return new Response(JSON.stringify({ error: "Trop de requêtes, réessayez dans quelques instants." }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      throw new Error(`AI gateway error: ${response.status}`);
+      if (response!.status === 402) {
+        return new Response(JSON.stringify({ error: "Crédits IA épuisés." }), {
+          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`AI gateway error: ${response!.status}`);
     }
 
     const aiData = await response.json();
