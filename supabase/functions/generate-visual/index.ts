@@ -6,12 +6,42 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const KIE_API_BASE = "https://api.kie.ai/api/v1/jobs";
+
+async function pollTaskResult(taskId: string, apiKey: string, maxAttempts = 30): Promise<string> {
+  for (let i = 0; i < maxAttempts; i++) {
+    const res = await fetch(`${KIE_API_BASE}/recordInfo?taskId=${taskId}`, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    if (!res.ok) throw new Error(`Task poll failed: ${res.status}`);
+    const data = await res.json();
+    const state = data.data?.state;
+
+    if (state === "success") {
+      const resultJson = typeof data.data.resultJson === "string"
+        ? JSON.parse(data.data.resultJson)
+        : data.data.resultJson;
+      const urls = resultJson?.resultUrls || resultJson?.result_urls || [];
+      if (urls.length > 0) return urls[0];
+      throw new Error("No result URL in completed task");
+    }
+
+    if (state === "fail") {
+      throw new Error(`Task failed: ${data.data?.failMsg || "Unknown error"}`);
+    }
+
+    // Wait 3 seconds before next poll
+    await new Promise(r => setTimeout(r, 3000));
+  }
+  throw new Error("Task timed out after polling");
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+    const KIE_AI_API_KEY = Deno.env.get("KIE_AI_API_KEY");
+    if (!KIE_AI_API_KEY) throw new Error("KIE_AI_API_KEY not configured");
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -21,7 +51,6 @@ serve(async (req) => {
     const { post_id } = await req.json();
     if (!post_id) throw new Error("Missing post_id");
 
-    // Get the post
     const { data: post, error: postErr } = await supabase
       .from("suggested_posts")
       .select("*")
@@ -29,44 +58,51 @@ serve(async (req) => {
       .single();
     if (postErr || !post) throw new Error("Post not found");
 
-    // Extract key theme from the post content for the image prompt
     const contentPreview = post.content.substring(0, 300);
-    const imagePrompt = `Create a professional, modern LinkedIn post visual/infographic. The post is about: "${post.topic || 'professional content'}". Content preview: "${contentPreview}". 
-Style: Clean, professional, suitable for LinkedIn. Use bold typography, modern colors (blues, teals, whites), minimal design. The image should complement the post and catch attention in a LinkedIn feed. Do NOT include any text that could be misread. Focus on visual metaphors and professional aesthetics. Square format 1080x1080.`;
+    const imagePrompt = `Professional LinkedIn post visual. Topic: "${post.topic || 'professional content'}". Content: "${contentPreview}". Style: Clean, modern, professional infographic suitable for LinkedIn feed. Bold typography, modern blue/teal colors, minimal design. Square format. Do NOT include long text, focus on visual metaphors.`;
 
-    console.log("Generating visual for post:", post_id);
+    console.log("Creating Kie AI task for post:", post_id);
 
-    const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    // Step 1: Create the task
+    const createRes = await fetch(`${KIE_API_BASE}/createTask`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${KIE_AI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3.1-flash-image-preview",
-        messages: [
-          { role: "user", content: imagePrompt },
-        ],
-        modalities: ["image", "text"],
+        model: "nano-banana-2",
+        input: {
+          prompt: imagePrompt,
+          aspect_ratio: "1:1",
+          resolution: "1K",
+          output_format: "png",
+        },
       }),
     });
 
-    if (!aiRes.ok) {
-      const status = aiRes.status;
-      if (status === 429) return new Response(JSON.stringify({ error: "Rate limit, réessayez plus tard" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      if (status === 402) return new Response(JSON.stringify({ error: "Crédits AI épuisés" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      const errText = await aiRes.text();
-      throw new Error(`AI image generation error: ${status} - ${errText}`);
+    if (!createRes.ok) {
+      const errText = await createRes.text();
+      if (createRes.status === 429) {
+        return new Response(JSON.stringify({ error: "Rate limit Kie AI, réessayez plus tard" }), {
+          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`Kie AI createTask error: ${createRes.status} - ${errText}`);
     }
 
-    const aiData = await aiRes.json();
-    const imageUrl = aiData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    const createData = await createRes.json();
+    const taskId = createData.data?.taskId || createData.taskId;
+    if (!taskId) throw new Error("No taskId returned from Kie AI");
 
-    if (!imageUrl) {
-      throw new Error("No image generated by AI");
-    }
+    console.log("Kie AI task created:", taskId, "- polling for result...");
 
-    // Store the base64 image URL directly in the post
+    // Step 2: Poll for result
+    const imageUrl = await pollTaskResult(taskId, KIE_AI_API_KEY);
+
+    console.log("Image generated successfully:", imageUrl.substring(0, 80));
+
+    // Step 3: Store the image URL
     await supabase
       .from("suggested_posts")
       .update({ image_url: imageUrl })
