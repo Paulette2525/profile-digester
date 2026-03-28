@@ -117,6 +117,9 @@ export default function AnalyserPage() {
   const totalComments = postsWithPerf.reduce((acc, p) => acc + ((p.post_performance as any)?.comments || 0), 0);
   const totalShares = postsWithPerf.reduce((acc, p) => acc + ((p.post_performance as any)?.shares || 0), 0);
   const totalImpressions = postsWithPerf.reduce((acc, p) => acc + ((p.post_performance as any)?.impressions || 0), 0);
+  const engagementRate = totalImpressions > 0
+    ? ((totalLikes + totalComments + totalShares) / totalImpressions * 100).toFixed(1)
+    : "—";
 
   // Performance evolution data (chronological)
   const evolutionData = postsWithPerf
