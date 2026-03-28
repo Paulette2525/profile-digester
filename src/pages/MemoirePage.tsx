@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Brain, Save, Loader2, Upload, X, Plus, Lightbulb, Trash2, Image as ImageIcon, Target, User, Award, Users, Megaphone, BookOpen, Briefcase } from "lucide-react";
+import { Brain, Save, Loader2, Upload, X, Plus, Lightbulb, Trash2, Image as ImageIcon, Target, User, Award, Users, Megaphone, BookOpen, Briefcase, Mic, MicOff, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -222,11 +222,111 @@ export default function MemoirePage() {
     queryClient.invalidateQueries({ queryKey: ["content-ideas"] });
   };
 
+  const [listeningField, setListeningField] = useState<string | null>(null);
+  const [optimizingField, setOptimizingField] = useState<string | null>(null);
+  const recognitionRef = useRef<any>(null);
+
+  const stopListening = useCallback(() => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      recognitionRef.current = null;
+    }
+    setListeningField(null);
+  }, []);
+
+  const startListening = useCallback((fieldName: string) => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      toast.error("Votre navigateur ne supporte pas la reconnaissance vocale. Utilisez Chrome.");
+      return;
+    }
+    if (listeningField) stopListening();
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = "fr-FR";
+    recognition.continuous = true;
+    recognition.interimResults = false;
+
+    recognition.onresult = (event: any) => {
+      let transcript = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          transcript += event.results[i][0].transcript;
+        }
+      }
+      if (transcript) {
+        setForm(f => {
+          const current = (f as any)[fieldName] as string || "";
+          return { ...f, [fieldName]: current ? current + " " + transcript : transcript };
+        });
+      }
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error("Speech error:", event.error);
+      if (event.error !== "aborted") toast.error("Erreur de reconnaissance vocale");
+      stopListening();
+    };
+
+    recognition.onend = () => {
+      setListeningField(prev => prev === fieldName ? null : prev);
+      recognitionRef.current = null;
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setListeningField(fieldName);
+  }, [listeningField, stopListening]);
+
+  const optimizeField = useCallback(async (fieldName: string, fieldLabel: string) => {
+    const text = (form as any)[fieldName] as string;
+    if (!text?.trim()) return;
+    setOptimizingField(fieldName);
+    try {
+      const { data, error } = await supabase.functions.invoke("optimize-text", {
+        body: { text, fieldContext: fieldLabel },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      if (data?.optimizedText) {
+        setForm(f => ({ ...f, [fieldName]: data.optimizedText }));
+        toast.success("Texte optimisé !");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Erreur d'optimisation");
+    } finally {
+      setOptimizingField(null);
+    }
+  }, [form]);
+
   const Field = ({ label, name, textarea = false, placeholder = "", type = "text" }: { label: string; name: string; textarea?: boolean; placeholder?: string; type?: string }) => (
     <div className="space-y-1.5">
       <Label htmlFor={name}>{label}</Label>
       {textarea ? (
-        <Textarea id={name} value={(form as any)[name] as string} onChange={e => setForm(f => ({ ...f, [name]: e.target.value }))} placeholder={placeholder} rows={3} />
+        <>
+          <Textarea id={name} value={(form as any)[name] as string} onChange={e => setForm(f => ({ ...f, [name]: e.target.value }))} placeholder={placeholder} rows={3} />
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant={listeningField === name ? "destructive" : "outline"}
+              size="sm"
+              onClick={() => listeningField === name ? stopListening() : startListening(name)}
+            >
+              {listeningField === name ? <MicOff className="h-3.5 w-3.5" /> : <Mic className="h-3.5 w-3.5" />}
+              {listeningField === name ? "Arrêter" : "Dicter"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={!((form as any)[name] as string)?.trim() || optimizingField === name}
+              onClick={() => optimizeField(name, label)}
+            >
+              {optimizingField === name ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+              Optimiser
+            </Button>
+          </div>
+        </>
       ) : (
         <Input id={name} type={type} value={(form as any)[name]} onChange={e => setForm(f => ({ ...f, [name]: type === "number" ? Number(e.target.value) : e.target.value }))} placeholder={placeholder} />
       )}
