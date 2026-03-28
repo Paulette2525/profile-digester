@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { LayoutDashboard, Zap, PenLine, Calendar, BarChart3, UserPlus, Settings, Linkedin } from "lucide-react";
+import { LayoutDashboard, Zap, PenLine, Calendar, BarChart3, UserPlus, Settings, Linkedin, MessageSquareHeart } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -24,6 +24,10 @@ const workflowItems = [
   { to: "/posts-suggeres", label: "Posts Suggérés", icon: PenLine },
   { to: "/planifier", label: "Planifier", icon: Calendar },
   { to: "/analyser", label: "Analyser", icon: BarChart3 },
+];
+
+const automationItems = [
+  { to: "/engagement", label: "Engagement", icon: MessageSquareHeart },
 ];
 
 const managementItems = [
