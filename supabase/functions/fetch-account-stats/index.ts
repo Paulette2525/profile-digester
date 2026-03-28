@@ -33,11 +33,10 @@ serve(async (req) => {
 
     const headers = { "X-API-KEY": UNIPILE_API_KEY, Accept: "application/json" };
 
-    // 1. List accounts to find LinkedIn
+    // 1. Find LinkedIn account
     const accountsRes = await fetchWithRetry(`https://${UNIPILE_DSN}/api/v1/accounts`, { headers });
     if (!accountsRes.ok) {
-      console.error("Failed to list accounts:", accountsRes.status);
-      return new Response(JSON.stringify({ followers: 0, connections: 0, name: "", error: "unipile_unavailable" }), {
+      return new Response(JSON.stringify({ followers: 0, connections: 0, name: "" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -47,54 +46,75 @@ serve(async (req) => {
     const linkedin = items.find((a: any) => a.type === "LINKEDIN");
 
     if (!linkedin) {
-      return new Response(JSON.stringify({ followers: 0, connections: 0, name: "", error: "no_linkedin_account" }), {
+      return new Response(JSON.stringify({ followers: 0, connections: 0, name: "" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Log full account object to identify available fields
-    console.log("LinkedIn account object:", JSON.stringify(linkedin));
+    const name = linkedin.name || "";
+    const providerId = linkedin.connection_params?.im?.id || "";
+    let followers = 0;
+    let connections = 0;
 
-    // Extract stats from account object first
-    let followers = linkedin.followers_count || linkedin.follower_count || linkedin.followers || 0;
-    let connections = linkedin.connections_count || linkedin.connection_count || linkedin.connections || 0;
-    const name = linkedin.name || linkedin.identifier || "";
+    // 2. Get follower count via /api/v1/users/followers (limit=1 to just get the count/cursor)
+    try {
+      const followersRes = await fetchWithRetry(
+        `https://${UNIPILE_DSN}/api/v1/users/followers?account_id=${linkedin.id}&limit=1`,
+        { headers }
+      );
+      if (followersRes.ok) {
+        const followersData = await followersRes.json();
+        console.log("Followers response keys:", JSON.stringify(Object.keys(followersData)));
+        // The response may have total_count, total, or items array length
+        followers = followersData.total_count || followersData.total || followersData.count || 0;
+        // If no total field, try checking if there's pagination info
+        if (followers === 0 && followersData.paging?.total) {
+          followers = followersData.paging.total;
+        }
+        console.log("Followers count:", followers);
+      } else {
+        console.error("Followers endpoint:", followersRes.status, await followersRes.text());
+      }
+    } catch (e) {
+      console.error("Error fetching followers:", e);
+    }
 
-    // 2. If stats are 0, try fetching user profile for detailed stats
-    if (followers === 0 && connections === 0) {
+    // 3. Get connections count via /api/v1/connections
+    try {
+      const connectionsRes = await fetchWithRetry(
+        `https://${UNIPILE_DSN}/api/v1/connections?account_id=${linkedin.id}&limit=1`,
+        { headers }
+      );
+      if (connectionsRes.ok) {
+        const connectionsData = await connectionsRes.json();
+        console.log("Connections response keys:", JSON.stringify(Object.keys(connectionsData)));
+        connections = connectionsData.total_count || connectionsData.total || connectionsData.count || 0;
+        if (connections === 0 && connectionsData.paging?.total) {
+          connections = connectionsData.paging.total;
+        }
+        console.log("Connections count:", connections);
+      } else {
+        console.error("Connections endpoint:", connectionsRes.status, await connectionsRes.text());
+      }
+    } catch (e) {
+      console.error("Error fetching connections:", e);
+    }
+
+    // 4. Fallback: try user profile for network_info
+    if (followers === 0 && connections === 0 && providerId) {
       try {
         const profileRes = await fetchWithRetry(
-          `https://${UNIPILE_DSN}/api/v1/users/me?account_id=${linkedin.id}`,
+          `https://${UNIPILE_DSN}/api/v1/users/${providerId}?account_id=${linkedin.id}`,
           { headers }
         );
         if (profileRes.ok) {
           const profile = await profileRes.json();
-          console.log("User profile response:", JSON.stringify(profile));
-          followers = profile.followers_count || profile.follower_count || profile.followers || profile.network_info?.followers_count || 0;
-          connections = profile.connections_count || profile.connection_count || profile.connections || profile.network_info?.connections_count || 0;
-        } else {
-          console.error("Profile endpoint returned:", profileRes.status);
+          console.log("Profile response:", JSON.stringify(profile));
+          followers = profile.followers_count || profile.follower_count || profile.network_info?.followers_count || 0;
+          connections = profile.connections_count || profile.connection_count || profile.network_info?.connections_count || 0;
         }
       } catch (e) {
-        console.error("Error fetching user profile:", e);
-      }
-    }
-
-    // 3. If still 0, try individual account endpoint
-    if (followers === 0 && connections === 0) {
-      try {
-        const detailRes = await fetchWithRetry(
-          `https://${UNIPILE_DSN}/api/v1/accounts/${linkedin.id}`,
-          { headers }
-        );
-        if (detailRes.ok) {
-          const detail = await detailRes.json();
-          console.log("Account detail response:", JSON.stringify(detail));
-          followers = detail.followers_count || detail.follower_count || detail.followers || 0;
-          connections = detail.connections_count || detail.connection_count || detail.connections || 0;
-        }
-      } catch (e) {
-        console.error("Error fetching account detail:", e);
+        console.error("Error fetching profile:", e);
       }
     }
 
