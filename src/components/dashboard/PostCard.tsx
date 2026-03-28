@@ -33,8 +33,9 @@ export function PostCard({ post }: PostCardProps) {
   const isLong = content.length > 280;
   const displayContent = isLong && !expanded ? content.slice(0, 280) + "…" : content;
 
+  const rawMedia = post.media_urls;
   const mediaUrls: Array<{ type: string; url: string; title?: string }> = 
-    Array.isArray(post.media_urls) ? (post.media_urls as any) : [];
+    Array.isArray(rawMedia) ? (rawMedia as any) : [];
 
   return (
     <Card className="transition-all hover:shadow-md">
