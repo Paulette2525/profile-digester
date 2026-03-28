@@ -67,15 +67,21 @@ serve(async (req) => {
 
     let memoryContext = "";
     if (memory) {
+      const m = memory as any;
       memoryContext = `\n\nCONTEXTE DE L'UTILISATEUR:
-- Profession: ${memory.profession || "Non renseigné"}
-- Industrie: ${memory.industry || "Non renseigné"}
-- Audience cible: ${memory.target_audience || "Non renseigné"}
-- Thèmes de contenu souhaités: ${(memory.content_themes as string[])?.join(", ") || "Non renseigné"}
-- Ton de voix préféré: ${memory.tone_of_voice || "Non renseigné"}
-- Domaines d'expertise: ${memory.expertise_areas || "Non renseigné"}
+- Profession: ${m.profession || "Non renseigné"}
+- Industrie: ${m.industry || "Non renseigné"}
+- Audience cible: ${m.target_audience || "Non renseigné"}
+- Thèmes de contenu souhaités: ${(m.content_themes as string[])?.join(", ") || "Non renseigné"}
+- Piliers de contenu: ${(m.content_pillars as string[])?.join(", ") || "Non renseigné"}
+- Ton de voix préféré: ${m.tone_of_voice || "Non renseigné"}
+- Domaines d'expertise: ${m.expertise_areas || "Non renseigné"}
+- Réalisations: ${m.achievements || "Non renseigné"}
+- Différenciateurs: ${m.differentiators || "Non renseigné"}
+- Objectifs LinkedIn: ${m.linkedin_goals || "Non renseigné"}
+- Concurrents: ${m.competitors || "Non renseigné"}
 
-Tiens compte de ce contexte pour orienter l'analyse vers des recommandations pertinentes pour cet utilisateur.`;
+Tiens compte de ce contexte pour orienter l'analyse vers des recommandations pertinentes pour positionner cet utilisateur comme leader dans son domaine.`;
     }
 
     const prompt = `Tu es un expert en marketing LinkedIn et en viralité de contenu.
