@@ -19,14 +19,42 @@ async function getLinkedInAccountId(dsn: string, apiKey: string): Promise<string
 
 function parseDate(raw: any): string | null {
   if (!raw) return null;
+  // Handle relative dates from Unipile (e.g. "16h", "1w", "3yr")
+  const relMatch = String(raw).match(/^(\d+)(m|h|d|w|mo|yr)$/);
+  if (relMatch) {
+    const [, num, unit] = relMatch;
+    const n = parseInt(num);
+    const now = new Date();
+    switch (unit) {
+      case "m": now.setMinutes(now.getMinutes() - n); break;
+      case "h": now.setHours(now.getHours() - n); break;
+      case "d": now.setDate(now.getDate() - n); break;
+      case "w": now.setDate(now.getDate() - n * 7); break;
+      case "mo": now.setMonth(now.getMonth() - n); break;
+      case "yr": now.setFullYear(now.getFullYear() - n); break;
+    }
+    return now.toISOString();
+  }
   const parsed = new Date(raw);
   return isNaN(parsed.getTime()) ? null : parsed.toISOString();
+}
+
+function getNum(val: any): number {
+  const n = typeof val === "number" ? val : parseInt(val);
+  return isNaN(n) ? 0 : n;
 }
 
 function extractMedia(post: any): { media_urls: any[]; media_type: string } {
   const urls: any[] = [];
 
-  // Check various Unipile media fields
+  // Unipile uses "attachments" with type "img" or "video"
+  if (post.attachments && Array.isArray(post.attachments)) {
+    for (const a of post.attachments) {
+      const rawType = a.type || "";
+      const type = rawType === "img" ? "image" : rawType === "video" ? "video" : rawType || "article";
+      urls.push({ type, url: a.url || a.link || a.image_url, title: a.title, id: a.id });
+    }
+  }
   if (post.images && Array.isArray(post.images)) {
     for (const img of post.images) {
       urls.push({ type: "image", url: typeof img === "string" ? img : img.url || img.src });
@@ -38,25 +66,13 @@ function extractMedia(post: any): { media_urls: any[]; media_type: string } {
       urls.push({ type, url: m.url || m.video_url || m.src || m.image_url });
     }
   }
-  if (post.attachments && Array.isArray(post.attachments)) {
-    for (const a of post.attachments) {
-      const type = a.type || "article";
-      urls.push({ type, url: a.url || a.link || a.image_url, title: a.title });
-    }
-  }
-  // Single image/video fields
-  if (post.image_url && urls.length === 0) {
-    urls.push({ type: "image", url: post.image_url });
-  }
-  if (post.video_url) {
-    urls.push({ type: "video", url: post.video_url });
-  }
+  if (post.image_url && urls.length === 0) urls.push({ type: "image", url: post.image_url });
+  if (post.video_url) urls.push({ type: "video", url: post.video_url });
 
   const filtered = urls.filter(u => u.url);
   const hasVideo = filtered.some(u => u.type === "video");
   const hasImage = filtered.some(u => u.type === "image");
   const media_type = hasVideo ? "video" : hasImage ? "image" : filtered.length > 0 ? "article" : "none";
-
   return { media_urls: filtered, media_type };
 }
 
@@ -83,10 +99,7 @@ serve(async (req) => {
     }
 
     const { data: profile, error: profileErr } = await supabase
-      .from("tracked_profiles")
-      .select("*")
-      .eq("id", profile_id)
-      .single();
+      .from("tracked_profiles").select("*").eq("id", profile_id).single();
     if (profileErr || !profile) throw new Error("Profile not found");
 
     const accountId = await getLinkedInAccountId(UNIPILE_DSN, UNIPILE_API_KEY);
@@ -131,25 +144,25 @@ serve(async (req) => {
       if (items.length === 0) break;
 
       for (const post of items) {
-        const postId = post.id || post.post_id;
+        const postId = post.id || post.post_id || post.social_id;
         const { media_urls, media_type } = extractMedia(post);
 
         const postData = {
           profile_id: profile.id,
           unipile_post_id: String(postId),
           content: post.text || post.content || "",
-          post_url: post.url || post.share_url || null,
-          likes_count: post.likes_count || post.reactions_count || post.num_likes || 0,
-          comments_count: post.comments_count || post.num_comments || 0,
-          shares_count: post.shares_count || post.reposts_count || post.num_shares || 0,
-          posted_at: parseDate(post.created_at || post.date),
+          post_url: post.share_url || post.url || null,
+          likes_count: getNum(post.reaction_counter ?? post.likes_count ?? post.reactions_count ?? post.num_likes),
+          comments_count: getNum(post.comment_counter ?? post.comments_count ?? post.num_comments),
+          shares_count: getNum(post.repost_counter ?? post.shares_count ?? post.reposts_count ?? post.num_shares),
+          impressions_count: getNum(post.impressions_counter ?? post.views_count ?? post.impressions),
+          posted_at: parseDate(post.date || post.created_at),
           media_urls,
           media_type,
         };
 
         const { data: existing } = await supabase
-          .from("linkedin_posts")
-          .select("id")
+          .from("linkedin_posts").select("id")
           .eq("unipile_post_id", String(postId))
           .eq("profile_id", profile.id)
           .maybeSingle();
@@ -188,14 +201,11 @@ serve(async (req) => {
                 };
 
                 if (commentId) {
-                  // Upsert by checking existing
                   const { data: existingComment } = await supabase
-                    .from("post_interactions")
-                    .select("id")
+                    .from("post_interactions").select("id")
                     .eq("post_id", savedPostId)
                     .eq("unipile_comment_id", String(commentId))
                     .maybeSingle();
-
                   if (existingComment) {
                     await supabase.from("post_interactions").update(commentData).eq("id", existingComment.id);
                   } else {

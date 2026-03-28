@@ -20,6 +20,7 @@ export type Database = {
           content: string | null
           created_at: string
           id: string
+          impressions_count: number | null
           likes_count: number
           media_type: string | null
           media_urls: Json | null
@@ -35,6 +36,7 @@ export type Database = {
           content?: string | null
           created_at?: string
           id?: string
+          impressions_count?: number | null
           likes_count?: number
           media_type?: string | null
           media_urls?: Json | null
@@ -50,6 +52,7 @@ export type Database = {
           content?: string | null
           created_at?: string
           id?: string
+          impressions_count?: number | null
           likes_count?: number
           media_type?: string | null
           media_urls?: Json | null

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { ThumbsUp, MessageCircle, Share2, ExternalLink, Play } from "lucide-react";
+import { ThumbsUp, MessageCircle, Share2, ExternalLink, Play, Eye } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import type { Tables } from "@/integrations/supabase/types";
@@ -125,6 +125,12 @@ export function PostCard({ post }: PostCardProps) {
             <Share2 className="h-4 w-4" />
             {post.shares_count}
           </span>
+          {(post as any).impressions_count > 0 && (
+            <span className="flex items-center gap-1.5">
+              <Eye className="h-4 w-4" />
+              {(post as any).impressions_count}
+            </span>
+          )}
         </div>
       </CardContent>
     </Card>
