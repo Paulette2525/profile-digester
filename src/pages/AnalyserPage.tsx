@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
-import { BarChart3, TrendingUp, Target, RefreshCw, Loader2, ThumbsUp, MessageCircle, Share2, Eye, ChevronDown, Users, UserPlus, RotateCcw } from "lucide-react";
+import { BarChart3, TrendingUp, Target, RefreshCw, Loader2, ThumbsUp, MessageCircle, Share2, Eye, ChevronDown, Users, UserPlus, RotateCcw, Percent } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { format } from "date-fns";
@@ -117,6 +117,9 @@ export default function AnalyserPage() {
   const totalComments = postsWithPerf.reduce((acc, p) => acc + ((p.post_performance as any)?.comments || 0), 0);
   const totalShares = postsWithPerf.reduce((acc, p) => acc + ((p.post_performance as any)?.shares || 0), 0);
   const totalImpressions = postsWithPerf.reduce((acc, p) => acc + ((p.post_performance as any)?.impressions || 0), 0);
+  const engagementRate = totalImpressions > 0
+    ? ((totalLikes + totalComments + totalShares) / totalImpressions * 100).toFixed(1)
+    : "—";
 
   // Performance evolution data (chronological)
   const evolutionData = postsWithPerf
@@ -241,6 +244,15 @@ export default function AnalyserPage() {
                   <div>
                     <p className="text-2xl font-bold">{totalImpressions}</p>
                     <p className="text-sm text-muted-foreground">Impressions</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="flex items-center gap-3 p-4">
+                  <div className="rounded-full bg-emerald-500/10 p-2.5"><Percent className="h-5 w-5 text-emerald-500" /></div>
+                  <div>
+                    <p className="text-2xl font-bold">{engagementRate}{engagementRate !== "—" ? "%" : ""}</p>
+                    <p className="text-sm text-muted-foreground">Taux d'engagement</p>
                   </div>
                 </CardContent>
               </Card>
