@@ -127,6 +127,30 @@ export type Database = {
         }
         Relationships: []
       }
+      content_strategy: {
+        Row: {
+          created_at: string
+          id: string
+          strategy_json: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          strategy_json?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          strategy_json?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       linkedin_posts: {
         Row: {
           comments_count: number
