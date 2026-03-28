@@ -67,18 +67,18 @@ serve(async (req) => {
 
     for (const post of postsToPublish) {
       try {
-        // Publish via Unipile
+        // Publish via Unipile (requires multipart/form-data)
+        const formData = new FormData();
+        formData.append("account_id", accountId);
+        formData.append("text", post.content);
+
         const publishRes = await fetch(`https://${UNIPILE_DSN}/api/v1/posts`, {
           method: "POST",
           headers: {
             "X-API-KEY": UNIPILE_API_KEY,
-            "Content-Type": "application/json",
             Accept: "application/json",
           },
-          body: JSON.stringify({
-            account_id: accountId,
-            text: post.content,
-          }),
+          body: formData,
         });
 
         if (!publishRes.ok) {
