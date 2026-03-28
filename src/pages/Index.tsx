@@ -9,8 +9,10 @@ import { RefreshCw, Plus, ChevronDown } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useState } from "react";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 
 const Index = () => {
+  const queryClient = useQueryClient();
   const [syncing, setSyncing] = useState(false);
   const [showAllPosts, setShowAllPosts] = useState(false);
 
@@ -54,6 +56,8 @@ const Index = () => {
       const { error } = await supabase.functions.invoke("sync-linkedin");
       if (error) throw error;
       await Promise.all([refetchProfiles(), refetchPosts()]);
+      queryClient.invalidateQueries({ queryKey: ["account-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["content-strategy"] });
       toast.success("Synchronisation terminée !");
     } catch (err) {
       toast.error("Erreur lors de la synchronisation");
