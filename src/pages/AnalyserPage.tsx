@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
-import { BarChart3, TrendingUp, Target, RefreshCw, Loader2, ThumbsUp, MessageCircle, Share2, Eye } from "lucide-react";
+import { BarChart3, TrendingUp, Target, RefreshCw, Loader2, ThumbsUp, MessageCircle, Share2, Eye, ChevronDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -13,6 +13,7 @@ import { toast } from "sonner";
 
 export default function AnalyserPage() {
   const [isFetching, setIsFetching] = useState(false);
+  const [visiblePosts, setVisiblePosts] = useState(10);
 
   const { data: publishedPosts, refetch } = useQuery({
     queryKey: ["published-posts-analysis"],
@@ -209,7 +210,7 @@ export default function AnalyserPage() {
             <CardTitle className="text-base">Publications ({totalPublished})</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {publishedPosts?.map((post) => {
+            {publishedPosts?.slice(0, visiblePosts).map((post) => {
               const perf = post.post_performance as any;
               return (
                 <div key={post.id} className="rounded-lg border p-4 space-y-2">
@@ -238,6 +239,11 @@ export default function AnalyserPage() {
                 </div>
               );
             })}
+            {totalPublished > visiblePosts && (
+              <Button variant="ghost" className="w-full" onClick={() => setVisiblePosts(v => v + 10)}>
+                <ChevronDown className="h-4 w-4 mr-1" /> Voir plus ({totalPublished - visiblePosts} restants)
+              </Button>
+            )}
             {totalPublished === 0 && (
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <BarChart3 className="h-12 w-12 text-muted-foreground/30 mb-4" />

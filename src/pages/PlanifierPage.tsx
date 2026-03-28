@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
-import { Calendar, Clock, Send, Loader2, CalendarDays } from "lucide-react";
+import { Calendar, Clock, Send, Loader2, CalendarDays, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
@@ -14,6 +14,8 @@ import { fr } from "date-fns/locale";
 export default function PlanifierPage() {
   const [publishingId, setPublishingId] = useState<string | null>(null);
   const [scheduleInputs, setScheduleInputs] = useState<Record<string, string>>({});
+  const [showAllDrafts, setShowAllDrafts] = useState(false);
+  const [showAllPublished, setShowAllPublished] = useState(false);
 
   const { data: posts, refetch } = useQuery({
     queryKey: ["planned-posts"],
@@ -140,7 +142,7 @@ export default function PlanifierPage() {
               <CardTitle className="text-base">Brouillons à planifier ({draftPosts.length})</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {draftPosts.map((post) => (
+              {draftPosts.slice(0, showAllDrafts ? undefined : 10).map((post) => (
                 <div key={post.id} className="rounded-lg border p-4 space-y-3">
                   <div className="flex gap-3">
                     {post.image_url && post.image_url.startsWith("http") && (
@@ -165,6 +167,11 @@ export default function PlanifierPage() {
                   </div>
                 </div>
               ))}
+              {draftPosts.length > 10 && !showAllDrafts && (
+                <Button variant="ghost" className="w-full" onClick={() => setShowAllDrafts(true)}>
+                  <ChevronDown className="h-4 w-4 mr-1" /> Voir les {draftPosts.length - 10} autres
+                </Button>
+              )}
             </CardContent>
           </Card>
         )}
@@ -176,7 +183,7 @@ export default function PlanifierPage() {
               <CardTitle className="text-base">Publiés ({publishedPosts.length})</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {publishedPosts.map((post) => (
+              {publishedPosts.slice(0, showAllPublished ? undefined : 10).map((post) => (
                 <div key={post.id} className="flex items-start gap-3 rounded-lg border p-3 opacity-70">
                   <Badge className="bg-green-500/10 text-green-600 shrink-0">Publié</Badge>
                   {post.image_url && post.image_url.startsWith("http") && (
@@ -190,6 +197,11 @@ export default function PlanifierPage() {
                   </div>
                 </div>
               ))}
+              {publishedPosts.length > 10 && !showAllPublished && (
+                <Button variant="ghost" className="w-full" onClick={() => setShowAllPublished(true)}>
+                  <ChevronDown className="h-4 w-4 mr-1" /> Voir les {publishedPosts.length - 10} autres
+                </Button>
+              )}
             </CardContent>
           </Card>
         )}

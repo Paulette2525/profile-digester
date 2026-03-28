@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
-import { PenLine, Loader2, Copy, Calendar, Check, Sparkles, ImageIcon, RefreshCw } from "lucide-react";
+import { PenLine, Loader2, Copy, Calendar, Check, Sparkles, ImageIcon, RefreshCw, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 
@@ -17,6 +17,7 @@ export default function SuggestedPostsPage() {
   const [postCount, setPostCount] = useState(5);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
+  const [visibleCount, setVisibleCount] = useState(10);
 
   const { data: analyses } = useQuery({
     queryKey: ["virality-analyses-done"],
@@ -187,7 +188,7 @@ export default function SuggestedPostsPage() {
 
         {/* Posts list */}
         <div className="space-y-4">
-          {posts?.map((post) => {
+          {posts?.slice(0, visibleCount).map((post) => {
             const imageUrl = (post as any).image_url;
             return (
               <Card key={post.id} className="overflow-hidden">
@@ -206,24 +207,14 @@ export default function SuggestedPostsPage() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {/* Visual preview */}
                   {imageUrl && (
                     <div className="rounded-lg overflow-hidden border">
-                      <img
-                        src={imageUrl}
-                        alt="Visuel du post"
-                        className="w-full max-h-[400px] object-cover"
-                      />
+                      <img src={imageUrl} alt="Visuel du post" className="w-full max-h-[400px] object-cover" />
                     </div>
                   )}
-
                   {editingId === post.id ? (
                     <>
-                      <Textarea
-                        value={editContent}
-                        onChange={(e) => setEditContent(e.target.value)}
-                        className="min-h-[200px]"
-                      />
+                      <Textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} className="min-h-[200px]" />
                       <div className="flex gap-2">
                         <Button size="sm" onClick={() => handleSaveEdit(post.id)}>
                           <Check className="h-3.5 w-3.5" /> Sauvegarder
@@ -241,19 +232,8 @@ export default function SuggestedPostsPage() {
                         <Button size="sm" variant="outline" onClick={() => { setEditingId(post.id); setEditContent(post.content); }}>
                           <PenLine className="h-3.5 w-3.5" /> Modifier
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleGenerateVisual(post.id)}
-                          disabled={generatingVisualId === post.id}
-                        >
-                          {generatingVisualId === post.id ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : imageUrl ? (
-                            <RefreshCw className="h-3.5 w-3.5" />
-                          ) : (
-                            <ImageIcon className="h-3.5 w-3.5" />
-                          )}
+                        <Button size="sm" variant="outline" onClick={() => handleGenerateVisual(post.id)} disabled={generatingVisualId === post.id}>
+                          {generatingVisualId === post.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : imageUrl ? <RefreshCw className="h-3.5 w-3.5" /> : <ImageIcon className="h-3.5 w-3.5" />}
                           {imageUrl ? "Regénérer visuel" : "Générer visuel"}
                         </Button>
                         {post.status === "draft" && (
@@ -268,6 +248,12 @@ export default function SuggestedPostsPage() {
               </Card>
             );
           })}
+
+          {posts && posts.length > visibleCount && (
+            <Button variant="ghost" className="w-full" onClick={() => setVisibleCount(v => v + 10)}>
+              <ChevronDown className="h-4 w-4 mr-1" /> Voir plus ({posts.length - visibleCount} restants)
+            </Button>
+          )}
 
           {(!posts || posts.length === 0) && (
             <Card>
