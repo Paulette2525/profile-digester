@@ -130,6 +130,13 @@ serve(async (req) => {
       const items = postsData.items || postsData.data || [];
       if (items.length === 0) break;
 
+      // Diagnostic: log first raw post to identify field names
+      if (page === 0 && items.length > 0) {
+        console.log("=== RAW UNIPILE POST SAMPLE ===");
+        console.log(JSON.stringify(items[0], null, 2));
+        console.log("=== END RAW POST ===");
+      }
+
       for (const post of items) {
         const postId = post.id || post.post_id;
         const { media_urls, media_type } = extractMedia(post);
