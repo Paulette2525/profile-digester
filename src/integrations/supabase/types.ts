@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      account_stats_history: {
+        Row: {
+          connections: number
+          created_at: string
+          followers: number
+          id: string
+          snapshot_date: string
+          user_id: string
+        }
+        Insert: {
+          connections?: number
+          created_at?: string
+          followers?: number
+          id?: string
+          snapshot_date?: string
+          user_id: string
+        }
+        Update: {
+          connections?: number
+          created_at?: string
+          followers?: number
+          id?: string
+          snapshot_date?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       auto_engagement_config: {
         Row: {
           auto_dm: boolean

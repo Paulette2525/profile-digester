@@ -53,6 +53,27 @@ export default function AnalyserPage() {
     },
   });
 
+  // Stats history for growth chart
+  const { data: statsHistory, refetch: refetchHistory } = useQuery({
+    queryKey: ["account-stats-history"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("account_stats_history" as any)
+        .select("*")
+        .order("snapshot_date", { ascending: true })
+        .limit(90);
+      if (error) return [];
+      return data as any[];
+    },
+    staleTime: 2 * 60 * 1000,
+  });
+
+  const growthData = (statsHistory || []).map((s: any) => ({
+    date: format(new Date(s.snapshot_date), "dd/MM", { locale: fr }),
+    abonnés: s.followers,
+    connexions: s.connections,
+  }));
+
   const handleSync = async () => {
     setIsSyncing(true);
     try {
@@ -61,6 +82,7 @@ export default function AnalyserPage() {
       if (data?.error) throw new Error(data.error);
       toast.success("Données LinkedIn actualisées !");
       refetchAccount();
+      refetchHistory();
       refetch();
     } catch (e: any) {
       toast.error(e.message || "Erreur lors de la synchronisation");
@@ -225,6 +247,30 @@ export default function AnalyserPage() {
             </div>
           </div>
         </div>
+
+        {/* Growth chart */}
+        {growthData.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <TrendingUp className="h-4 w-4" /> Évolution abonnés & connexions
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={280}>
+                <LineChart data={growthData}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} />
+                  <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "12px" }} />
+                  <Legend />
+                  <Line type="monotone" dataKey="abonnés" stroke="hsl(var(--primary))" name="Abonnés" strokeWidth={2} dot={{ r: 3 }} />
+                  <Line type="monotone" dataKey="connexions" stroke="hsl(var(--destructive))" name="Connexions" strokeWidth={2} dot={{ r: 3 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Goal progress */}
         {memory && (memory.target_followers || memory.target_connections || memory.target_engagement_rate) && (
