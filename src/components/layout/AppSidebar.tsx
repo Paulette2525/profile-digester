@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { LayoutDashboard, Zap, PenLine, Calendar, BarChart3, UserPlus, Settings, Linkedin, MessageSquareHeart, Brain, LogOut } from "lucide-react";
+import { LayoutDashboard, Zap, Lightbulb, PenLine, Calendar, BarChart3, UserPlus, Settings, Linkedin, MessageSquareHeart, Brain, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NavLink } from "@/components/NavLink";
 import { supabase } from "@/integrations/supabase/client";
@@ -23,6 +23,7 @@ import {
 const workflowItems = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
   { to: "/traitement", label: "Traitement", icon: Zap },
+  { to: "/strategie", label: "Stratégie", icon: Lightbulb },
   { to: "/posts-suggeres", label: "Posts Suggérés", icon: PenLine },
   { to: "/planifier", label: "Planifier", icon: Calendar },
   { to: "/analyser", label: "Analyser", icon: BarChart3 },
