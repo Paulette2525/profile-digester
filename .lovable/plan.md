@@ -1,41 +1,40 @@
 
-## Agent LinkedIn - Dashboard de Suivi de Contenu
 
-### Vue d'ensemble
-Application de suivi de publications LinkedIn utilisant l'API Unipile, avec un dashboard simple listant les posts, likes et commentaires de profils surveillés, stockés dans une base de données Supabase.
+## Ajout de la connexion LinkedIn via Unipile Hosted Auth
 
-### Architecture
+### Probleme
+L'application utilise l'API Unipile mais il n'y a aucun moyen de connecter un compte LinkedIn depuis l'interface. Sans compte connecte, les fonctions de recherche et de synchronisation echouent.
 
-**Backend (Lovable Cloud + Supabase)**
-- Table `tracked_profiles` : URL LinkedIn, nom, identifiant Unipile, date d'ajout
-- Table `linkedin_posts` : contenu du post, date, auteur, nombre de likes, nombre de commentaires, lien vers le post
-- Table `post_interactions` : détail des likes et commentaires sur chaque post
-- Edge function `sync-linkedin` : appelle l'API Unipile pour récupérer les publications des profils suivis et stocker les résultats
-- Edge function `search-profiles` : recherche de profils via l'API Unipile
+### Solution
+Utiliser le **Hosted Auth Wizard** de Unipile : une edge function genere un lien temporaire via `POST /api/v1/hosted/accounts/link`, et l'utilisateur est redirige vers ce lien pour connecter son compte LinkedIn.
 
-**Pages & Fonctionnalités**
+### Plan
 
-1. **Dashboard principal**
-   - Liste des profils suivis avec avatar, nom et stats récentes
-   - Feed des dernières publications de tous les profils suivis
-   - Chaque post affiche : auteur, contenu (tronqué), date, nombre de likes, nombre de commentaires
-   - Bouton de synchronisation manuelle pour rafraîchir les données
+**1. Nouvelle Edge Function `connect-linkedin`**
+- Appelle `POST https://${UNIPILE_DSN}/api/v1/hosted/accounts/link` avec les parametres :
+  - `type: "create"`
+  - `providers: ["LINKEDIN"]`
+  - `api_url: "https://${UNIPILE_DSN}"`
+- Retourne l'URL d'authentification hebergee au frontend
 
-2. **Page Profil**
-   - Détail d'un profil suivi avec tous ses posts
-   - Liste des likes et commentaires sur chaque post
-   - Possibilité de supprimer le profil du suivi
+**2. Nouvelle Edge Function `check-linkedin-connection`**
+- Appelle `GET https://${UNIPILE_DSN}/api/v1/accounts` pour verifier si un compte LinkedIn est deja connecte
+- Retourne le statut de connexion (connecte/non connecte) et les infos du compte
 
-3. **Ajout de profils**
-   - Formulaire pour coller une URL LinkedIn
-   - Recherche intégrée via l'API Unipile avec résultats cliquables
-   - Ajout en un clic à la liste de suivi
+**3. Mise a jour de la page Configuration (`SettingsPage.tsx`)**
+- Ajouter une carte "Compte LinkedIn" avec :
+  - Statut de connexion (connecte / non connecte) avec indicateur visuel
+  - Bouton "Connecter mon compte LinkedIn" qui appelle l'edge function et ouvre le lien dans un nouvel onglet
+  - Nom/email du compte connecte si disponible
+  - Bouton "Verifier la connexion" pour rafraichir le statut
 
-4. **Configuration**
-   - Champ pour stocker la clé API Unipile (secret côté serveur)
+**4. Indicateur de connexion dans le layout**
+- Ajouter un petit badge dans le header (point vert/rouge) indiquant si un compte LinkedIn est connecte
+- Permet a l'utilisateur de voir rapidement l'etat sans aller dans les settings
 
-### Design
-- Interface épurée, style tableau de bord professionnel
-- Couleurs LinkedIn (bleu #0A66C2) comme accent
-- Cards pour les posts, table pour la liste des profils
-- Responsive mobile
+### Fichiers concernes
+- `supabase/functions/connect-linkedin/index.ts` (nouveau)
+- `supabase/functions/check-linkedin-connection/index.ts` (nouveau)
+- `src/pages/SettingsPage.tsx` (modifie)
+- `src/components/layout/AppLayout.tsx` (modifie)
+
