@@ -9,8 +9,6 @@ import type { Tables } from "@/integrations/supabase/types";
 
 type Post = Tables<"linkedin_posts"> & {
   tracked_profiles?: Tables<"tracked_profiles"> | null;
-  media_urls?: Array<{ type: string; url: string; title?: string }>;
-  media_type?: string;
 };
 
 interface PostCardProps {
