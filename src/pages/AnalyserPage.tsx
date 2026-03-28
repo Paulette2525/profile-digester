@@ -27,6 +27,17 @@ export default function AnalyserPage() {
     staleTime: 10 * 60 * 1000,
   });
 
+  // Fetch user memory for goals
+  const { data: memory } = useQuery({
+    queryKey: ["user-memory-goals"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("user_memory").select("*").limit(1).maybeSingle();
+      if (error) return null;
+      return data as any;
+    },
+    staleTime: 10 * 60 * 1000,
+  });
+
   const { data: publishedPosts, refetch } = useQuery({
     queryKey: ["published-posts-analysis"],
     queryFn: async () => {
