@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
-import { BarChart3, TrendingUp, Target, RefreshCw, Loader2, ThumbsUp, MessageCircle, Share2, Eye, ChevronDown, Users, UserPlus } from "lucide-react";
+import { BarChart3, TrendingUp, Target, RefreshCw, Loader2, ThumbsUp, MessageCircle, Share2, Eye, ChevronDown, Users, UserPlus, RotateCcw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { format } from "date-fns";
@@ -14,10 +14,11 @@ import { toast } from "sonner";
 
 export default function AnalyserPage() {
   const [isFetching, setIsFetching] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [visiblePosts, setVisiblePosts] = useState(10);
 
   // Account stats (followers, connections)
-  const { data: accountStats, isLoading: accountLoading } = useQuery({
+  const { data: accountStats, isLoading: accountLoading, refetch: refetchAccount } = useQuery({
     queryKey: ["account-stats"],
     queryFn: async () => {
       const { data, error } = await supabase.functions.invoke("fetch-account-stats");
@@ -51,6 +52,22 @@ export default function AnalyserPage() {
       return data;
     },
   });
+
+  const handleSync = async () => {
+    setIsSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("sync-linkedin");
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success("Données LinkedIn actualisées !");
+      refetchAccount();
+      refetch();
+    } catch (e: any) {
+      toast.error(e.message || "Erreur lors de la synchronisation");
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   const handleFetchStats = async () => {
     setIsFetching(true);
@@ -111,10 +128,16 @@ export default function AnalyserPage() {
             <h1 className="text-2xl font-bold tracking-tight">Analyser</h1>
             <p className="text-muted-foreground">Suivez la performance de votre compte et vos publications</p>
           </div>
-          <Button onClick={handleFetchStats} disabled={isFetching || totalPublished === 0}>
-            {isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-            {isFetching ? "Récupération…" : "Récupérer les stats"}
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={handleSync} disabled={isSyncing}>
+              {isSyncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
+              {isSyncing ? "Synchronisation…" : "Actualiser"}
+            </Button>
+            <Button onClick={handleFetchStats} disabled={isFetching || totalPublished === 0}>
+              {isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              {isFetching ? "Récupération…" : "Récupérer les stats"}
+            </Button>
+          </div>
         </div>
 
         {/* Stats sections */}
