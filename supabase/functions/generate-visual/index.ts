@@ -47,6 +47,7 @@ serve(async (req) => {
             content: imagePrompt,
           },
         ],
+        modalities: ["image", "text"],
       }),
     });
 
@@ -68,37 +69,17 @@ serve(async (req) => {
     const aiData = await response.json();
     const message = aiData.choices?.[0]?.message;
 
-    // Extract base64 image from response
+    // Extract base64 image from message.images array (Lovable AI format)
     let imageBase64: string | null = null;
-    if (message?.content && Array.isArray(message.content)) {
-      for (const part of message.content) {
-        if (part.type === "image" && part.image?.base64) {
-          imageBase64 = part.image.base64;
-          break;
-        }
-        if (part.type === "image_url" && part.image_url?.url?.startsWith("data:")) {
-          imageBase64 = part.image_url.url.split(",")[1];
-          break;
-        }
-      }
-    } else if (message?.content && typeof message.content === "string") {
-      // Check if the content itself contains base64 data
-      const match = message.content.match(/data:image\/[^;]+;base64,([A-Za-z0-9+/=]+)/);
-      if (match) imageBase64 = match[1];
-    }
-
-    // Also check inline_data format
-    if (!imageBase64 && message?.content && Array.isArray(message.content)) {
-      for (const part of message.content) {
-        if (part.inline_data?.data) {
-          imageBase64 = part.inline_data.data;
-          break;
-        }
+    if (message?.images && Array.isArray(message.images) && message.images.length > 0) {
+      const imgUrl = message.images[0]?.image_url?.url;
+      if (imgUrl?.startsWith("data:image/")) {
+        imageBase64 = imgUrl.split(",")[1];
       }
     }
 
     if (!imageBase64) {
-      console.error("AI response structure:", JSON.stringify(aiData).substring(0, 500));
+      console.error("AI response structure:", JSON.stringify(aiData).substring(0, 1000));
       throw new Error("No image data in AI response");
     }
 
