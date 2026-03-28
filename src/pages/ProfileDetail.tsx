@@ -136,6 +136,19 @@ const ProfileDetail = () => {
               </div>
             </div>
             <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => fetchPostsMutation.mutate()}
+                disabled={fetchPostsMutation.isPending}
+              >
+                {fetchPostsMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
+                Extraire les publications
+              </Button>
               <Button variant="outline" size="sm" asChild>
                 <a href={profile.linkedin_url} target="_blank" rel="noopener noreferrer">
                   <ExternalLink className="h-4 w-4" /> LinkedIn
