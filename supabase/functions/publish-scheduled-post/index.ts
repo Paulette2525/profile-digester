@@ -72,6 +72,20 @@ serve(async (req) => {
         formData.append("account_id", accountId);
         formData.append("text", post.content);
 
+        // Attach image if available
+        if (post.image_url && post.image_url.startsWith("http")) {
+          try {
+            const imgRes = await fetch(post.image_url);
+            if (imgRes.ok) {
+              const imgBlob = await imgRes.blob();
+              formData.append("media", imgBlob, "visual.png");
+              console.log("Image attached to post:", post.id);
+            }
+          } catch (imgErr) {
+            console.error("Failed to attach image, publishing without it:", imgErr);
+          }
+        }
+
         const publishRes = await fetch(`https://${UNIPILE_DSN}/api/v1/posts`, {
           method: "POST",
           headers: {
