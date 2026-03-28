@@ -99,18 +99,21 @@ export type Database = {
           created_at: string
           id: string
           idea_text: string
+          image_url: string | null
           used: boolean
         }
         Insert: {
           created_at?: string
           id?: string
           idea_text: string
+          image_url?: string | null
           used?: boolean
         }
         Update: {
           created_at?: string
           id?: string
           idea_text?: string
+          image_url?: string | null
           used?: boolean
         }
         Relationships: []
@@ -170,6 +173,44 @@ export type Database = {
             columns: ["profile_id"]
             isOneToOne: false
             referencedRelation: "tracked_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      post_dm_rules: {
+        Row: {
+          created_at: string | null
+          dm_message: string
+          id: string
+          is_active: boolean | null
+          post_id: string | null
+          resource_url: string | null
+          trigger_keyword: string
+        }
+        Insert: {
+          created_at?: string | null
+          dm_message: string
+          id?: string
+          is_active?: boolean | null
+          post_id?: string | null
+          resource_url?: string | null
+          trigger_keyword: string
+        }
+        Update: {
+          created_at?: string | null
+          dm_message?: string
+          id?: string
+          is_active?: boolean | null
+          post_id?: string | null
+          resource_url?: string | null
+          trigger_keyword?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_dm_rules_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "suggested_posts"
             referencedColumns: ["id"]
           },
         ]
@@ -306,65 +347,107 @@ export type Database = {
       }
       user_memory: {
         Row: {
+          achievements: string | null
           additional_notes: string | null
           ambitions: string | null
+          audience_pain_points: string | null
+          brand_keywords: string[] | null
+          call_to_action_style: string | null
           company: string | null
+          competitors: string | null
+          content_pillars: string[] | null
           content_themes: string[] | null
           content_types: string[] | null
           created_at: string
+          differentiators: string | null
           expertise_areas: string | null
           full_name: string | null
+          goal_timeline: string | null
           id: string
           industry: string | null
+          key_results: string | null
+          linkedin_goals: string | null
           offers_description: string | null
           personal_story: string | null
           posting_frequency: string | null
           preferred_formats: string | null
           profession: string | null
           target_audience: string | null
+          target_connections: number | null
+          target_engagement_rate: number | null
+          target_followers: number | null
           tone_of_voice: string | null
+          unique_methodology: string | null
           updated_at: string
           values: string | null
         }
         Insert: {
+          achievements?: string | null
           additional_notes?: string | null
           ambitions?: string | null
+          audience_pain_points?: string | null
+          brand_keywords?: string[] | null
+          call_to_action_style?: string | null
           company?: string | null
+          competitors?: string | null
+          content_pillars?: string[] | null
           content_themes?: string[] | null
           content_types?: string[] | null
           created_at?: string
+          differentiators?: string | null
           expertise_areas?: string | null
           full_name?: string | null
+          goal_timeline?: string | null
           id?: string
           industry?: string | null
+          key_results?: string | null
+          linkedin_goals?: string | null
           offers_description?: string | null
           personal_story?: string | null
           posting_frequency?: string | null
           preferred_formats?: string | null
           profession?: string | null
           target_audience?: string | null
+          target_connections?: number | null
+          target_engagement_rate?: number | null
+          target_followers?: number | null
           tone_of_voice?: string | null
+          unique_methodology?: string | null
           updated_at?: string
           values?: string | null
         }
         Update: {
+          achievements?: string | null
           additional_notes?: string | null
           ambitions?: string | null
+          audience_pain_points?: string | null
+          brand_keywords?: string[] | null
+          call_to_action_style?: string | null
           company?: string | null
+          competitors?: string | null
+          content_pillars?: string[] | null
           content_themes?: string[] | null
           content_types?: string[] | null
           created_at?: string
+          differentiators?: string | null
           expertise_areas?: string | null
           full_name?: string | null
+          goal_timeline?: string | null
           id?: string
           industry?: string | null
+          key_results?: string | null
+          linkedin_goals?: string | null
           offers_description?: string | null
           personal_story?: string | null
           posting_frequency?: string | null
           preferred_formats?: string | null
           profession?: string | null
           target_audience?: string | null
+          target_connections?: number | null
+          target_engagement_rate?: number | null
+          target_followers?: number | null
           tone_of_voice?: string | null
+          unique_methodology?: string | null
           updated_at?: string
           values?: string | null
         }

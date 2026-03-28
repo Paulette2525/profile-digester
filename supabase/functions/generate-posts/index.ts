@@ -13,68 +13,74 @@ serve(async (req) => {
     const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
     if (!OPENROUTER_API_KEY) throw new Error("OPENROUTER_API_KEY not configured");
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
+    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
     const { analysis_id, count = 5, topic } = await req.json();
     if (!analysis_id) throw new Error("Missing analysis_id");
 
-    const { data: analysis, error: aErr } = await supabase
-      .from("virality_analyses")
-      .select("*")
-      .eq("id", analysis_id)
-      .single();
+    const { data: analysis, error: aErr } = await supabase.from("virality_analyses").select("*").eq("id", analysis_id).single();
     if (aErr || !analysis) throw new Error("Analysis not found");
     if (analysis.status !== "done") throw new Error("Analysis not complete");
 
     const factors = analysis.analysis_json;
 
-    // Fetch user memory for personalization
     const { data: memory } = await supabase.from("user_memory").select("*").limit(1).maybeSingle();
     const { data: photos } = await supabase.from("user_photos").select("*");
     const { data: ideas } = await supabase.from("content_ideas").select("*").eq("used", false).limit(count);
 
     let memoryContext = "";
     if (memory) {
+      const m = memory as any;
       memoryContext = `\n\nINFORMATIONS SUR L'AUTEUR:
-- Nom: ${memory.full_name || "Non renseigné"}
-- Profession: ${memory.profession || "Non renseigné"}
-- Entreprise: ${memory.company || "Non renseigné"}
-- Industrie: ${memory.industry || "Non renseigné"}
-- Audience cible: ${memory.target_audience || "Non renseigné"}
-- Offres/Services: ${memory.offers_description || "Non renseigné"}
-- Ambitions: ${memory.ambitions || "Non renseigné"}
-- Valeurs: ${(memory as any).values || "Non renseigné"}
-- Ton de voix: ${memory.tone_of_voice || "Non renseigné"}
-- Thèmes de contenu: ${(memory.content_themes as string[])?.join(", ") || "Non renseigné"}
-- Types de contenu: ${(memory.content_types as string[])?.join(", ") || "Non renseigné"}
-- Histoire personnelle: ${memory.personal_story || "Non renseigné"}
-- Domaines d'expertise: ${memory.expertise_areas || "Non renseigné"}
-- Formats préférés: ${memory.preferred_formats || "Non renseigné"}
-- Notes additionnelles: ${memory.additional_notes || "Non renseigné"}
+- Nom: ${m.full_name || "Non renseigné"}
+- Profession: ${m.profession || "Non renseigné"}
+- Entreprise: ${m.company || "Non renseigné"}
+- Industrie: ${m.industry || "Non renseigné"}
+- Audience cible: ${m.target_audience || "Non renseigné"}
+- Problèmes de l'audience: ${m.audience_pain_points || "Non renseigné"}
+- Offres/Services: ${m.offers_description || "Non renseigné"}
+- Ambitions: ${m.ambitions || "Non renseigné"}
+- Valeurs: ${m.values || "Non renseigné"}
+- Ton de voix: ${m.tone_of_voice || "Non renseigné"}
+- Thèmes: ${(m.content_themes as string[])?.join(", ") || "Non renseigné"}
+- Piliers de contenu: ${(m.content_pillars as string[])?.join(", ") || "Non renseigné"}
+- Mots-clés de marque: ${(m.brand_keywords as string[])?.join(", ") || "Non renseigné"}
+- Types de contenu: ${(m.content_types as string[])?.join(", ") || "Non renseigné"}
+- Histoire personnelle: ${m.personal_story || "Non renseigné"}
+- Domaines d'expertise: ${m.expertise_areas || "Non renseigné"}
+- Réalisations majeures: ${m.achievements || "Non renseigné"}
+- Résultats marquants: ${m.key_results || "Non renseigné"}
+- Méthodologie unique: ${m.unique_methodology || "Non renseigné"}
+- Ce qui le différencie: ${m.differentiators || "Non renseigné"}
+- Style de CTA: ${m.call_to_action_style || "Non renseigné"}
+- Formats préférés: ${m.preferred_formats || "Non renseigné"}
+- Concurrents/Leaders: ${m.competitors || "Non renseigné"}
+- Objectifs LinkedIn: ${m.linkedin_goals || "Non renseigné"}
+- Objectif abonnés: ${m.target_followers || "Non défini"}
+- Objectif engagement: ${m.target_engagement_rate ? m.target_engagement_rate + "%" : "Non défini"}
+- Horizon: ${m.goal_timeline || "Non défini"}
+- Notes: ${m.additional_notes || "Non renseigné"}
 
-IMPORTANT: Utilise ces informations pour rendre chaque post authentique et personnel. Le ton doit correspondre à celui de l'auteur.`;
+IMPORTANT: Utilise ces informations pour créer des posts qui positionnent l'auteur comme LEADER dans son domaine. Les posts doivent refléter son expertise, ses réalisations et ses résultats concrets. Le ton doit correspondre exactement à celui de l'auteur. Chaque post doit contribuer à atteindre ses objectifs LinkedIn.`;
     }
 
     let ideasContext = "";
     if (ideas && ideas.length > 0) {
-      ideasContext = `\n\nIDÉES DE PUBLICATIONS À INTÉGRER:\n${ideas.map((i: any, idx: number) => `${idx + 1}. ${i.idea_text}`).join("\n")}
-\nEssaie d'intégrer ces idées dans les posts générés quand c'est pertinent.`;
+      ideasContext = `\n\nIDÉES DE PUBLICATIONS À INTÉGRER:\n${ideas.map((i: any, idx: number) => `${idx + 1}. ${i.idea_text}${i.image_url ? " [IMAGE ASSOCIÉE]" : ""}`).join("\n")}
+\nIntègre ces idées dans les posts générés. Si une idée a une [IMAGE ASSOCIÉE], le post correspondant doit utiliser cette image.`;
     }
 
     let photosContext = "";
     if (photos && photos.length > 0) {
-      photosContext = `\n\nL'auteur dispose de ${photos.length} photo(s) personnelles. Pour certains posts, suggère l'utilisation d'une photo personnelle en mettant "use_personal_photo": true dans la réponse.`;
+      photosContext = `\n\nL'auteur dispose de ${photos.length} photo(s) personnelles. Pour certains posts, suggère l'utilisation d'une photo personnelle en mettant "use_personal_photo": true.`;
     }
 
-    const prompt = `Tu es un expert copywriter LinkedIn. En te basant sur l'analyse de viralité suivante, génère ${count} publications LinkedIn ORIGINALES et UNIQUES.
+    const prompt = `Tu es un expert copywriter LinkedIn spécialisé dans le personal branding et la viralité. En te basant sur l'analyse de viralité suivante, génère ${count} publications LinkedIn ORIGINALES, UNIQUES et conçues pour MAXIMISER la viralité et positionner l'auteur comme un LEADER.
 
 ANALYSE DE VIRALITÉ:
 ${JSON.stringify(factors, null, 2)}
 
-${topic ? `THÈME SOUHAITÉ: ${topic}` : "Propose des thèmes variés et pertinents."}${memoryContext}${ideasContext}${photosContext}
+${topic ? `THÈME SOUHAITÉ: ${topic}` : "Propose des thèmes variés et stratégiques."}${memoryContext}${ideasContext}${photosContext}
 
 RÈGLES IMPORTANTES:
 - Chaque post doit être UNIQUE et ne PAS copier les exemples analysés
@@ -85,20 +91,17 @@ RÈGLES IMPORTANTES:
 - Varier les structures (storytelling, liste, question, provocation, témoignage)
 - Inclure un CTA clair à la fin
 - Écrire en français
-${memory ? "- Les posts doivent refléter la personnalité, l'expertise et le ton de l'auteur" : ""}
+${memory ? "- Les posts doivent refléter la personnalité, l'expertise, les réalisations et le ton de l'auteur\n- Intégrer ses résultats concrets et sa méthodologie unique pour renforcer sa crédibilité\n- Utiliser ses mots-clés de marque naturellement" : ""}
 
-Pour chaque post, fournis: le contenu complet, un topic/thème, un score de viralité estimé (1-100)${photos && photos.length > 0 ? ", et use_personal_photo (boolean)" : ""}.`;
+Pour chaque post: contenu complet, topic/thème, score de viralité estimé (1-100)${photos && photos.length > 0 ? ", use_personal_photo (boolean)" : ""}.`;
 
     const aiRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-        "Content-Type": "application/json",
-      },
+      headers: { Authorization: `Bearer ${OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model: "anthropic/claude-sonnet-4",
         messages: [
-          { role: "system", content: "Tu es un copywriter LinkedIn expert. Génère des posts viraux en JSON." },
+          { role: "system", content: "Tu es un copywriter LinkedIn expert en personal branding. Génère des posts viraux en JSON." },
           { role: "user", content: prompt },
         ],
         tools: [{
@@ -152,28 +155,25 @@ Pour chaque post, fournis: le contenu complet, un topic/thème, un score de vira
       generatedPosts = parsed.posts || [];
     }
 
-    // Pick a random personal photo for posts that suggest it
     const photoUrls = photos?.map((p: any) => p.image_url) || [];
+    const ideaImages = (ideas || []).filter((i: any) => i.image_url).map((i: any) => i.image_url);
 
-    const toInsert = generatedPosts.map(p => {
+    const toInsert = generatedPosts.map((p, idx) => {
       const usePhoto = p.use_personal_photo && photoUrls.length > 0;
+      const ideaImage = ideaImages[idx] || null;
       return {
         content: p.content,
         topic: p.topic,
         virality_score: Math.min(100, Math.max(0, Math.round(p.virality_score))),
         source_analysis_id: analysis_id,
         status: "draft",
-        image_url: usePhoto ? photoUrls[Math.floor(Math.random() * photoUrls.length)] : null,
+        image_url: ideaImage || (usePhoto ? photoUrls[Math.floor(Math.random() * photoUrls.length)] : null),
       };
     });
 
-    const { data: saved, error: sErr } = await supabase
-      .from("suggested_posts")
-      .insert(toInsert)
-      .select("*");
+    const { data: saved, error: sErr } = await supabase.from("suggested_posts").insert(toInsert).select("*");
     if (sErr) throw sErr;
 
-    // Mark used ideas
     if (ideas && ideas.length > 0) {
       const ideaIds = ideas.map((i: any) => i.id);
       await supabase.from("content_ideas").update({ used: true }).in("id", ideaIds);
