@@ -1,51 +1,58 @@
 
 
-## Plan : Refonte Settings + Fix Stats Abonnes/Connexions + Actualisation dynamique
+## Plan : Dictee vocale + Optimisation IA sur les champs Memoire
 
-### 1. Page Configuration : Connecter/Deconnecter LinkedIn + Nettoyage
+### Objectif
+Ajouter deux boutons sur chaque champ textarea de la section "Expertise & Realisations" (et les autres textareas) :
+1. **Micro** : enregistre la voix via l'API Web Speech Recognition du navigateur et transcrit le texte dans le champ
+2. **Optimiser** : envoie le texte du champ a une edge function qui utilise Lovable AI pour ameliorer/corriger le texte, puis remplace le contenu du champ
 
-**Modifications sur `SettingsPage.tsx` :**
-- Supprimer entierement la carte "Cle API Unipile" et les references a Unipile dans les descriptions
-- Quand le compte est connecte, ajouter un bouton "Deconnecter" qui appelle une nouvelle edge function `disconnect-linkedin`
-- Simplifier les textes : "Connectez votre compte LinkedIn pour activer toutes les fonctionnalites"
-- Apres connexion/deconnexion, invalider les queries React Query (`account-stats`, etc.) pour tout rafraichir
+### Architecture
 
-**Nouvelle edge function `disconnect-linkedin` :**
-- Appelle `DELETE /api/v1/accounts/{accountId}` sur Unipile pour supprimer le compte LinkedIn connecte
-- Retourne le statut de la deconnexion
+```text
+┌─────────────────────────────────────────┐
+│  Champ textarea                         │
+│  [contenu transcrit ou tape]            │
+│                                         │
+│  🎤 Dicter    ✨ Optimiser              │
+└─────────────────────────────────────────┘
+```
 
-### 2. Fix Stats Abonnes/Connexions (actuellement 0)
+### Implementation
 
-**Probleme identifie :** L'endpoint Unipile `GET /api/v1/accounts` retourne les comptes mais les champs `followers_count` / `connections_count` ne sont pas presents dans la reponse. Le resultat est toujours 0.
+**1. Composant `Field` enrichi (dans MemoirePage.tsx)**
 
-**Solution dans `fetch-account-stats` :**
-- Apres avoir trouve le compte LinkedIn, appeler `GET /api/v1/users/{accountId}/profile` ou `GET /api/v1/accounts/{accountId}` (endpoint individuel) pour obtenir les stats detaillees
-- Logger la reponse complete pour identifier les bons noms de champs
-- Fallback : si les stats ne sont pas disponibles via l'API accounts, utiliser l'endpoint `/api/v1/users/me?account_id={id}` qui retourne le profil complet avec followers/connections
+Pour les champs `textarea`, ajouter sous le textarea :
+- Bouton **Dicter** (icone `Mic`) : utilise `webkitSpeechRecognition` / `SpeechRecognition` (API native du navigateur, pas besoin de service externe). Quand actif, l'icone passe en rouge et le texte dicte s'ajoute au contenu existant du champ.
+- Bouton **Optimiser** (icone `Sparkles`) : appelle l'edge function `optimize-text` qui reformule et corrige le texte via Lovable AI.
 
-### 3. Actualisation dynamique des donnees
+Pas de dependance externe — le navigateur gere la reconnaissance vocale nativement en francais (`lang: 'fr-FR'`).
 
-**React Query invalidation automatique :**
-- Sur `MemoirePage` : apres sauvegarde, invalider `["account-stats"]`, `["content-strategy"]`
-- Sur `Index` (dashboard) : apres sync, invalider `["account-stats"]`, `["published-posts-analysis"]`
-- Reduire le `staleTime` de `account-stats` a 2 minutes au lieu de 10 pour un rafraichissement plus frequent
-- Ajouter `refetchOnWindowFocus: true` sur les queries critiques (account-stats, published-posts)
+**2. Edge function `optimize-text`**
+
+Recoit `{ text, fieldContext }` et retourne le texte optimise. Utilise Lovable AI (`google/gemini-3-flash-preview`) avec un prompt qui :
+- Corrige les erreurs de transcription
+- Ameliore la clarte et le style professionnel
+- Garde le sens et le ton de l'original
+- Retourne uniquement le texte corrige
+
+**3. Champs concernes**
+
+Tous les champs `textarea` de la page Memoire (expertise_areas, achievements, key_results, unique_methodology, differentiators, audience_pain_points, personal_story, ambitions, etc.)
 
 ### Fichiers a creer/modifier
 
 | Fichier | Action |
 |---------|--------|
-| `src/pages/SettingsPage.tsx` | Supprimer carte API, ajouter bouton Deconnecter, nettoyer textes |
-| `supabase/functions/disconnect-linkedin/index.ts` | Creer - supprime le compte LinkedIn via Unipile |
-| `supabase/functions/fetch-account-stats/index.ts` | Modifier - utiliser endpoint profil pour obtenir les vrais stats |
-| `src/pages/AnalyserPage.tsx` | Reduire staleTime, ajouter refetchOnWindowFocus |
-| `src/pages/MemoirePage.tsx` | Invalider queries apres sauvegarde |
-| `src/pages/Index.tsx` | Invalider queries apres sync |
+| `supabase/functions/optimize-text/index.ts` | Creer — optimise un texte via Lovable AI |
+| `src/pages/MemoirePage.tsx` | Modifier le composant `Field` pour ajouter les boutons Dicter et Optimiser sur les textareas |
 
 ### Section technique
 
-- `disconnect-linkedin` appelle `DELETE https://{DSN}/api/v1/accounts/{accountId}` avec la cle API
-- `fetch-account-stats` essaie d'abord `GET /api/v1/accounts/{id}` (endpoint individuel), puis fallback sur les champs de la liste
-- On log `JSON.stringify(linkedin)` dans la console pour identifier les vrais noms de champs disponibles
-- Les invalidations React Query utilisent `queryClient.invalidateQueries({ queryKey: [...] })`
+- Web Speech API : `new (window.SpeechRecognition || window.webkitSpeechRecognition)()` avec `lang = 'fr-FR'`, `continuous = true`, `interimResults = true`
+- Le texte dicte s'**ajoute** au contenu existant du champ (ne remplace pas)
+- L'edge function `optimize-text` utilise `LOVABLE_API_KEY` (deja configure) via `https://ai.gateway.lovable.dev/v1/chat/completions`
+- Prompt systeme : "Tu es un expert en communication LinkedIn. Corrige les erreurs, ameliore la clarte et le style professionnel du texte suivant. Garde le meme sens. Retourne uniquement le texte corrige."
+- Le bouton Optimiser est desactive si le champ est vide
+- Indicateur de chargement pendant l'optimisation
 
