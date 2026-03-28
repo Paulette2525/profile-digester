@@ -4,12 +4,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
-import { Zap, Loader2, BarChart3, Target, Lightbulb, Clock, Hash } from "lucide-react";
+import { Zap, Loader2, BarChart3, Target, Lightbulb, Clock, Hash, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from "recharts";
 
 export default function TraitementPage() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [chartsOpen, setChartsOpen] = useState(true);
+  const [factorsOpen, setFactorsOpen] = useState(false);
 
   const { data: analyses, refetch } = useQuery({
     queryKey: ["virality-analyses"],
@@ -95,51 +98,61 @@ export default function TraitementPage() {
               </CardContent>
             </Card>
 
-            {/* Charts */}
-            <div className="grid gap-6 md:grid-cols-2">
-              {factorsChartData.length > 0 && (
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <BarChart3 className="h-4 w-4" />
-                      Facteurs de viralité (scores)
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ResponsiveContainer width="100%" height={300}>
-                      <BarChart data={factorsChartData} layout="vertical" margin={{ left: 10, right: 20 }}>
-                        <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                        <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 11 }} />
-                        <YAxis dataKey="name" type="category" width={120} tick={{ fontSize: 10 }} />
-                        <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "12px" }} />
-                        <Bar dataKey="score" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </CardContent>
-                </Card>
-              )}
+            {/* Charts - Collapsible */}
+            <Collapsible open={chartsOpen} onOpenChange={setChartsOpen}>
+              <CollapsibleTrigger asChild>
+                <Button variant="ghost" className="w-full justify-between text-base font-semibold">
+                  <span className="flex items-center gap-2"><BarChart3 className="h-4 w-4" /> Graphiques</span>
+                  {chartsOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="grid gap-6 md:grid-cols-2 mt-2">
+                  {factorsChartData.length > 0 && (
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-base flex items-center gap-2">
+                          <BarChart3 className="h-4 w-4" />
+                          Facteurs de viralité (scores)
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <ResponsiveContainer width="100%" height={300}>
+                          <BarChart data={factorsChartData} layout="vertical" margin={{ left: 10, right: 20 }}>
+                            <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                            <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 11 }} />
+                            <YAxis dataKey="name" type="category" width={120} tick={{ fontSize: 10 }} />
+                            <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "12px" }} />
+                            <Bar dataKey="score" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </CardContent>
+                    </Card>
+                  )}
 
-              {radarData.length > 0 && (
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <Target className="h-4 w-4" />
-                      Profil de viralité
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ResponsiveContainer width="100%" height={300}>
-                      <RadarChart data={radarData}>
-                        <PolarGrid className="stroke-border" />
-                        <PolarAngleAxis dataKey="factor" tick={{ fontSize: 9 }} />
-                        <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fontSize: 9 }} />
-                        <Radar name="Score" dataKey="value" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" fillOpacity={0.3} />
-                      </RadarChart>
-                    </ResponsiveContainer>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
+                  {radarData.length > 0 && (
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-base flex items-center gap-2">
+                          <Target className="h-4 w-4" />
+                          Profil de viralité
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <ResponsiveContainer width="100%" height={300}>
+                          <RadarChart data={radarData}>
+                            <PolarGrid className="stroke-border" />
+                            <PolarAngleAxis dataKey="factor" tick={{ fontSize: 9 }} />
+                            <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fontSize: 9 }} />
+                            <Radar name="Score" dataKey="value" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" fillOpacity={0.3} />
+                          </RadarChart>
+                        </ResponsiveContainer>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
 
             {/* Content Patterns */}
             {analysisData.content_patterns && (
@@ -208,31 +221,38 @@ export default function TraitementPage() {
               </Card>
             </div>
 
-            {/* Factor Details */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Détail des facteurs</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {analysisData.factors?.map((f: any, i: number) => (
-                  <div key={i} className="rounded-lg border p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-semibold">{f.name}</h4>
-                      <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-bold text-primary">{f.score}/100</span>
-                    </div>
-                    <p className="text-sm text-muted-foreground mb-2">{f.description}</p>
-                    {f.examples?.length > 0 && (
-                      <div className="space-y-1">
-                        <span className="text-xs font-medium text-muted-foreground">Exemples :</span>
-                        {f.examples.map((ex: string, j: number) => (
-                          <div key={j} className="ml-2 text-xs italic text-muted-foreground bg-muted rounded p-2">"{ex}"</div>
-                        ))}
+            {/* Factor Details - Collapsible */}
+            <Collapsible open={factorsOpen} onOpenChange={setFactorsOpen}>
+              <CollapsibleTrigger asChild>
+                <Button variant="ghost" className="w-full justify-between text-base font-semibold">
+                  <span>Détail des facteurs ({analysisData.factors?.length || 0})</span>
+                  {factorsOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <Card className="mt-2">
+                  <CardContent className="space-y-4 pt-6">
+                    {analysisData.factors?.map((f: any, i: number) => (
+                      <div key={i} className="rounded-lg border p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="font-semibold">{f.name}</h4>
+                          <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-bold text-primary">{f.score}/100</span>
+                        </div>
+                        <p className="text-sm text-muted-foreground mb-2">{f.description}</p>
+                        {f.examples?.length > 0 && (
+                          <div className="space-y-1">
+                            <span className="text-xs font-medium text-muted-foreground">Exemples :</span>
+                            {f.examples.map((ex: string, j: number) => (
+                              <div key={j} className="ml-2 text-xs italic text-muted-foreground bg-muted rounded p-2">"{ex}"</div>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
+                    ))}
+                  </CardContent>
+                </Card>
+              </CollapsibleContent>
+            </Collapsible>
           </>
         )}
 
