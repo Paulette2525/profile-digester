@@ -25,7 +25,7 @@ export default function EngagementPage() {
     queryKey: ["auto-engagement-config"],
     staleTime: 1000 * 60 * 5,
     queryFn: async () => {
-      const { data, error } = await supabase.from("auto_engagement_config").select("*").limit(1).single();
+      const { data, error } = await supabase.from("auto_engagement_config").select("*").limit(1).maybeSingle();
       if (error) throw error;
       return data;
     },
