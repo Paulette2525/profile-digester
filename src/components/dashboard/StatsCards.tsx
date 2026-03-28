@@ -1,19 +1,21 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { Users, FileText, ThumbsUp, MessageCircle } from "lucide-react";
+import { Users, FileText, ThumbsUp, MessageCircle, Eye } from "lucide-react";
 
 interface StatsCardsProps {
   profilesCount: number;
   postsCount: number;
   totalLikes: number;
   totalComments: number;
+  totalImpressions?: number;
 }
 
-export function StatsCards({ profilesCount, postsCount, totalLikes, totalComments }: StatsCardsProps) {
+export function StatsCards({ profilesCount, postsCount, totalLikes, totalComments, totalImpressions = 0 }: StatsCardsProps) {
   const stats = [
     { label: "Profils suivis", value: profilesCount, icon: Users, color: "text-primary" },
     { label: "Publications", value: postsCount, icon: FileText, color: "text-linkedin" },
-    { label: "Total likes", value: totalLikes, icon: ThumbsUp, color: "text-success" },
+    { label: "Total réactions", value: totalLikes, icon: ThumbsUp, color: "text-success" },
     { label: "Total commentaires", value: totalComments, icon: MessageCircle, color: "text-primary" },
+    ...(totalImpressions > 0 ? [{ label: "Impressions", value: totalImpressions, icon: Eye, color: "text-muted-foreground" }] : []),
   ];
 
   return (
