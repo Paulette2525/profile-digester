@@ -36,7 +36,7 @@ export default function AuthPage() {
     if (error) {
       toast.error(error.message);
     } else {
-      toast.success("Vérifiez votre email pour confirmer votre inscription !");
+      toast.success("Compte créé avec succès !");
     }
     setLoading(false);
   };
