@@ -1,54 +1,68 @@
 
 
-## Plan : Optimisation Performance + Fix Stats Abonnés/Connexions
+## Etat actuel de la plateforme et actions restantes
 
-### Probleme identifie : Stats Abonnés/Connexions
-L'edge function `fetch-account-stats` appelle `GET /api/v1/users/me` sur Unipile mais reçoit des erreurs 504 (timeout). Il faut :
-- Ajouter un mecanisme de retry (comme deja fait dans `check-linkedin-connection`)
-- Utiliser le bon endpoint Unipile : d'abord lister les comptes (`/api/v1/accounts`) pour trouver le compte LinkedIn, puis recuperer les stats de ce compte specifique via `/api/v1/accounts/{account_id}`
-- Retourner des valeurs par defaut en cas d'echec au lieu de crasher la page
+Apres analyse du code, voici un audit complet de ce qui est fait, ce qui fonctionne, et ce qu'il reste a faire pour finaliser.
 
-### Optimisations Performance (toutes les pages)
+### Ce qui est deja construit
 
-**1. Caching agressif avec staleTime**
-Ajouter `staleTime: 5-10 min` sur toutes les queries qui n'en ont pas encore :
-- `EngagementPage` : config, logs, published posts, DM rules
-- `PlanifierPage` : planned-posts
-- `SuggestedPostsPage` : virality-analyses, suggested-posts
-- `TraitementPage` : virality-analyses
-- `MemoirePage` : user-memory, photos, ideas
+| Module | Statut |
+|--------|--------|
+| Dashboard (Index) | Fonctionnel — profils suivis, posts recents, sync LinkedIn |
+| Ajout de profils (AddProfile) | Fonctionnel |
+| Traitement (analyse de viralite) | Fonctionnel |
+| Posts Suggeres (generation AI) | Fonctionnel |
+| Planifier (scheduling) | Fonctionnel |
+| Analyser (stats + graphes) | Fonctionnel mais stats abonnes/connexions dependent de la reponse Unipile |
+| Engagement (auto-reply, auto-DM, auto-like) | Fonctionnel + cron horaire |
+| Memoire (profil enrichi + idees + photos) | Fonctionnel |
+| Configuration (LinkedIn connection) | Fonctionnel |
+| Sidebar + Lazy loading | Fonctionnel |
+| Performance (staleTime, limits) | Applique |
 
-**2. Limiter les requetes initiales**
-- Ajouter `.limit()` sur les queries qui chargent tout (ex: `suggested_posts` dans SuggestedPostsPage charge tous les posts sans limit)
-- Ajouter des `.limit(50)` raisonnables partout
+### Bugs mineurs a corriger
 
-**3. Gestion d'erreur gracieuse sur fetch-account-stats**
-- Le frontend (`AnalyserPage`) gere deja le cas d'erreur en retournant `{ followers: 0, connections: 0 }` — c'est correct
-- Mais l'edge function renvoie un status 500, ce qui affiche des erreurs dans la console. Il faut que la function retourne un fallback 200 avec des valeurs a 0 en cas d'echec Unipile
+1. **Warnings `forwardRef`** : `ProfileCard` et `PostCard` sont utilises comme enfants de `Link` sans `forwardRef` — warning dans la console
+2. **Page Engagement : `single()` crash** si aucune config n'existe encore (premiere utilisation) — devrait utiliser `maybeSingle()`
 
-### Fichiers a modifier
+### Ce qu'il reste a faire pour finaliser
 
-| Fichier | Changement |
-|---------|-----------|
-| `supabase/functions/fetch-account-stats/index.ts` | Retry + bon endpoint Unipile + fallback gracieux |
-| `src/pages/EngagementPage.tsx` | Ajouter staleTime sur toutes les queries |
-| `src/pages/PlanifierPage.tsx` | Ajouter staleTime |
-| `src/pages/SuggestedPostsPage.tsx` | Ajouter staleTime + limit sur suggested-posts |
-| `src/pages/TraitementPage.tsx` | Ajouter staleTime |
-| `src/pages/MemoirePage.tsx` | Ajouter staleTime |
+**1. Authentification utilisateur (CRITIQUE)**
+Actuellement toutes les tables ont des RLS policies `true` (acces public). N'importe qui peut lire/modifier les donnees. Il faut :
+- Ajouter un systeme de login/signup
+- Ajouter `user_id` sur les tables principales
+- Remplacer les RLS par des policies basees sur `auth.uid()`
 
-### Detail technique : fix fetch-account-stats
+**2. Publication automatique des posts schedules**
+La fonction `publish-scheduled-post` existe mais il n'y a pas de cron configure pour l'executer automatiquement. Les posts schedules ne se publient pas tout seuls.
 
-```typescript
-// 1. Lister les comptes pour trouver le LinkedIn account_id
-const accountsRes = await fetchWithRetry(`/api/v1/accounts`, ...);
-const linkedin = items.find(a => a.type === "LINKEDIN");
+**3. Generation de visuels**
+La fonction `generate-visual` existe mais n'est pas connectee dans l'UI — les posts generes n'ont pas de visuels automatiques.
 
-// 2. Recuperer les stats du compte specifique
-// Utiliser les champs disponibles dans la reponse accounts
-// (followers_count, connections_count sont dans l'objet account)
+**4. Recuperation des stats de posts publies**
+La fonction `fetch-post-stats` existe pour recuperer likes/comments/shares des posts publies via Unipile, mais le bouton "Actualiser stats" sur la page Analyser devrait l'utiliser pour chaque post.
 
-// 3. En cas d'echec total, retourner 200 avec valeurs a 0
-// au lieu de 500 pour ne pas bloquer la page
-```
+**5. Tests end-to-end du workflow complet**
+Verifier que le flux complet fonctionne :
+- Remplir la memoire → Ajouter un profil → Sync → Analyser viralite → Generer posts → Planifier → Publier → Auto-engagement
+
+### Recommandation d'ordre
+
+| Priorite | Action | Effort |
+|----------|--------|--------|
+| 1 | Fix `maybeSingle()` sur EngagementPage | 2 min |
+| 2 | Fix `forwardRef` sur ProfileCard/PostCard | 5 min |
+| 3 | Ajouter cron pour `publish-scheduled-post` | 10 min |
+| 4 | Connecter `generate-visual` dans l'UI | 30 min |
+| 5 | Ameliorer fetch-post-stats sur Analyser | 20 min |
+| 6 | Ajouter authentification + securiser RLS | 1-2h |
+
+### Section technique
+
+- Le fix `maybeSingle()` remplace `.single()` ligne 28 de `EngagementPage.tsx` pour eviter un crash quand la table `auto_engagement_config` est vide
+- Les `forwardRef` sur `ProfileCard.tsx` et `PostCard.tsx` suppriment les warnings React dans la console
+- Le cron pour `publish-scheduled-post` se configure dans `supabase/config.toml` comme celui de `auto-engage-comments`
+- L'authentification necessite une migration pour ajouter `user_id` sur `user_memory`, `suggested_posts`, `auto_engagement_config`, etc. puis des RLS policies avec `auth.uid() = user_id`
+
+Dis-moi quelles actions tu veux que j'implemente en priorite.
 
