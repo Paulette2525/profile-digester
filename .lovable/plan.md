@@ -1,67 +1,69 @@
 
 
-## Auto-Engagement LinkedIn : Reponses, Messages Prives, Likes
+## Plan : Page Memoire + Stats compte sur Analyser
 
-### Objectif
-Ajouter 3 fonctionnalites d'engagement automatique sur les commentaires recus sur les posts LinkedIn publies, pilotees via Unipile + OpenRouter (Claude) pour la generation de reponses.
+### 1. Page Analyser : Abonnes, connexions et evolution
 
-### Architecture
+**Ajouts sur `AnalyserPage.tsx` :**
+- Appeler une nouvelle edge function `fetch-account-stats` qui recupere via Unipile les stats du compte LinkedIn (nombre d'abonnes/followers, nombre de connexions)
+- Ajouter 2 cartes en haut : "Abonnes" et "Connexions"
+- Ajouter un graphe LineChart "Evolution de la performance" qui trace l'evolution dans le temps des likes, commentaires, impressions cumules par date de publication (a partir des posts publies existants)
 
-```text
-┌─────────────────────────────────────────────┐
-│           Page "Engagement"                  │
-│  ┌───────────┬───────────┬────────────────┐  │
-│  │ Auto-Reply│ Auto-DM   │ Auto-Like      │  │
-│  │ ON/OFF    │ ON/OFF    │ ON/OFF         │  │
-│  ├───────────┴───────────┴────────────────┤  │
-│  │ Historique des actions automatiques     │  │
-│  │ - Reponse a X sur post Y               │  │
-│  │ - DM envoye a Z                        │  │
-│  │ - Like sur commentaire de W            │  │
-│  └────────────────────────────────────────┘  │
-└─────────────────────────────────────────────┘
-```
+**Nouvelle edge function `fetch-account-stats/index.ts` :**
+- Appel Unipile `GET /api/v1/users/me` pour recuperer followers_count et connections_count
+- Retourne ces chiffres au frontend
 
-### Etape 1 : Table `auto_engagement_config` + `auto_engagement_logs`
+### 2. Page Memoire (`/memoire`)
 
-**Migration SQL :**
-- `auto_engagement_config` : stocke les toggles (auto_reply, auto_dm, auto_like), le prompt personnalise pour les reponses, le template DM
-- `auto_engagement_logs` : historique des actions (type, post_id, comment_id, author, texte envoye, statut, timestamp)
+**Nouvelle table `user_memory` :**
+- `id`, `created_at`, `updated_at`
+- `full_name`, `profession`, `company`, `industry`
+- `target_audience` (text), `offers_description` (text)
+- `ambitions` (text), `values` (text), `tone_of_voice` (text)
+- `content_themes` (text array), `content_types` (text array)
+- `personal_story` (text), `expertise_areas` (text)
+- `posting_frequency` (text), `preferred_formats` (text)
+- `additional_notes` (text)
 
-### Etape 2 : Edge Function `auto-engage-comments`
+**Nouvelle table `user_photos` :**
+- `id`, `created_at`, `image_url` (text), `description` (text)
 
-Logique :
-1. Recupere les commentaires recents non traites via Unipile (`GET /api/v1/posts/{id}/comments`)
-2. Pour chaque commentaire non encore dans `auto_engagement_logs` :
-   - **Auto-like** : `POST /api/v1/posts/comments/{comment_id}/reactions` via Unipile
-   - **Auto-reply** : Genere une reponse contextuelle via OpenRouter (Claude) puis `POST /api/v1/posts/{post_id}/comments` via Unipile
-   - **Auto-DM** : Envoie un message prive via `POST /api/v1/chats` (creation de chat) puis `POST /api/v1/chats/{chat_id}/messages` via Unipile
-3. Log chaque action dans `auto_engagement_logs`
+**Nouvelle table `content_ideas` :**
+- `id`, `created_at`, `idea_text` (text), `used` (boolean default false)
 
-### Etape 3 : Page UI `/engagement`
+**Storage bucket `user-photos` :** pour stocker les photos uploadees
 
-- 3 toggles (auto-reply, auto-dm, auto-like) avec switch ON/OFF
-- Champ textarea pour le prompt de reponse et le template DM
-- Tableau/liste des actions recentes avec statut (succes/erreur)
-- Bouton "Executer maintenant" pour declencher manuellement
+**Nouvelle page `src/pages/MemoirePage.tsx` :**
+- **Section 1 - Formulaire Profil** : formulaire complet avec tous les champs de `user_memory` (nom, profession, entreprise, audience cible, offres, ambitions, valeurs, ton, themes, types de contenu, histoire personnelle, expertises, frequence, formats preferes, notes)
+- **Section 2 - Mes Photos** : upload de photos avec description, grille d'apercu, suppression
+- **Section 3 - Idees de publications** : textarea pour ajouter des idees, liste des idees existantes avec option supprimer
 
-### Etape 4 : Navigation
+### 3. Integrer la memoire dans la generation de posts
 
-- Ajouter "Engagement" dans le groupe "Automation" de la sidebar (nouvelle section)
-- Route `/engagement` dans App.tsx avec lazy loading
+**Modifier `generate-posts/index.ts` :**
+- Avant de generer, recuperer les donnees de `user_memory`, `user_photos` et `content_ideas` non utilisees
+- Injecter dans le prompt : informations personnelles, ton, themes, idees de contenu
+- Quand des photos utilisateur existent, indiquer a l'IA de suggerer l'utilisation de photos personnelles dans certains posts (en ajoutant un champ `use_personal_photo: true` dans la reponse)
+- Marquer les `content_ideas` utilisees comme `used = true`
+
+**Modifier `analyze-virality/index.ts` :**
+- Recuperer les donnees `user_memory` pour contextualiser l'analyse
+
+### 4. Navigation
+
+- Ajouter "Memoire" dans le groupe "Gestion" de `AppSidebar.tsx` (icone Brain)
+- Route `/memoire` dans `App.tsx` avec lazy loading
 
 ### Fichiers a creer/modifier
 
 | Fichier | Action |
 |---------|--------|
-| Migration SQL | Creer 2 tables |
-| `supabase/functions/auto-engage-comments/index.ts` | Creer |
-| `src/pages/EngagementPage.tsx` | Creer |
+| Migration SQL | 3 tables + bucket storage |
+| `supabase/functions/fetch-account-stats/index.ts` | Creer |
+| `src/pages/MemoirePage.tsx` | Creer |
+| `src/pages/AnalyserPage.tsx` | Modifier (stats compte + graphe evolution) |
+| `supabase/functions/generate-posts/index.ts` | Modifier (injecter memoire) |
+| `supabase/functions/analyze-virality/index.ts` | Modifier (injecter memoire) |
 | `src/App.tsx` | Ajouter route |
-| `src/components/layout/AppSidebar.tsx` | Ajouter section "Automation" |
-
-### Ce qui ne change pas
-- Les edge functions existantes (sync, publish, analyze, generate)
-- Les pages existantes
-- La base de donnees existante
+| `src/components/layout/AppSidebar.tsx` | Ajouter lien Memoire |
 
