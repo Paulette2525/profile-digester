@@ -1,32 +1,42 @@
 
 
-## Extraction des anciennes publications d'un profil
+## Amelioration de l'extraction des publications LinkedIn
 
-### Probleme
-Actuellement, le sync global (`sync-linkedin`) recupere les 20 derniers posts de tous les profils. Il n'y a pas de moyen d'extraire en profondeur les anciennes publications d'un profil specifique.
-
-### Solution
-Ajouter une nouvelle edge function `fetch-profile-posts` qui recupere les publications d'un profil individuel avec pagination (curseur Unipile), et un bouton "Extraire les publications" sur la page de detail du profil.
+### Problemes identifies
+1. **Contenu tronque** : Le PostCard tronque le contenu a 280 caracteres, et le contenu complet n'est pas accessible
+2. **Medias manquants** : La table `linkedin_posts` n'a pas de colonne pour stocker les images/videos. Les edge functions n'extraient pas les medias des posts Unipile
+3. **Interactions non extraites** : Les commentaires sont inseres sans deduplication (doublons a chaque sync), et les likes/reactions individuelles ne sont pas extraites
+4. **Compteurs a zero** : Unipile renvoie les compteurs mais ils sont tous a 0 dans la DB, probablement car les champs Unipile ont des noms differents
 
 ### Plan
 
-**1. Nouvelle Edge Function `fetch-profile-posts`**
-- Recoit `profile_id` en parametre
-- Recupere le profil depuis la DB, extrait l'identifiant LinkedIn
-- Appelle Unipile `GET /api/v1/posts` avec `author_id` et `limit=100`
-- Supporte la pagination via le curseur Unipile (`cursor`) pour parcourir toutes les pages
-- Parametre optionnel `max_pages` (defaut: 5, soit ~500 posts max) pour limiter la duree
-- Upsert chaque post dans `linkedin_posts` (evite les doublons via `unipile_post_id`)
-- Recupere aussi les commentaires de chaque post
-- Retourne le nombre total de posts extraits
+**1. Migration DB : ajouter colonnes medias aux posts**
+- Ajouter `media_urls jsonb DEFAULT '[]'` a `linkedin_posts` pour stocker les URLs d'images/videos
+- Ajouter `media_type text` (image, video, article, none)
+- Ajouter un index unique `(unipile_post_id, post_id)` sur `post_interactions` pour eviter les doublons de commentaires
+- Ajouter `unipile_comment_id text` a `post_interactions` pour la deduplication
 
-**2. Mise a jour de `ProfileDetail.tsx`**
-- Ajouter un bouton "Extraire les publications" a cote du bouton LinkedIn
-- Appelle `fetch-profile-posts` via `supabase.functions.invoke()`
-- Affiche un spinner pendant l'extraction et un toast avec le resultat
-- Rafraichit automatiquement la liste des posts apres extraction
+**2. Edge functions : extraction complete des medias et interactions**
+- `fetch-profile-posts/index.ts` et `sync-linkedin/index.ts` :
+  - Extraire `post.images`, `post.media`, `post.attachments` depuis la reponse Unipile et stocker dans `media_urls`
+  - Mieux mapper les compteurs : verifier `post.reactions_count`, `post.num_likes`, `post.social_counts`
+  - Deduplication des commentaires via `unipile_comment_id` (upsert au lieu d'insert)
+  - Extraire aussi les reactions/likes individuels si disponibles dans l'API Unipile
+
+**3. PostCard : afficher le contenu complet et les medias**
+- Remplacer la troncature par un systeme "Voir plus / Voir moins" avec toggle
+- Afficher les images en galerie sous le texte
+- Afficher les videos avec un player embed ou un lien
+- Afficher les vrais compteurs de likes/commentaires/partages
+
+**4. ProfileDetail : afficher les interactions completes**
+- Lister les commentaires avec avatar, nom, texte complet
+- Lister les reactions/likes avec le type de reaction
 
 ### Fichiers concernes
-- `supabase/functions/fetch-profile-posts/index.ts` (nouveau)
+- Migration SQL (nouvelle)
+- `supabase/functions/fetch-profile-posts/index.ts` (modifie)
+- `supabase/functions/sync-linkedin/index.ts` (modifie)
+- `src/components/dashboard/PostCard.tsx` (modifie)
 - `src/pages/ProfileDetail.tsx` (modifie)
 
