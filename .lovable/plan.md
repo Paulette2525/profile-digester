@@ -1,68 +1,93 @@
 
 
-## Etat actuel de la plateforme et actions restantes
+## Plan : Page "Strategie" — Strategie de contenu intelligente
 
-Apres analyse du code, voici un audit complet de ce qui est fait, ce qui fonctionne, et ce qu'il reste a faire pour finaliser.
+### Objectif
+Nouvelle page entre "Traitement" et "Posts Suggeres" qui genere et affiche une strategie de contenu personnalisee basee sur : la memoire utilisateur (objectifs, audience, ton), les analyses de viralite, et les performances des posts publies. La strategie s'adapte automatiquement quand de nouvelles donnees arrivent.
 
-### Ce qui est deja construit
+### Architecture
 
-| Module | Statut |
-|--------|--------|
-| Dashboard (Index) | Fonctionnel — profils suivis, posts recents, sync LinkedIn |
-| Ajout de profils (AddProfile) | Fonctionnel |
-| Traitement (analyse de viralite) | Fonctionnel |
-| Posts Suggeres (generation AI) | Fonctionnel |
-| Planifier (scheduling) | Fonctionnel |
-| Analyser (stats + graphes) | Fonctionnel mais stats abonnes/connexions dependent de la reponse Unipile |
-| Engagement (auto-reply, auto-DM, auto-like) | Fonctionnel + cron horaire |
-| Memoire (profil enrichi + idees + photos) | Fonctionnel |
-| Configuration (LinkedIn connection) | Fonctionnel |
-| Sidebar + Lazy loading | Fonctionnel |
-| Performance (staleTime, limits) | Applique |
+```text
+┌──────────────────────────────────────────────┐
+│              Page "Strategie"                │
+├──────────────────────────────────────────────┤
+│  [Generer/Actualiser strategie]              │
+│                                              │
+│  ┌─ Resume strategique ──────────────────┐   │
+│  │ Vision globale + positionnement       │   │
+│  └───────────────────────────────────────┘   │
+│                                              │
+│  ┌─ Piliers de contenu recommandes ──────┐   │
+│  │ 3-5 piliers avec % repartition        │   │
+│  │ Ex: 40% Expertise, 30% Storytelling   │   │
+│  └───────────────────────────────────────┘   │
+│                                              │
+│  ┌─ Calendrier type (semaine) ───────────┐   │
+│  │ Lundi: Post expertise technique       │   │
+│  │ Mercredi: Storytelling personnel      │   │
+│  │ Vendredi: Carousel resultats          │   │
+│  └───────────────────────────────────────┘   │
+│                                              │
+│  ┌─ Formats gagnants ───────────────────┐    │
+│  │ Basé sur performances reelles         │   │
+│  │ "Les posts storytelling ont +45%      │   │
+│  │  d'engagement vs moyenne"             │   │
+│  └───────────────────────────────────────┘   │
+│                                              │
+│  ┌─ Themes a exploiter ─────────────────┐    │
+│  │ Sujets chauds + recyclage des posts   │   │
+│  │ qui ont cartonne sous nouvelle forme   │   │
+│  └───────────────────────────────────────┘   │
+└──────────────────────────────────────────────┘
+```
 
-### Bugs mineurs a corriger
+### Fonctionnement
+1. L'edge function `generate-strategy` collecte : memoire utilisateur, toutes les analyses de viralite, et les performances des posts publies (likes, comments, shares)
+2. Elle envoie tout a OpenRouter (Claude) avec un prompt strategique qui demande une strategie structuree en JSON
+3. Le resultat est stocke dans une nouvelle table `content_strategy` pour ne pas regenerer a chaque visite
+4. Quand de nouveaux posts sont publies ou analyses, un bouton "Actualiser" regenere la strategie avec les nouvelles donnees
+5. Les posts qui ont bien performe sont identifies et proposes sous de nouvelles formes (recyclage)
 
-1. **Warnings `forwardRef`** : `ProfileCard` et `PostCard` sont utilises comme enfants de `Link` sans `forwardRef` — warning dans la console
-2. **Page Engagement : `single()` crash** si aucune config n'existe encore (premiere utilisation) — devrait utiliser `maybeSingle()`
+### Fichiers a creer/modifier
 
-### Ce qu'il reste a faire pour finaliser
+| Fichier | Action |
+|---------|--------|
+| Migration SQL | Table `content_strategy` (id, user_id, strategy_json, created_at, updated_at) |
+| `supabase/functions/generate-strategy/index.ts` | Edge function qui genere la strategie via OpenRouter |
+| `src/pages/StrategiePage.tsx` | Page complete avec affichage de la strategie |
+| `src/App.tsx` | Ajouter route `/strategie` entre traitement et posts-suggeres |
+| `src/components/layout/AppSidebar.tsx` | Ajouter lien "Strategie" dans le workflow, entre Traitement et Posts Suggeres |
 
-**1. Authentification utilisateur (CRITIQUE)**
-Actuellement toutes les tables ont des RLS policies `true` (acces public). N'importe qui peut lire/modifier les donnees. Il faut :
-- Ajouter un systeme de login/signup
-- Ajouter `user_id` sur les tables principales
-- Remplacer les RLS par des policies basees sur `auth.uid()`
+### Structure de la strategie generee (JSON)
 
-**2. Publication automatique des posts schedules**
-La fonction `publish-scheduled-post` existe mais il n'y a pas de cron configure pour l'executer automatiquement. Les posts schedules ne se publient pas tout seuls.
-
-**3. Generation de visuels**
-La fonction `generate-visual` existe mais n'est pas connectee dans l'UI — les posts generes n'ont pas de visuels automatiques.
-
-**4. Recuperation des stats de posts publies**
-La fonction `fetch-post-stats` existe pour recuperer likes/comments/shares des posts publies via Unipile, mais le bouton "Actualiser stats" sur la page Analyser devrait l'utiliser pour chaque post.
-
-**5. Tests end-to-end du workflow complet**
-Verifier que le flux complet fonctionne :
-- Remplir la memoire → Ajouter un profil → Sync → Analyser viralite → Generer posts → Planifier → Publier → Auto-engagement
-
-### Recommandation d'ordre
-
-| Priorite | Action | Effort |
-|----------|--------|--------|
-| 1 | Fix `maybeSingle()` sur EngagementPage | 2 min |
-| 2 | Fix `forwardRef` sur ProfileCard/PostCard | 5 min |
-| 3 | Ajouter cron pour `publish-scheduled-post` | 10 min |
-| 4 | Connecter `generate-visual` dans l'UI | 30 min |
-| 5 | Ameliorer fetch-post-stats sur Analyser | 20 min |
-| 6 | Ajouter authentification + securiser RLS | 1-2h |
+```text
+{
+  "summary": "Vision strategique globale...",
+  "positioning": "Comment se positionner...",
+  "content_pillars": [
+    { "name": "Expertise technique", "percentage": 40, "description": "..." },
+    { "name": "Storytelling", "percentage": 30, "description": "..." },
+    ...
+  ],
+  "weekly_calendar": [
+    { "day": "Lundi", "type": "Expertise", "suggestion": "..." },
+    ...
+  ],
+  "winning_formats": [
+    { "format": "Storytelling personnel", "avg_engagement": 245, "recommendation": "..." }
+  ],
+  "themes_to_explore": ["...", "..."],
+  "recycling_opportunities": [
+    { "original_post_excerpt": "...", "new_angle": "...", "why": "..." }
+  ]
+}
+```
 
 ### Section technique
 
-- Le fix `maybeSingle()` remplace `.single()` ligne 28 de `EngagementPage.tsx` pour eviter un crash quand la table `auto_engagement_config` est vide
-- Les `forwardRef` sur `ProfileCard.tsx` et `PostCard.tsx` suppriment les warnings React dans la console
-- Le cron pour `publish-scheduled-post` se configure dans `supabase/config.toml` comme celui de `auto-engage-comments`
-- L'authentification necessite une migration pour ajouter `user_id` sur `user_memory`, `suggested_posts`, `auto_engagement_config`, etc. puis des RLS policies avec `auth.uid() = user_id`
-
-Dis-moi quelles actions tu veux que j'implemente en priorite.
+- La table `content_strategy` a RLS `auth.uid() = user_id`
+- L'edge function collecte les top 10 posts publies par engagement (likes+comments+shares) pour identifier les patterns gagnants
+- Le prompt demande explicitement de recycler les posts performants sous de nouvelles formes
+- `staleTime: 10min` sur la query frontend pour eviter les appels inutiles
+- Le bouton dans la sidebar utilise l'icone `Lightbulb` de lucide-react
 
