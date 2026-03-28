@@ -43,9 +43,6 @@ export function AppSidebar() {
   const location = useLocation();
   const { signOut, user } = useAuth();
   const [linkedinConnected, setLinkedinConnected] = useState<boolean | null>(null);
-  const collapsed = state === "collapsed";
-  const location = useLocation();
-  const [linkedinConnected, setLinkedinConnected] = useState<boolean | null>(null);
 
   useEffect(() => {
     supabase.functions.invoke("check-linkedin-connection").then(({ data }) => {
