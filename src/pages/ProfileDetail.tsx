@@ -40,6 +40,7 @@ const ProfileDetail = () => {
       return data;
     },
     enabled: !!id,
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: posts = [] } = useQuery({

@@ -1,36 +1,27 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Settings, Linkedin, CheckCircle, XCircle, RefreshCw, ExternalLink, Unplug } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 const SettingsPage = () => {
   const queryClient = useQueryClient();
-  const [connectionStatus, setConnectionStatus] = useState<{
-    connected: boolean;
-    account?: { id: string; name: string; status: string };
-  } | null>(null);
-  const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
 
-  const checkConnection = async () => {
-    setLoading(true);
-    try {
+  const { data: connectionStatus = null, isLoading: loading, refetch: checkConnection } = useQuery({
+    queryKey: ["linkedin-connection-status"],
+    queryFn: async () => {
       const { data, error } = await supabase.functions.invoke("check-linkedin-connection");
       if (error) throw error;
-      setConnectionStatus(data);
-    } catch (e) {
-      console.error("Error checking connection:", e);
-      toast.error("Impossible de vérifier la connexion LinkedIn");
-    } finally {
-      setLoading(false);
-    }
-  };
+      return data as { connected: boolean; account?: { id: string; name: string; status: string } };
+    },
+    staleTime: 5 * 60 * 1000,
+  });
 
   const handleConnect = async () => {
     setConnecting(true);
@@ -59,7 +50,8 @@ const SettingsPage = () => {
       if (error) throw error;
       if (data?.success) {
         toast.success("Compte LinkedIn déconnecté");
-        setConnectionStatus({ connected: false });
+        queryClient.invalidateQueries({ queryKey: ["linkedin-connection-status"] });
+        queryClient.invalidateQueries({ queryKey: ["linkedin-connection"] });
         queryClient.invalidateQueries({ queryKey: ["account-stats"] });
         queryClient.invalidateQueries({ queryKey: ["published-posts-analysis"] });
       }
@@ -70,10 +62,6 @@ const SettingsPage = () => {
       setDisconnecting(false);
     }
   };
-
-  useEffect(() => {
-    checkConnection();
-  }, []);
 
   return (
     <AppLayout>
@@ -112,7 +100,7 @@ const SettingsPage = () => {
                   <Badge variant="secondary">{connectionStatus.account?.status}</Badge>
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={checkConnection} disabled={loading}>
+                  <Button variant="outline" size="sm" onClick={() => checkConnection()} disabled={loading}>
                     <RefreshCw className="h-4 w-4 mr-1" />
                     Vérifier
                   </Button>
@@ -142,7 +130,7 @@ const SettingsPage = () => {
                     )}
                     Connecter mon compte LinkedIn
                   </Button>
-                  <Button variant="outline" size="sm" onClick={checkConnection} disabled={loading}>
+                  <Button variant="outline" size="sm" onClick={() => checkConnection()} disabled={loading}>
                     <RefreshCw className="h-4 w-4 mr-1" />
                     Vérifier
                   </Button>

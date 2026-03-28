@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { LayoutDashboard, Zap, Lightbulb, PenLine, Calendar, BarChart3, UserPlus, Settings, Linkedin, MessageSquareHeart, Brain, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NavLink } from "@/components/NavLink";
@@ -44,13 +44,16 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const location = useLocation();
   const { signOut, user } = useAuth();
-  const [linkedinConnected, setLinkedinConnected] = useState<boolean | null>(null);
 
-  useEffect(() => {
-    supabase.functions.invoke("check-linkedin-connection").then(({ data }) => {
-      setLinkedinConnected(data?.connected ?? false);
-    }).catch(() => setLinkedinConnected(false));
-  }, []);
+  const { data: linkedinConnected = null } = useQuery({
+    queryKey: ["linkedin-connection"],
+    queryFn: async () => {
+      const { data } = await supabase.functions.invoke("check-linkedin-connection");
+      return data?.connected ?? false;
+    },
+    staleTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
 
   return (
     <Sidebar collapsible="icon">
