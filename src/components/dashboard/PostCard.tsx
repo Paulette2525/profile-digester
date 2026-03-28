@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, forwardRef } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,7 @@ interface PostCardProps {
   post: Post;
 }
 
-export function PostCard({ post }: PostCardProps) {
+export const PostCard = forwardRef<HTMLDivElement, PostCardProps>(({ post }, ref) => {
   const [expanded, setExpanded] = useState(false);
   const profile = post.tracked_profiles;
   const initials = profile?.name
@@ -38,7 +38,7 @@ export function PostCard({ post }: PostCardProps) {
     Array.isArray(rawMedia) ? (rawMedia as any) : [];
 
   return (
-    <Card className="transition-all hover:shadow-md">
+    <Card ref={ref} className="transition-all hover:shadow-md">
       <CardHeader className="flex flex-row items-start gap-3 pb-3">
         <Avatar className="h-10 w-10">
           <AvatarImage src={profile?.avatar_url ?? undefined} />
@@ -75,7 +75,6 @@ export function PostCard({ post }: PostCardProps) {
           </Button>
         )}
 
-        {/* Media gallery */}
         {mediaUrls.length > 0 && (
           <div className={`mt-3 gap-2 ${mediaUrls.length === 1 ? "" : "grid grid-cols-2"}`}>
             {mediaUrls.map((media, i) => (
@@ -135,4 +134,6 @@ export function PostCard({ post }: PostCardProps) {
       </CardContent>
     </Card>
   );
-}
+});
+
+PostCard.displayName = "PostCard";

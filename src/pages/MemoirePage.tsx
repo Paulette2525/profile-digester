@@ -11,9 +11,11 @@ import { Brain, Save, Loader2, Upload, X, Plus, Lightbulb, Trash2, Image as Imag
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function MemoirePage() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   const [form, setForm] = useState({
     full_name: "", profession: "", company: "", industry: "",
@@ -84,7 +86,7 @@ export default function MemoirePage() {
         const { error } = await supabase.from("user_memory").update(form as any).eq("id", memory.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("user_memory").insert(form as any);
+        const { error } = await supabase.from("user_memory").insert({ ...form, user_id: user?.id } as any);
         if (error) throw error;
       }
     },
@@ -133,7 +135,8 @@ export default function MemoirePage() {
       const { error: insertErr } = await supabase.from("user_photos").insert({
         image_url: urlData.publicUrl,
         description: photoDesc || null,
-      });
+        user_id: user?.id,
+      } as any);
       if (insertErr) throw insertErr;
       toast.success("Photo ajoutée !");
       setPhotoDesc("");
@@ -189,7 +192,7 @@ export default function MemoirePage() {
         return;
       }
     }
-    const { error } = await supabase.from("content_ideas").insert({ idea_text: newIdea.trim(), image_url: imageUrl } as any);
+    const { error } = await supabase.from("content_ideas").insert({ idea_text: newIdea.trim(), image_url: imageUrl, user_id: user?.id } as any);
     if (error) { toast.error(error.message); setIdeaUploading(false); return; }
     toast.success("Idée ajoutée !");
     setNewIdea("");

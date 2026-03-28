@@ -24,6 +24,7 @@ export type Database = {
           id: string
           reply_prompt: string | null
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           auto_dm?: boolean
@@ -34,6 +35,7 @@ export type Database = {
           id?: string
           reply_prompt?: string | null
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           auto_dm?: boolean
@@ -44,6 +46,7 @@ export type Database = {
           id?: string
           reply_prompt?: string | null
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -59,6 +62,7 @@ export type Database = {
           id: string
           post_id: string | null
           status: string
+          user_id: string | null
         }
         Insert: {
           action_type: string
@@ -71,6 +75,7 @@ export type Database = {
           id?: string
           post_id?: string | null
           status?: string
+          user_id?: string | null
         }
         Update: {
           action_type?: string
@@ -83,6 +88,7 @@ export type Database = {
           id?: string
           post_id?: string | null
           status?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -101,6 +107,7 @@ export type Database = {
           idea_text: string
           image_url: string | null
           used: boolean
+          user_id: string | null
         }
         Insert: {
           created_at?: string
@@ -108,6 +115,7 @@ export type Database = {
           idea_text: string
           image_url?: string | null
           used?: boolean
+          user_id?: string | null
         }
         Update: {
           created_at?: string
@@ -115,6 +123,7 @@ export type Database = {
           idea_text?: string
           image_url?: string | null
           used?: boolean
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -134,6 +143,7 @@ export type Database = {
           shares_count: number
           unipile_post_id: string | null
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           comments_count?: number
@@ -150,6 +160,7 @@ export type Database = {
           shares_count?: number
           unipile_post_id?: string | null
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           comments_count?: number
@@ -166,6 +177,7 @@ export type Database = {
           shares_count?: number
           unipile_post_id?: string | null
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -186,6 +198,7 @@ export type Database = {
           post_id: string | null
           resource_url: string | null
           trigger_keyword: string
+          user_id: string | null
         }
         Insert: {
           created_at?: string | null
@@ -195,6 +208,7 @@ export type Database = {
           post_id?: string | null
           resource_url?: string | null
           trigger_keyword: string
+          user_id?: string | null
         }
         Update: {
           created_at?: string | null
@@ -204,6 +218,7 @@ export type Database = {
           post_id?: string | null
           resource_url?: string | null
           trigger_keyword?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -226,6 +241,7 @@ export type Database = {
           interaction_type: string
           post_id: string
           unipile_comment_id: string | null
+          user_id: string | null
         }
         Insert: {
           author_avatar_url?: string | null
@@ -237,6 +253,7 @@ export type Database = {
           interaction_type: string
           post_id: string
           unipile_comment_id?: string | null
+          user_id?: string | null
         }
         Update: {
           author_avatar_url?: string | null
@@ -248,6 +265,7 @@ export type Database = {
           interaction_type?: string
           post_id?: string
           unipile_comment_id?: string | null
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -258,6 +276,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          email: string | null
+          full_name: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       suggested_posts: {
         Row: {
@@ -272,6 +317,7 @@ export type Database = {
           status: string
           topic: string | null
           updated_at: string
+          user_id: string | null
           virality_score: number | null
         }
         Insert: {
@@ -286,6 +332,7 @@ export type Database = {
           status?: string
           topic?: string | null
           updated_at?: string
+          user_id?: string | null
           virality_score?: number | null
         }
         Update: {
@@ -300,6 +347,7 @@ export type Database = {
           status?: string
           topic?: string | null
           updated_at?: string
+          user_id?: string | null
           virality_score?: number | null
         }
         Relationships: [
@@ -322,6 +370,7 @@ export type Database = {
           name: string
           unipile_account_id: string | null
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           avatar_url?: string | null
@@ -332,6 +381,7 @@ export type Database = {
           name: string
           unipile_account_id?: string | null
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           avatar_url?: string | null
@@ -342,6 +392,7 @@ export type Database = {
           name?: string
           unipile_account_id?: string | null
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -379,6 +430,7 @@ export type Database = {
           tone_of_voice: string | null
           unique_methodology: string | null
           updated_at: string
+          user_id: string | null
           values: string | null
         }
         Insert: {
@@ -414,6 +466,7 @@ export type Database = {
           tone_of_voice?: string | null
           unique_methodology?: string | null
           updated_at?: string
+          user_id?: string | null
           values?: string | null
         }
         Update: {
@@ -449,6 +502,7 @@ export type Database = {
           tone_of_voice?: string | null
           unique_methodology?: string | null
           updated_at?: string
+          user_id?: string | null
           values?: string | null
         }
         Relationships: []
@@ -459,18 +513,21 @@ export type Database = {
           description: string | null
           id: string
           image_url: string
+          user_id: string | null
         }
         Insert: {
           created_at?: string
           description?: string | null
           id?: string
           image_url: string
+          user_id?: string | null
         }
         Update: {
           created_at?: string
           description?: string | null
           id?: string
           image_url?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -481,6 +538,7 @@ export type Database = {
           id: string
           profile_id: string | null
           status: string
+          user_id: string | null
         }
         Insert: {
           analysis_json?: Json
@@ -488,6 +546,7 @@ export type Database = {
           id?: string
           profile_id?: string | null
           status?: string
+          user_id?: string | null
         }
         Update: {
           analysis_json?: Json
@@ -495,6 +554,7 @@ export type Database = {
           id?: string
           profile_id?: string | null
           status?: string
+          user_id?: string | null
         }
         Relationships: [
           {

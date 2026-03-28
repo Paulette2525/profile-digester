@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -19,13 +20,14 @@ import { fr } from "date-fns/locale";
 export default function EngagementPage() {
   const queryClient = useQueryClient();
   const [isRunning, setIsRunning] = useState(false);
+  const { user } = useAuth();
 
   // Fetch config
   const { data: config, isLoading: configLoading } = useQuery({
     queryKey: ["auto-engagement-config"],
     staleTime: 1000 * 60 * 5,
     queryFn: async () => {
-      const { data, error } = await supabase.from("auto_engagement_config").select("*").limit(1).single();
+      const { data, error } = await supabase.from("auto_engagement_config").select("*").limit(1).maybeSingle();
       if (error) throw error;
       return data;
     },
@@ -117,6 +119,7 @@ export default function EngagementPage() {
       trigger_keyword: ruleKeyword.trim().toLowerCase(),
       dm_message: ruleMessage.trim(),
       resource_url: ruleUrl.trim() || null,
+      user_id: user?.id,
     } as any);
     if (error) { toast({ title: "Erreur", description: error.message, variant: "destructive" }); return; }
     toast({ title: "Règle DM créée !" });

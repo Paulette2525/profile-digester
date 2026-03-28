@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { LayoutDashboard, Zap, PenLine, Calendar, BarChart3, UserPlus, Settings, Linkedin, MessageSquareHeart, Brain } from "lucide-react";
+import { LayoutDashboard, Zap, PenLine, Calendar, BarChart3, UserPlus, Settings, Linkedin, MessageSquareHeart, Brain, LogOut } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { NavLink } from "@/components/NavLink";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   Sidebar,
   SidebarContent,
@@ -40,6 +42,7 @@ export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const location = useLocation();
+  const { signOut, user } = useAuth();
   const [linkedinConnected, setLinkedinConnected] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -141,7 +144,14 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-3">
+      <SidebarFooter className="p-3 space-y-2">
+        {!collapsed && user && (
+          <p className="text-xs text-muted-foreground truncate text-center">{user.email}</p>
+        )}
+        <Button variant="ghost" size="sm" className="w-full justify-start gap-2" onClick={signOut}>
+          <LogOut className="h-4 w-4" />
+          {!collapsed && <span>Déconnexion</span>}
+        </Button>
         {!collapsed && (
           <p className="text-[10px] text-muted-foreground text-center">Agent LinkedIn v1.0</p>
         )}
