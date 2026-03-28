@@ -3,15 +3,15 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
-    if (!OPENROUTER_API_KEY) throw new Error("OPENROUTER_API_KEY not configured");
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -20,7 +20,7 @@ serve(async (req) => {
 
     const { profile_ids } = await req.json().catch(() => ({}));
 
-    let profilesQuery = supabase.from("tracked_profiles").select("id, name");
+    let profilesQuery = supabase.from("tracked_profiles").select("id, name, last_analyzed_at");
     if (profile_ids && profile_ids.length > 0) {
       profilesQuery = profilesQuery.in("id", profile_ids);
     }
@@ -35,31 +35,76 @@ serve(async (req) => {
       .single();
     if (aErr) throw aErr;
 
-    // Fetch user memory for context
     const { data: memory } = await supabase.from("user_memory").select("*").limit(1).maybeSingle();
 
     const allTopPosts: any[] = [];
     for (const profile of profiles) {
-      const { data: posts } = await supabase
+      // Incremental: only fetch posts since last_analyzed_at, or top 10 if first time
+      let postsQuery = supabase
         .from("linkedin_posts")
         .select("*")
-        .eq("profile_id", profile.id)
-        .order("likes_count", { ascending: false })
-        .limit(10);
+        .eq("profile_id", profile.id);
 
-      if (posts) {
-        allTopPosts.push(...posts.map(p => ({
-          profile_name: profile.name,
-          content: (p.content || "").substring(0, 2000),
-          likes: p.likes_count,
-          comments: p.comments_count,
-          shares: p.shares_count,
-          impressions: p.impressions_count || 0,
-          media_type: p.media_type,
-          posted_at: p.posted_at,
-          engagement_total: p.likes_count + p.comments_count * 3 + p.shares_count * 5,
-        })));
+      if (profile.last_analyzed_at) {
+        // Get new posts since last analysis + top 3 all-time for context
+        const { data: newPosts } = await postsQuery
+          .gt("posted_at", profile.last_analyzed_at)
+          .order("likes_count", { ascending: false })
+          .limit(15);
+
+        const { data: topAllTime } = await supabase
+          .from("linkedin_posts")
+          .select("*")
+          .eq("profile_id", profile.id)
+          .order("likes_count", { ascending: false })
+          .limit(3);
+
+        const combined = [...(newPosts || [])];
+        // Add top all-time if not already in new posts
+        for (const tp of (topAllTime || [])) {
+          if (!combined.find(p => p.id === tp.id)) combined.push(tp);
+        }
+
+        if (combined.length > 0) {
+          allTopPosts.push(...combined.map(p => ({
+            profile_name: profile.name,
+            content: (p.content || "").substring(0, 2000),
+            likes: p.likes_count,
+            comments: p.comments_count,
+            shares: p.shares_count,
+            impressions: p.impressions_count || 0,
+            media_type: p.media_type,
+            posted_at: p.posted_at,
+            engagement_total: p.likes_count + p.comments_count * 3 + p.shares_count * 5,
+          })));
+        }
+      } else {
+        // First analysis: top 10 by engagement
+        const { data: posts } = await postsQuery
+          .order("likes_count", { ascending: false })
+          .limit(10);
+
+        if (posts) {
+          allTopPosts.push(...posts.map(p => ({
+            profile_name: profile.name,
+            content: (p.content || "").substring(0, 2000),
+            likes: p.likes_count,
+            comments: p.comments_count,
+            shares: p.shares_count,
+            impressions: p.impressions_count || 0,
+            media_type: p.media_type,
+            posted_at: p.posted_at,
+            engagement_total: p.likes_count + p.comments_count * 3 + p.shares_count * 5,
+          })));
+        }
       }
+    }
+
+    if (allTopPosts.length === 0) {
+      await supabase.from("virality_analyses").update({ status: "error", analysis_json: { error: "No posts to analyze" } }).eq("id", analysis.id);
+      return new Response(JSON.stringify({ error: "Aucune publication à analyser" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     allTopPosts.sort((a, b) => b.engagement_total - a.engagement_total);
@@ -72,21 +117,13 @@ serve(async (req) => {
 - Profession: ${m.profession || "Non renseigné"}
 - Industrie: ${m.industry || "Non renseigné"}
 - Audience cible: ${m.target_audience || "Non renseigné"}
-- Thèmes de contenu souhaités: ${(m.content_themes as string[])?.join(", ") || "Non renseigné"}
-- Piliers de contenu: ${(m.content_pillars as string[])?.join(", ") || "Non renseigné"}
 - Ton de voix préféré: ${m.tone_of_voice || "Non renseigné"}
-- Domaines d'expertise: ${m.expertise_areas || "Non renseigné"}
-- Réalisations: ${m.achievements || "Non renseigné"}
-- Différenciateurs: ${m.differentiators || "Non renseigné"}
-- Objectifs LinkedIn: ${m.linkedin_goals || "Non renseigné"}
-- Concurrents: ${m.competitors || "Non renseigné"}
-
-Tiens compte de ce contexte pour orienter l'analyse vers des recommandations pertinentes pour positionner cet utilisateur comme leader dans son domaine.`;
+- Domaines d'expertise: ${m.expertise_areas || "Non renseigné"}`;
     }
 
     const prompt = `Tu es un expert en marketing LinkedIn et en viralité de contenu.
 
-Analyse ces ${topPosts.length} publications LinkedIn les plus performantes et identifie les facteurs de viralité.${memoryContext}
+Analyse ces ${topPosts.length} publications LinkedIn et identifie les facteurs de viralité.${memoryContext}
 
 PUBLICATIONS:
 ${topPosts.map((p, i) => `
@@ -98,22 +135,16 @@ Date: ${p.posted_at}
 Score engagement: ${p.engagement_total}
 `).join("\n")}
 
-Réponds avec un JSON structuré contenant:
-1. "factors": tableau de facteurs de viralité, chacun avec: "name" (nom du facteur), "score" (1-100), "description" (explication), "examples" (2-3 extraits de posts illustrant ce facteur)
-2. "content_patterns": patterns de contenu récurrents dans les posts viraux (hooks d'accroche, structure, CTA, longueur optimale)
-3. "media_insights": impact du type de média sur l'engagement
-4. "timing_insights": observations sur le timing des publications
-5. "top_keywords": mots-clés et expressions les plus efficaces
-6. "summary": résumé global des facteurs de viralité en 3-4 phrases`;
+Réponds avec un JSON structuré.`;
 
-    const aiRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "anthropic/claude-sonnet-4",
+        model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: "Tu es un analyste expert en viralité LinkedIn. Réponds toujours en JSON valide." },
           { role: "user", content: prompt },
@@ -165,8 +196,8 @@ Réponds avec un JSON structuré contenant:
     if (!aiRes.ok) {
       const status = aiRes.status;
       if (status === 429) {
-        await supabase.from("virality_analyses").update({ status: "error", analysis_json: { error: "Rate limit exceeded" } }).eq("id", analysis.id);
-        return new Response(JSON.stringify({ error: "Rate limit exceeded, réessayez plus tard" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        await supabase.from("virality_analyses").update({ status: "error", analysis_json: { error: "Rate limit" } }).eq("id", analysis.id);
+        return new Response(JSON.stringify({ error: "Rate limit exceeded" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
       if (status === 402) {
         await supabase.from("virality_analyses").update({ status: "error", analysis_json: { error: "Credits exhausted" } }).eq("id", analysis.id);
@@ -177,23 +208,26 @@ Réponds avec un JSON structuré contenant:
 
     const aiData = await aiRes.json();
     let analysisResult: any;
-
     const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
     if (toolCall) {
-      analysisResult = JSON.parse(toolCall.function.arguments);
+      analysisResult = typeof toolCall.function.arguments === "string"
+        ? JSON.parse(toolCall.function.arguments)
+        : toolCall.function.arguments;
     } else {
       const content = aiData.choices?.[0]?.message?.content || "";
       const jsonMatch = content.match(/\{[\s\S]*\}/);
-      analysisResult = jsonMatch ? JSON.parse(jsonMatch[0]) : { error: "Could not parse AI response", raw: content };
+      analysisResult = jsonMatch ? JSON.parse(jsonMatch[0]) : { error: "Could not parse", raw: content };
     }
 
     analysisResult.analyzed_posts_count = topPosts.length;
     analysisResult.profiles_analyzed = profiles.map(p => p.name);
 
-    await supabase.from("virality_analyses").update({
-      status: "done",
-      analysis_json: analysisResult,
-    }).eq("id", analysis.id);
+    await supabase.from("virality_analyses").update({ status: "done", analysis_json: analysisResult }).eq("id", analysis.id);
+
+    // Update last_analyzed_at on all processed profiles
+    for (const profile of profiles) {
+      await supabase.from("tracked_profiles").update({ last_analyzed_at: new Date().toISOString() }).eq("id", profile.id);
+    }
 
     return new Response(JSON.stringify({ success: true, analysis_id: analysis.id, analysis: analysisResult }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

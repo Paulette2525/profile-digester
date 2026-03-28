@@ -1,15 +1,17 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
-import { Zap, Loader2, BarChart3, Target, Lightbulb, Clock, Hash, ChevronDown, ChevronUp } from "lucide-react";
+import { Zap, Loader2, BarChart3, Target, Lightbulb, Clock, Hash, ChevronDown, ChevronUp, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from "recharts";
 
 export default function TraitementPage() {
+  const navigate = useNavigate();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [chartsOpen, setChartsOpen] = useState(true);
   const [factorsOpen, setFactorsOpen] = useState(false);
@@ -254,6 +256,13 @@ export default function TraitementPage() {
                 </Card>
               </CollapsibleContent>
             </Collapsible>
+
+            {/* Transition button */}
+            <div className="flex justify-center pt-4">
+              <Button onClick={() => navigate("/strategie")} className="gap-2">
+                Générer ma stratégie <ArrowRight className="h-4 w-4" />
+              </Button>
+            </div>
           </>
         )}
 
