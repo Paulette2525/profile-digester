@@ -365,68 +365,68 @@ export default function MemoirePage() {
         </div>
 
         {/* Section 1: Identité */}
-        <Section icon={User} title="Identité">
+        <SectionCard icon={User} title="Identité">
           <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Nom complet" name="full_name" placeholder="Jean Dupont" />
-            <Field label="Profession / Titre" name="profession" placeholder="CEO, Coach, Consultant…" />
-            <Field label="Entreprise" name="company" placeholder="Ma Société SAS" />
-            <Field label="Industrie / Secteur" name="industry" placeholder="Tech, Finance, Marketing…" />
+            {renderField("Nom complet", "full_name", false, "Jean Dupont")}
+            {renderField("Profession / Titre", "profession", false, "CEO, Coach, Consultant…")}
+            {renderField("Entreprise", "company", false, "Ma Société SAS")}
+            {renderField("Industrie / Secteur", "industry", false, "Tech, Finance, Marketing…")}
           </div>
-        </Section>
+        </SectionCard>
 
         {/* Section 2: Expertise & Réalisations */}
-        <Section icon={Award} title="Expertise & Réalisations">
-          <Field label="Domaines d'expertise" name="expertise_areas" textarea placeholder="Marketing digital, leadership, IA, growth hacking…" />
-          <Field label="Réalisations majeures" name="achievements" textarea placeholder="Projets créés, entreprises fondées, résultats obtenus, prix, certifications…" />
-          <Field label="Résultats marquants (chiffres)" name="key_results" textarea placeholder="Ex: +200% de CA en 1 an, 10k abonnés en 3 mois, 50 clients accompagnés…" />
-          <Field label="Méthodologie unique" name="unique_methodology" textarea placeholder="Votre approche ou méthode distinctive qui vous différencie…" />
-          <Field label="Ce qui vous différencie" name="differentiators" textarea placeholder="Pourquoi les gens devraient vous suivre plutôt qu'un autre ?" />
-        </Section>
+        <SectionCard icon={Award} title="Expertise & Réalisations">
+          {renderField("Domaines d'expertise", "expertise_areas", true, "Marketing digital, leadership, IA, growth hacking…")}
+          {renderField("Réalisations majeures", "achievements", true, "Projets créés, entreprises fondées, résultats obtenus, prix, certifications…")}
+          {renderField("Résultats marquants (chiffres)", "key_results", true, "Ex: +200% de CA en 1 an, 10k abonnés en 3 mois, 50 clients accompagnés…")}
+          {renderField("Méthodologie unique", "unique_methodology", true, "Votre approche ou méthode distinctive qui vous différencie…")}
+          {renderField("Ce qui vous différencie", "differentiators", true, "Pourquoi les gens devraient vous suivre plutôt qu'un autre ?")}
+        </SectionCard>
 
         {/* Section 3: Audience & Marché */}
-        <Section icon={Users} title="Audience & Marché">
-          <Field label="Audience cible" name="target_audience" textarea placeholder="Entrepreneurs, dirigeants PME, marketeurs B2B…" />
-          <Field label="Problèmes de votre audience" name="audience_pain_points" textarea placeholder="Quels sont les problèmes, frustrations, besoins de votre audience ?" />
-          <Field label="Concurrents / Leaders dans votre domaine" name="competitors" textarea placeholder="Qui sont les leaders ou concurrents que vous observez ?" />
-        </Section>
+        <SectionCard icon={Users} title="Audience & Marché">
+          {renderField("Audience cible", "target_audience", true, "Entrepreneurs, dirigeants PME, marketeurs B2B…")}
+          {renderField("Problèmes de votre audience", "audience_pain_points", true, "Quels sont les problèmes, frustrations, besoins de votre audience ?")}
+          {renderField("Concurrents / Leaders dans votre domaine", "competitors", true, "Qui sont les leaders ou concurrents que vous observez ?")}
+        </SectionCard>
 
         {/* Section 4: Objectifs LinkedIn */}
-        <Section icon={Target} title="Objectifs LinkedIn">
-          <Field label="Objectifs LinkedIn (qualitatifs)" name="linkedin_goals" textarea placeholder="Devenir leader d'opinion, générer des leads, recruter…" />
+        <SectionCard icon={Target} title="Objectifs LinkedIn">
+          {renderField("Objectifs LinkedIn (qualitatifs)", "linkedin_goals", true, "Devenir leader d'opinion, générer des leads, recruter…")}
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Field label="Objectif abonnés" name="target_followers" type="number" placeholder="10000" />
-            <Field label="Objectif connexions" name="target_connections" type="number" placeholder="5000" />
-            <Field label="Objectif taux d'engagement (%)" name="target_engagement_rate" type="number" placeholder="5" />
-            <Field label="Horizon temporel" name="goal_timeline" placeholder="3 mois, 6 mois, 1 an…" />
+            {renderField("Objectif abonnés", "target_followers", false, "10000", "number")}
+            {renderField("Objectif connexions", "target_connections", false, "5000", "number")}
+            {renderField("Objectif taux d'engagement (%)", "target_engagement_rate", false, "5", "number")}
+            {renderField("Horizon temporel", "goal_timeline", false, "3 mois, 6 mois, 1 an…")}
           </div>
-        </Section>
+        </SectionCard>
 
         {/* Section 5: Stratégie de contenu */}
-        <Section icon={Megaphone} title="Stratégie de contenu">
-          <TagInput label="Piliers de contenu stratégiques" field="content_pillars" value={pillarInput} onChange={setPillarInput} placeholder="Leadership, IA, Entrepreneuriat…" />
-          <TagInput label="Thèmes de contenu" field="content_themes" value={themeInput} onChange={setThemeInput} placeholder="Productivité, mindset, vente…" />
-          <TagInput label="Mots-clés de marque" field="brand_keywords" value={keywordInput} onChange={setKeywordInput} placeholder="Innovation, impact, authentique…" />
-          <TagInput label="Types de contenu" field="content_types" value={typeInput} onChange={setTypeInput} placeholder="Storytelling, liste, carrousel…" />
+        <SectionCard icon={Megaphone} title="Stratégie de contenu">
+          {renderTagInput("Piliers de contenu stratégiques", "content_pillars", pillarInput, setPillarInput, "Leadership, IA, Entrepreneuriat…")}
+          {renderTagInput("Thèmes de contenu", "content_themes", themeInput, setThemeInput, "Productivité, mindset, vente…")}
+          {renderTagInput("Mots-clés de marque", "brand_keywords", keywordInput, setKeywordInput, "Innovation, impact, authentique…")}
+          {renderTagInput("Types de contenu", "content_types", typeInput, setTypeInput, "Storytelling, liste, carrousel…")}
           <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Fréquence de publication" name="posting_frequency" placeholder="3 fois par semaine" />
-            <Field label="Formats préférés" name="preferred_formats" placeholder="Texte long, carrousel, vidéo…" />
+            {renderField("Fréquence de publication", "posting_frequency", false, "3 fois par semaine")}
+            {renderField("Formats préférés", "preferred_formats", false, "Texte long, carrousel, vidéo…")}
           </div>
-          <Field label="Ton de voix" name="tone_of_voice" placeholder="Professionnel mais accessible, inspirant, provocateur…" />
-          <Field label="Style de CTA préféré" name="call_to_action_style" textarea placeholder="Question ouverte, invitation au commentaire, partage d'expérience…" />
-        </Section>
+          {renderField("Ton de voix", "tone_of_voice", false, "Professionnel mais accessible, inspirant, provocateur…")}
+          {renderField("Style de CTA préféré", "call_to_action_style", true, "Question ouverte, invitation au commentaire, partage d'expérience…")}
+        </SectionCard>
 
         {/* Section 6: Histoire & Valeurs */}
-        <Section icon={BookOpen} title="Histoire & Valeurs">
-          <Field label="Histoire personnelle" name="personal_story" textarea placeholder="Votre parcours, moments décisifs, anecdotes marquantes…" />
-          <Field label="Valeurs fondamentales" name="values" textarea placeholder="Authenticité, excellence, partage, innovation…" />
-          <Field label="Ambitions" name="ambitions" textarea placeholder="Vos ambitions à court et long terme…" />
-        </Section>
+        <SectionCard icon={BookOpen} title="Histoire & Valeurs">
+          {renderField("Histoire personnelle", "personal_story", true, "Votre parcours, moments décisifs, anecdotes marquantes…")}
+          {renderField("Valeurs fondamentales", "values", true, "Authenticité, excellence, partage, innovation…")}
+          {renderField("Ambitions", "ambitions", true, "Vos ambitions à court et long terme…")}
+        </SectionCard>
 
         {/* Section 7: Offres & Notes */}
-        <Section icon={Briefcase} title="Offres & Notes">
-          <Field label="Offres & services" name="offers_description" textarea placeholder="Décrivez vos offres, produits ou services…" />
-          <Field label="Notes additionnelles" name="additional_notes" textarea placeholder="Toute information utile supplémentaire…" />
-        </Section>
+        <SectionCard icon={Briefcase} title="Offres & Notes">
+          {renderField("Offres & services", "offers_description", true, "Décrivez vos offres, produits ou services…")}
+          {renderField("Notes additionnelles", "additional_notes", true, "Toute information utile supplémentaire…")}
+        </SectionCard>
 
         {/* Photos */}
         <Card>
