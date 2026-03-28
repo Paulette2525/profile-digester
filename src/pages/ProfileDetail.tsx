@@ -5,7 +5,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { PostCard } from "@/components/dashboard/PostCard";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { ArrowLeft, Trash2, ExternalLink, ThumbsUp, MessageCircle, Download, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -52,7 +52,7 @@ const ProfileDetail = () => {
         .select("*")
         .in("post_id", postIds)
         .order("created_at", { ascending: false })
-        .limit(50);
+        .limit(100);
       if (error) throw error;
       return data;
     },
@@ -77,10 +77,7 @@ const ProfileDetail = () => {
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase
-        .from("tracked_profiles")
-        .delete()
-        .eq("id", id!);
+      const { error } = await supabase.from("tracked_profiles").delete().eq("id", id!);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -99,13 +96,7 @@ const ProfileDetail = () => {
     );
   }
 
-  const initials = profile.name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-
+  const initials = profile.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
   const totalLikes = posts.reduce((s, p) => s + p.likes_count, 0);
   const totalComments = posts.reduce((s, p) => s + p.comments_count, 0);
 
@@ -126,9 +117,7 @@ const ProfileDetail = () => {
             </Avatar>
             <div className="flex-1">
               <h1 className="text-xl font-bold">{profile.name}</h1>
-              {profile.headline && (
-                <p className="text-muted-foreground">{profile.headline}</p>
-              )}
+              {profile.headline && <p className="text-muted-foreground">{profile.headline}</p>}
               <div className="flex gap-4 mt-2 text-sm text-muted-foreground">
                 <span className="flex items-center gap-1"><ThumbsUp className="h-3.5 w-3.5" /> {totalLikes}</span>
                 <span className="flex items-center gap-1"><MessageCircle className="h-3.5 w-3.5" /> {totalComments}</span>
@@ -136,17 +125,8 @@ const ProfileDetail = () => {
               </div>
             </div>
             <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => fetchPostsMutation.mutate()}
-                disabled={fetchPostsMutation.isPending}
-              >
-                {fetchPostsMutation.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Download className="h-4 w-4" />
-                )}
+              <Button variant="outline" size="sm" onClick={() => fetchPostsMutation.mutate()} disabled={fetchPostsMutation.isPending}>
+                {fetchPostsMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                 Extraire les publications
               </Button>
               <Button variant="outline" size="sm" asChild>
@@ -154,12 +134,7 @@ const ProfileDetail = () => {
                   <ExternalLink className="h-4 w-4" /> LinkedIn
                 </a>
               </Button>
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => deleteMutation.mutate()}
-                disabled={deleteMutation.isPending}
-              >
+              <Button variant="destructive" size="sm" onClick={() => deleteMutation.mutate()} disabled={deleteMutation.isPending}>
                 <Trash2 className="h-4 w-4" /> Supprimer
               </Button>
             </div>
@@ -168,7 +143,7 @@ const ProfileDetail = () => {
 
         <div className="grid lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-3">
-            <h2 className="text-lg font-semibold">Publications</h2>
+            <h2 className="text-lg font-semibold">Publications ({posts.length})</h2>
             {posts.map((post) => (
               <PostCard key={post.id} post={post} />
             ))}
@@ -178,7 +153,7 @@ const ProfileDetail = () => {
           </div>
 
           <div className="space-y-3">
-            <h2 className="text-lg font-semibold">Interactions récentes</h2>
+            <h2 className="text-lg font-semibold">Interactions ({interactions.length})</h2>
             {interactions.length === 0 ? (
               <p className="text-sm text-muted-foreground">Aucune interaction</p>
             ) : (
@@ -186,6 +161,14 @@ const ProfileDetail = () => {
                 <Card key={interaction.id}>
                   <CardContent className="p-3">
                     <div className="flex items-center gap-2 mb-1">
+                      {interaction.author_avatar_url && (
+                        <Avatar className="h-6 w-6">
+                          <AvatarImage src={interaction.author_avatar_url} />
+                          <AvatarFallback className="text-xs bg-muted">
+                            {interaction.author_name?.charAt(0) || "?"}
+                          </AvatarFallback>
+                        </Avatar>
+                      )}
                       <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
                         interaction.interaction_type === "like"
                           ? "bg-primary/10 text-primary"
@@ -193,10 +176,16 @@ const ProfileDetail = () => {
                       }`}>
                         {interaction.interaction_type === "like" ? "👍 Like" : "💬 Commentaire"}
                       </span>
-                      <span className="text-xs text-muted-foreground">{interaction.author_name}</span>
+                      {interaction.author_linkedin_url ? (
+                        <a href={interaction.author_linkedin_url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">
+                          {interaction.author_name}
+                        </a>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">{interaction.author_name}</span>
+                      )}
                     </div>
                     {interaction.comment_text && (
-                      <p className="text-sm text-muted-foreground">{interaction.comment_text}</p>
+                      <p className="text-sm text-muted-foreground mt-1">{interaction.comment_text}</p>
                     )}
                   </CardContent>
                 </Card>

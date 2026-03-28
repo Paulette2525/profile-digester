@@ -21,6 +21,8 @@ export type Database = {
           created_at: string
           id: string
           likes_count: number
+          media_type: string | null
+          media_urls: Json | null
           post_url: string | null
           posted_at: string | null
           profile_id: string
@@ -34,6 +36,8 @@ export type Database = {
           created_at?: string
           id?: string
           likes_count?: number
+          media_type?: string | null
+          media_urls?: Json | null
           post_url?: string | null
           posted_at?: string | null
           profile_id: string
@@ -47,6 +51,8 @@ export type Database = {
           created_at?: string
           id?: string
           likes_count?: number
+          media_type?: string | null
+          media_urls?: Json | null
           post_url?: string | null
           posted_at?: string | null
           profile_id?: string
@@ -74,6 +80,7 @@ export type Database = {
           id: string
           interaction_type: string
           post_id: string
+          unipile_comment_id: string | null
         }
         Insert: {
           author_avatar_url?: string | null
@@ -84,6 +91,7 @@ export type Database = {
           id?: string
           interaction_type: string
           post_id: string
+          unipile_comment_id?: string | null
         }
         Update: {
           author_avatar_url?: string | null
@@ -94,6 +102,7 @@ export type Database = {
           id?: string
           interaction_type?: string
           post_id?: string
+          unipile_comment_id?: string | null
         }
         Relationships: [
           {
