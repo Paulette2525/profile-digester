@@ -49,7 +49,8 @@ serve(async (req) => {
       let postsQuery = supabase
         .from("linkedin_posts")
         .select("*")
-        .eq("profile_id", profile.id);
+        .eq("profile_id", profile.id)
+        .eq("user_id", userId);
 
       if (profile.last_analyzed_at) {
         // Get new posts since last analysis + top 3 all-time for context
