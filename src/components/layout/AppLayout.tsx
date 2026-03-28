@@ -1,7 +1,8 @@
-import { ReactNode } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { LayoutDashboard, UserPlus, Settings, Linkedin } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 const navItems = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -11,6 +12,13 @@ const navItems = [
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
+  const [linkedinConnected, setLinkedinConnected] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    supabase.functions.invoke("check-linkedin-connection").then(({ data }) => {
+      setLinkedinConnected(data?.connected ?? false);
+    }).catch(() => setLinkedinConnected(false));
+  }, []);
 
   return (
     <div className="min-h-screen bg-background">
@@ -21,6 +29,15 @@ export function AppLayout({ children }: { children: ReactNode }) {
               <Linkedin className="h-5 w-5 text-primary-foreground" />
             </div>
             <span className="text-lg font-bold tracking-tight">Agent LinkedIn</span>
+            {linkedinConnected !== null && (
+              <span
+                className={cn(
+                  "h-2.5 w-2.5 rounded-full",
+                  linkedinConnected ? "bg-green-500" : "bg-destructive"
+                )}
+                title={linkedinConnected ? "LinkedIn connecté" : "LinkedIn non connecté"}
+              />
+            )}
           </Link>
 
           <nav className="ml-auto flex items-center gap-1">
