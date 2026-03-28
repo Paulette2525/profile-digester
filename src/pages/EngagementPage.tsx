@@ -23,6 +23,7 @@ export default function EngagementPage() {
   // Fetch config
   const { data: config, isLoading: configLoading } = useQuery({
     queryKey: ["auto-engagement-config"],
+    staleTime: 1000 * 60 * 5,
     queryFn: async () => {
       const { data, error } = await supabase.from("auto_engagement_config").select("*").limit(1).single();
       if (error) throw error;
@@ -33,6 +34,7 @@ export default function EngagementPage() {
   // Fetch logs
   const { data: logs, isLoading: logsLoading } = useQuery({
     queryKey: ["auto-engagement-logs"],
+    staleTime: 1000 * 60 * 5,
     queryFn: async () => {
       const { data, error } = await supabase.from("auto_engagement_logs").select("*").order("created_at", { ascending: false }).limit(50);
       if (error) throw error;
@@ -43,6 +45,7 @@ export default function EngagementPage() {
   // Fetch published posts for DM rules
   const { data: publishedPosts } = useQuery({
     queryKey: ["published-posts-for-rules"],
+    staleTime: 1000 * 60 * 10,
     queryFn: async () => {
       const { data, error } = await supabase.from("suggested_posts").select("id, content, topic").eq("status", "published").order("published_at", { ascending: false }).limit(50);
       if (error) throw error;
@@ -53,6 +56,7 @@ export default function EngagementPage() {
   // Fetch DM rules
   const { data: dmRules, isLoading: rulesLoading } = useQuery({
     queryKey: ["post-dm-rules"],
+    staleTime: 1000 * 60 * 5,
     queryFn: async () => {
       const { data, error } = await supabase.from("post_dm_rules" as any).select("*").order("created_at", { ascending: false });
       if (error) throw error;

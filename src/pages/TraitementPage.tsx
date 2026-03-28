@@ -16,6 +16,7 @@ export default function TraitementPage() {
 
   const { data: analyses, refetch } = useQuery({
     queryKey: ["virality-analyses"],
+    staleTime: 1000 * 60 * 10,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("virality_analyses")
