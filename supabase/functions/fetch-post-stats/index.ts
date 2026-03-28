@@ -117,10 +117,10 @@ serve(async (req) => {
       });
 
       if (matched) {
-        const likes = matched.likes_count ?? matched.likeCount ?? matched.reactions_count ?? matched.num_likes ?? 0;
-        const comments = matched.comments_count ?? matched.commentCount ?? matched.num_comments ?? 0;
-        const shares = matched.shares_count ?? matched.shareCount ?? matched.reposts_count ?? matched.num_shares ?? 0;
-        const impressions = matched.impressions_count ?? matched.views ?? matched.impression_count ?? matched.num_impressions ?? 0;
+        const likes = matched.reaction_counter ?? matched.likes_count ?? matched.num_likes ?? 0;
+        const comments = matched.comment_counter ?? matched.comments_count ?? matched.num_comments ?? 0;
+        const shares = matched.repost_counter ?? matched.shares_count ?? matched.num_shares ?? 0;
+        const impressions = matched.impressions_counter ?? matched.impressions_count ?? matched.views ?? 0;
 
         const performance = {
           likes,
