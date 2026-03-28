@@ -72,7 +72,7 @@ serve(async (req) => {
     let cursor: string | null = null;
 
     for (let page = 0; page < max_pages; page++) {
-      let url = `https://${UNIPILE_DSN}/api/v1/posts?account_id=${encodeURIComponent(accountId)}&author_id=${encodeURIComponent(providerId)}&limit=100`;
+      let url = `https://${UNIPILE_DSN}/api/v1/users/${encodeURIComponent(providerId)}/posts?account_id=${encodeURIComponent(accountId)}&limit=100`;
       if (cursor) url += `&cursor=${encodeURIComponent(cursor)}`;
 
       const postsRes = await fetch(url, {

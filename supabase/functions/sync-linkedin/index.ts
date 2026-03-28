@@ -88,7 +88,7 @@ serve(async (req) => {
 
         // Fetch posts from Unipile using the user's provider_id
         const postsResponse = await fetch(
-          `https://${UNIPILE_DSN}/api/v1/posts?account_id=${encodeURIComponent(accountId)}&author_id=${encodeURIComponent(providerId)}&limit=20`,
+          `https://${UNIPILE_DSN}/api/v1/users/${encodeURIComponent(providerId)}/posts?account_id=${encodeURIComponent(accountId)}&limit=20`,
           {
             headers: { "X-API-KEY": UNIPILE_API_KEY, Accept: "application/json" },
           }
