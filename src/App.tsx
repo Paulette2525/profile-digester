@@ -12,6 +12,7 @@ const ProfileDetail = lazy(() => import("./pages/ProfileDetail"));
 const AddProfile = lazy(() => import("./pages/AddProfile"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const TraitementPage = lazy(() => import("./pages/TraitementPage"));
+const StrategiePage = lazy(() => import("./pages/StrategiePage"));
 const SuggestedPostsPage = lazy(() => import("./pages/SuggestedPostsPage"));
 const PlanifierPage = lazy(() => import("./pages/PlanifierPage"));
 const AnalyserPage = lazy(() => import("./pages/AnalyserPage"));
@@ -64,6 +65,7 @@ const App = () => (
               <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
               <Route path="/profile/:id" element={<ProtectedRoute><ProfileDetail /></ProtectedRoute>} />
               <Route path="/traitement" element={<ProtectedRoute><TraitementPage /></ProtectedRoute>} />
+              <Route path="/strategie" element={<ProtectedRoute><StrategiePage /></ProtectedRoute>} />
               <Route path="/posts-suggeres" element={<ProtectedRoute><SuggestedPostsPage /></ProtectedRoute>} />
               <Route path="/planifier" element={<ProtectedRoute><PlanifierPage /></ProtectedRoute>} />
               <Route path="/analyser" element={<ProtectedRoute><AnalyserPage /></ProtectedRoute>} />
