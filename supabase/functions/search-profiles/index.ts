@@ -51,8 +51,9 @@ serve(async (req) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          category: "PEOPLE",
-          keyword: query,
+          api: "classic",
+          category: "people",
+          keywords: query,
         }),
       }
     );
