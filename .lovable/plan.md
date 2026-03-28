@@ -1,32 +1,70 @@
 
 
-## Migrer l'analyse et la generation de posts vers OpenRouter (Claude Sonnet 4)
+## Refonte UI : Sidebar + Pages allegees + Performance
 
-### Objectif
-Remplacer l'appel au gateway Lovable AI par l'API OpenRouter (`https://openrouter.ai/api/v1/chat/completions`) dans les deux edge functions concernees, en utilisant le modele `anthropic/claude-sonnet-4`.
+### Probleme actuel
+- Navigation horizontale avec 7 items qui ne scale pas
+- Pages chargent toutes les donnees d'un coup (pas de lazy loading)
+- Contenu dense et non collapse sur certaines pages
+- Pas de structure sidebar adaptee a l'ajout de futures fonctionnalites
 
-### Etape 1 : Ajouter le secret OPENROUTER_API_KEY
-Utiliser l'outil `add_secret` pour stocker la cle API OpenRouter en tant que secret backend.
+### Proposition
 
-### Etape 2 : Modifier `analyze-virality/index.ts`
-- Remplacer `LOVABLE_API_KEY` par `OPENROUTER_API_KEY`
-- Changer l'URL de `https://ai.gateway.lovable.dev/v1/chat/completions` vers `https://openrouter.ai/api/v1/chat/completions`
-- Changer le modele en `anthropic/claude-sonnet-4`
-- Adapter le header Authorization en `Bearer ${OPENROUTER_API_KEY}`
-- Conserver la meme structure de prompt, tools et parsing
+```text
+┌──────────────┬──────────────────────────────────┐
+│              │                                  │
+│  [Logo]      │   Contenu de la page             │
+│              │                                  │
+│  Dashboard   │                                  │
+│  Traitement  │                                  │
+│  Posts       │                                  │
+│  Planifier   │                                  │
+│  Analyser    │                                  │
+│              │                                  │
+│  ─────────   │                                  │
+│  Profils     │                                  │
+│  Config      │                                  │
+│              │                                  │
+│  [collapse]  │                                  │
+└──────────────┴──────────────────────────────────┘
+```
 
-### Etape 3 : Modifier `generate-posts/index.ts`
-- Memes modifications que pour analyze-virality : URL, cle, modele
-- Conserver le prompt existant et le tool calling `generate_posts`
+### Changements prevus
 
-### Fichiers concernes
-- `supabase/functions/analyze-virality/index.ts`
-- `supabase/functions/generate-posts/index.ts`
-- Ajout du secret `OPENROUTER_API_KEY`
+**1. Sidebar collapsible (remplace la navbar horizontale)**
+- Creer `AppSidebar.tsx` avec `Sidebar` de shadcn (deja installe)
+- Groupes : "Workflow" (Dashboard, Traitement, Posts, Planifier, Analyser) et "Gestion" (Profils, Config)
+- Mode mini (icones seules) quand collapse
+- Modifier `AppLayout.tsx` pour utiliser `SidebarProvider` + `SidebarTrigger` dans un header minimal
+- Indicateur LinkedIn dans le sidebar
 
-### Ce qui ne change PAS
-- `generate-visual/index.ts` reste sur Kie AI
-- `fetch-post-stats/index.ts` reste sur Unipile
-- Les prompts et la structure des reponses restent identiques
-- La base de donnees n'est pas modifiee
+**2. Lazy loading des pages**
+- `React.lazy()` + `Suspense` pour toutes les routes dans `App.tsx`
+- Reduit le bundle initial et accelere le premier rendu
+
+**3. Pages allegees**
+- **TraitementPage** : Sections "Charts" et "Facteurs" dans des `Collapsible` (fermes par defaut apres la premiere consultation)
+- **SuggestedPostsPage** : Pagination des posts (10 par page au lieu de tout afficher)
+- **PlanifierPage** : Limiter l'affichage initial a 10 items par section avec "Voir plus"
+- **AnalyserPage** : Idem, limiter a 10 posts avec "Voir plus"
+- **Index (Dashboard)** : Limiter les posts recents a 10 avec "Voir plus"
+
+**4. Optimisation des requetes React Query**
+- Ajouter `staleTime: 5 * 60 * 1000` sur les requetes principales pour eviter les re-fetch inutiles
+- Ajouter `refetchOnWindowFocus: false` sur les queries lourdes
+
+### Fichiers modifies
+- `src/components/layout/AppLayout.tsx` — refonte avec SidebarProvider
+- `src/components/layout/AppSidebar.tsx` — nouveau fichier sidebar
+- `src/App.tsx` — lazy loading des routes
+- `src/pages/Index.tsx` — pagination posts + staleTime
+- `src/pages/TraitementPage.tsx` — sections collapsibles + staleTime
+- `src/pages/SuggestedPostsPage.tsx` — pagination + staleTime
+- `src/pages/PlanifierPage.tsx` — "voir plus" + staleTime
+- `src/pages/AnalyserPage.tsx` — "voir plus" + staleTime
+
+### Ordre d'implementation
+1. Creer AppSidebar + refactorer AppLayout
+2. Lazy loading dans App.tsx
+3. Optimiser chaque page (pagination, collapsibles, staleTime)
 
