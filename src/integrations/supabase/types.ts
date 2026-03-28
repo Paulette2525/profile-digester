@@ -386,10 +386,12 @@ export type Database = {
       }
       tracked_profiles: {
         Row: {
+          analysis_summary: Json | null
           avatar_url: string | null
           created_at: string
           headline: string | null
           id: string
+          last_analyzed_at: string | null
           linkedin_url: string
           name: string
           unipile_account_id: string | null
@@ -397,10 +399,12 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          analysis_summary?: Json | null
           avatar_url?: string | null
           created_at?: string
           headline?: string | null
           id?: string
+          last_analyzed_at?: string | null
           linkedin_url: string
           name: string
           unipile_account_id?: string | null
@@ -408,10 +412,12 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          analysis_summary?: Json | null
           avatar_url?: string | null
           created_at?: string
           headline?: string | null
           id?: string
+          last_analyzed_at?: string | null
           linkedin_url?: string
           name?: string
           unipile_account_id?: string | null

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,11 +7,12 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
-import { PenLine, Loader2, Copy, Calendar, Check, Sparkles, ImageIcon, RefreshCw, ChevronDown } from "lucide-react";
+import { PenLine, Loader2, Copy, Calendar, Check, Sparkles, ImageIcon, RefreshCw, ChevronDown, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 
 export default function SuggestedPostsPage() {
+  const navigate = useNavigate();
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatingVisualId, setGeneratingVisualId] = useState<string | null>(null);
   const [topic, setTopic] = useState("");
@@ -251,6 +253,14 @@ export default function SuggestedPostsPage() {
               </Card>
             );
           })}
+
+          {posts && posts.length > 0 && (
+            <div className="flex justify-center pt-2">
+              <Button onClick={() => navigate("/planifier")} className="gap-2">
+                Planifier les posts <ArrowRight className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
 
           {posts && posts.length > visibleCount && (
             <Button variant="ghost" className="w-full" onClick={() => setVisibleCount(v => v + 10)}>

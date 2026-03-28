@@ -19,56 +19,24 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Get user from JWT
     const token = authHeader?.replace("Bearer ", "");
     if (!token) throw new Error("Not authenticated");
     const { data: { user }, error: userErr } = await supabase.auth.getUser(token);
     if (userErr || !user) throw new Error("Invalid token");
 
-    // Fetch user memory
-    const { data: memory } = await supabase
-      .from("user_memory")
-      .select("*")
-      .eq("user_id", user.id)
-      .maybeSingle();
+    const { data: memory } = await supabase.from("user_memory").select("*").eq("user_id", user.id).maybeSingle();
+    const { data: analyses } = await supabase.from("virality_analyses").select("analysis_json").eq("user_id", user.id).eq("status", "done").order("created_at", { ascending: false }).limit(3);
+    const { data: publishedPosts } = await supabase.from("suggested_posts").select("content, topic, virality_score, post_performance").eq("user_id", user.id).eq("status", "published").order("created_at", { ascending: false }).limit(20);
+    const { data: ideas } = await supabase.from("content_ideas").select("idea_text").eq("user_id", user.id).eq("used", false).limit(10);
 
-    // Fetch virality analyses
-    const { data: analyses } = await supabase
-      .from("virality_analyses")
-      .select("analysis_json")
-      .eq("user_id", user.id)
-      .eq("status", "done")
-      .order("created_at", { ascending: false })
-      .limit(5);
-
-    // Fetch top performing published posts
-    const { data: publishedPosts } = await supabase
-      .from("suggested_posts")
-      .select("content, topic, virality_score, post_performance")
-      .eq("user_id", user.id)
-      .eq("status", "published")
-      .order("created_at", { ascending: false })
-      .limit(20);
-
-    // Sort by engagement to find top performers
     const topPosts = (publishedPosts || [])
       .filter((p: any) => p.post_performance)
       .sort((a: any, b: any) => {
-        const scoreA = (a.post_performance?.likes || 0) * 2 + (a.post_performance?.comments || 0) * 3 + (a.post_performance?.shares || 0) * 5;
-        const scoreB = (b.post_performance?.likes || 0) * 2 + (b.post_performance?.comments || 0) * 3 + (b.post_performance?.shares || 0) * 5;
-        return scoreB - scoreA;
-      })
-      .slice(0, 10);
+        const s = (x: any) => (x.post_performance?.likes || 0) * 2 + (x.post_performance?.comments || 0) * 3 + (x.post_performance?.shares || 0) * 5;
+        return s(b) - s(a);
+      }).slice(0, 10);
 
-    // Fetch content ideas
-    const { data: ideas } = await supabase
-      .from("content_ideas")
-      .select("idea_text")
-      .eq("user_id", user.id)
-      .eq("used", false)
-      .limit(10);
-
-    const prompt = `Tu es un stratège LinkedIn de renommée mondiale. Analyse les données suivantes et génère une stratégie de contenu ultra-personnalisée pour dominer LinkedIn.
+    const prompt = `Tu es un stratège LinkedIn de renommée mondiale. Génère 3 VARIANTES de stratégie de contenu personnalisées.
 
 ## PROFIL UTILISATEUR
 ${memory ? `
@@ -79,32 +47,28 @@ ${memory ? `
 - Objectifs LinkedIn: ${memory.linkedin_goals || "Non renseigné"}
 - Ton de voix: ${memory.tone_of_voice || "Non renseigné"}
 - Piliers de contenu: ${(memory.content_pillars || []).join(", ") || "Non renseigné"}
-- Thèmes: ${(memory.content_themes || []).join(", ") || "Non renseigné"}
 - Réalisations: ${memory.achievements || "Non renseigné"}
-- Méthodologie unique: ${memory.unique_methodology || "Non renseigné"}
-- Résultats clés: ${memory.key_results || "Non renseigné"}
 - Différenciateurs: ${memory.differentiators || "Non renseigné"}
 - Points de douleur audience: ${memory.audience_pain_points || "Non renseigné"}
-- Style CTA: ${memory.call_to_action_style || "Non renseigné"}
 - Fréquence de publication: ${memory.posting_frequency || "Non renseigné"}
-- Formats préférés: ${memory.preferred_formats || "Non renseigné"}
 - Ambitions: ${memory.ambitions || "Non renseigné"}
-- Objectif abonnés: ${memory.target_followers || "Non renseigné"}
-- Objectif connexions: ${memory.target_connections || "Non renseigné"}
-- Objectif taux engagement: ${memory.target_engagement_rate || "Non renseigné"}%
-- Timeline objectifs: ${memory.goal_timeline || "Non renseigné"}
 ` : "Aucune mémoire renseignée."}
 
-## ANALYSES DE VIRALITÉ (patterns identifiés)
-${analyses && analyses.length > 0 ? analyses.map((a: any, i: number) => `Analyse ${i + 1}: ${JSON.stringify(a.analysis_json).substring(0, 500)}`).join("\n") : "Aucune analyse disponible."}
+## ANALYSES DE VIRALITÉ
+${analyses?.length ? analyses.map((a: any, i: number) => `Analyse ${i + 1}: ${JSON.stringify(a.analysis_json).substring(0, 400)}`).join("\n") : "Aucune analyse."}
 
-## TOP POSTS PERFORMANTS
-${topPosts.length > 0 ? topPosts.map((p: any, i: number) => `Post ${i + 1}: "${(p.content || "").substring(0, 200)}..." | Likes: ${p.post_performance?.likes || 0}, Comments: ${p.post_performance?.comments || 0}, Shares: ${p.post_performance?.shares || 0}`).join("\n") : "Aucun post publié avec performances."}
+## TOP POSTS
+${topPosts.length ? topPosts.map((p: any, i: number) => `Post ${i + 1}: "${(p.content || "").substring(0, 150)}..." | L:${p.post_performance?.likes || 0} C:${p.post_performance?.comments || 0}`).join("\n") : "Aucun post publié."}
 
-## IDÉES DE CONTENU EN ATTENTE
-${ideas && ideas.length > 0 ? ideas.map((i: any) => `- ${i.idea_text}`).join("\n") : "Aucune idée en attente."}
+## IDÉES
+${ideas?.length ? ideas.map((i: any) => `- ${i.idea_text}`).join("\n") : "Aucune idée."}
 
-Génère une stratégie complète en JSON avec cette structure exacte. Sois très précis et actionnable. Adapte tout au profil et aux données réelles.`;
+Génère exactement 3 variantes de stratégie :
+1. **Agressive** : 5-7 posts/semaine, focus viralité maximale, storytelling + contenu provocateur/opinion
+2. **Équilibrée** : 3-5 posts/semaine, mix storytelling/tuto/news/viral/social proof
+3. **Autoritaire** : 2-3 posts/semaine, thought leadership, contenu expert profond
+
+Chaque variante doit inclure des types de contenu diversifiés : Storytelling, Viral (hooks forts), Tuto/How-to, News/Actualités, Social Proof (résultats, témoignages).`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -115,83 +79,90 @@ Génère une stratégie complète en JSON avec cette structure exacte. Sois trè
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
         messages: [
-          { role: "system", content: "Tu génères des stratégies de contenu LinkedIn en JSON. Réponds UNIQUEMENT avec du JSON valide, sans markdown." },
+          { role: "system", content: "Tu génères des stratégies de contenu LinkedIn en JSON structuré." },
           { role: "user", content: prompt },
         ],
         tools: [{
           type: "function",
           function: {
-            name: "create_strategy",
-            description: "Create a LinkedIn content strategy",
+            name: "create_strategies",
+            description: "Create 3 LinkedIn content strategy variants",
             parameters: {
               type: "object",
               properties: {
-                summary: { type: "string", description: "Vision stratégique globale en 2-3 phrases" },
-                positioning: { type: "string", description: "Positionnement recommandé sur LinkedIn" },
-                content_pillars: {
+                variants: {
                   type: "array",
                   items: {
                     type: "object",
                     properties: {
-                      name: { type: "string" },
-                      percentage: { type: "number" },
-                      description: { type: "string" }
+                      variant_name: { type: "string", description: "Agressive, Équilibrée, ou Autoritaire" },
+                      variant_emoji: { type: "string" },
+                      frequency: { type: "string", description: "ex: 5-7 posts/semaine" },
+                      summary: { type: "string" },
+                      positioning: { type: "string" },
+                      content_pillars: {
+                        type: "array",
+                        items: {
+                          type: "object",
+                          properties: {
+                            name: { type: "string" },
+                            percentage: { type: "number" },
+                            description: { type: "string" },
+                            content_type: { type: "string", description: "Storytelling, Viral, Tuto, News, Social Proof" }
+                          },
+                          required: ["name", "percentage", "description", "content_type"]
+                        }
+                      },
+                      weekly_calendar: {
+                        type: "array",
+                        items: {
+                          type: "object",
+                          properties: {
+                            day: { type: "string" },
+                            type: { type: "string" },
+                            suggestion: { type: "string" }
+                          },
+                          required: ["day", "type", "suggestion"]
+                        }
+                      },
+                      winning_formats: {
+                        type: "array",
+                        items: {
+                          type: "object",
+                          properties: {
+                            format: { type: "string" },
+                            recommendation: { type: "string" }
+                          },
+                          required: ["format", "recommendation"]
+                        }
+                      },
+                      themes_to_explore: { type: "array", items: { type: "string" } },
+                      recycling_opportunities: {
+                        type: "array",
+                        items: {
+                          type: "object",
+                          properties: {
+                            original_post_excerpt: { type: "string" },
+                            new_angle: { type: "string" },
+                            why: { type: "string" }
+                          },
+                          required: ["original_post_excerpt", "new_angle", "why"]
+                        }
+                      }
                     },
-                    required: ["name", "percentage", "description"]
-                  }
-                },
-                weekly_calendar: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    properties: {
-                      day: { type: "string" },
-                      type: { type: "string" },
-                      suggestion: { type: "string" }
-                    },
-                    required: ["day", "type", "suggestion"]
-                  }
-                },
-                winning_formats: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    properties: {
-                      format: { type: "string" },
-                      avg_engagement: { type: "number" },
-                      recommendation: { type: "string" }
-                    },
-                    required: ["format", "recommendation"]
-                  }
-                },
-                themes_to_explore: {
-                  type: "array",
-                  items: { type: "string" }
-                },
-                recycling_opportunities: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    properties: {
-                      original_post_excerpt: { type: "string" },
-                      new_angle: { type: "string" },
-                      why: { type: "string" }
-                    },
-                    required: ["original_post_excerpt", "new_angle", "why"]
+                    required: ["variant_name", "variant_emoji", "frequency", "summary", "positioning", "content_pillars", "weekly_calendar", "winning_formats", "themes_to_explore", "recycling_opportunities"]
                   }
                 }
               },
-              required: ["summary", "positioning", "content_pillars", "weekly_calendar", "winning_formats", "themes_to_explore", "recycling_opportunities"]
+              required: ["variants"]
             }
           }
         }],
-        tool_choice: { type: "function", function: { name: "create_strategy" } },
+        tool_choice: { type: "function", function: { name: "create_strategies" } },
       }),
     });
 
     if (!response.ok) {
-      const errText = await response.text();
-      console.error("AI error:", response.status, errText);
       if (response.status === 429) {
         return new Response(JSON.stringify({ error: "Trop de requêtes, réessayez dans quelques instants." }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -202,34 +173,26 @@ Génère une stratégie complète en JSON avec cette structure exacte. Sois trè
 
     const aiData = await response.json();
     const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
-    let strategy;
+    let strategyData;
     if (toolCall?.function?.arguments) {
-      strategy = typeof toolCall.function.arguments === "string"
+      strategyData = typeof toolCall.function.arguments === "string"
         ? JSON.parse(toolCall.function.arguments)
         : toolCall.function.arguments;
     } else {
       throw new Error("No strategy generated");
     }
 
-    // Upsert strategy
-    const { data: existing } = await supabase
-      .from("content_strategy")
-      .select("id")
-      .eq("user_id", user.id)
-      .maybeSingle();
+    // Upsert strategy with all variants
+    const { data: existing } = await supabase.from("content_strategy").select("id").eq("user_id", user.id).maybeSingle();
+    const strategyJson = { variants: strategyData.variants, selected_variant: null };
 
     if (existing) {
-      await supabase
-        .from("content_strategy")
-        .update({ strategy_json: strategy, updated_at: new Date().toISOString() })
-        .eq("id", existing.id);
+      await supabase.from("content_strategy").update({ strategy_json: strategyJson, updated_at: new Date().toISOString() }).eq("id", existing.id);
     } else {
-      await supabase
-        .from("content_strategy")
-        .insert({ user_id: user.id, strategy_json: strategy });
+      await supabase.from("content_strategy").insert({ user_id: user.id, strategy_json: strategyJson });
     }
 
-    return new Response(JSON.stringify({ success: true, strategy }), {
+    return new Response(JSON.stringify({ success: true, strategy: strategyJson }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {

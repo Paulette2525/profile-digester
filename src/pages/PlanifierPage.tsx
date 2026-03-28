@@ -1,17 +1,19 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
-import { Calendar, Clock, Send, Loader2, CalendarDays, ChevronDown } from "lucide-react";
+import { Calendar, Clock, Send, Loader2, CalendarDays, ChevronDown, ArrowRight, BarChart3 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 
 export default function PlanifierPage() {
+  const navigate = useNavigate();
   const [publishingId, setPublishingId] = useState<string | null>(null);
   const [scheduleInputs, setScheduleInputs] = useState<Record<string, string>>({});
   const [showAllDrafts, setShowAllDrafts] = useState(false);
@@ -205,6 +207,14 @@ export default function PlanifierPage() {
               )}
             </CardContent>
           </Card>
+        )}
+
+        {publishedPosts.length > 0 && (
+          <div className="flex justify-center pt-2">
+            <Button onClick={() => navigate("/analyser")} className="gap-2">
+              <BarChart3 className="h-4 w-4" /> Voir les performances <ArrowRight className="h-4 w-4" />
+            </Button>
+          </div>
         )}
 
         {(!posts || posts.length === 0) && (
