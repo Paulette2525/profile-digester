@@ -14,6 +14,86 @@ export type Database = {
   }
   public: {
     Tables: {
+      auto_engagement_config: {
+        Row: {
+          auto_dm: boolean
+          auto_like: boolean
+          auto_reply: boolean
+          created_at: string
+          dm_template: string | null
+          id: string
+          reply_prompt: string | null
+          updated_at: string
+        }
+        Insert: {
+          auto_dm?: boolean
+          auto_like?: boolean
+          auto_reply?: boolean
+          created_at?: string
+          dm_template?: string | null
+          id?: string
+          reply_prompt?: string | null
+          updated_at?: string
+        }
+        Update: {
+          auto_dm?: boolean
+          auto_like?: boolean
+          auto_reply?: boolean
+          created_at?: string
+          dm_template?: string | null
+          id?: string
+          reply_prompt?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      auto_engagement_logs: {
+        Row: {
+          action_type: string
+          author_linkedin_url: string | null
+          author_name: string | null
+          comment_id: string | null
+          content_sent: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          post_id: string | null
+          status: string
+        }
+        Insert: {
+          action_type: string
+          author_linkedin_url?: string | null
+          author_name?: string | null
+          comment_id?: string | null
+          content_sent?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          post_id?: string | null
+          status?: string
+        }
+        Update: {
+          action_type?: string
+          author_linkedin_url?: string | null
+          author_name?: string | null
+          comment_id?: string | null
+          content_sent?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          post_id?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auto_engagement_logs_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "suggested_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       linkedin_posts: {
         Row: {
           comments_count: number
