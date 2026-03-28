@@ -1,13 +1,17 @@
 import { ReactNode, useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, UserPlus, Settings, Linkedin } from "lucide-react";
+import { LayoutDashboard, UserPlus, Settings, Linkedin, Zap, PenLine, Calendar, BarChart3 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 const navItems = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/add-profile", label: "Ajouter un profil", icon: UserPlus },
-  { to: "/settings", label: "Configuration", icon: Settings },
+  { to: "/traitement", label: "Traitement", icon: Zap },
+  { to: "/posts-suggeres", label: "Posts Suggérés", icon: PenLine },
+  { to: "/planifier", label: "Planifier", icon: Calendar },
+  { to: "/analyser", label: "Analyser", icon: BarChart3 },
+  { to: "/add-profile", label: "Ajouter", icon: UserPlus },
+  { to: "/settings", label: "Config", icon: Settings },
 ];
 
 export function AppLayout({ children }: { children: ReactNode }) {
