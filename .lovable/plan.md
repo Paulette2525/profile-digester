@@ -1,42 +1,39 @@
 
 
-## Amelioration de l'extraction des publications LinkedIn
+## Corriger l'extraction des compteurs d'engagement (likes, commentaires, partages)
 
-### Problemes identifies
-1. **Contenu tronque** : Le PostCard tronque le contenu a 280 caracteres, et le contenu complet n'est pas accessible
-2. **Medias manquants** : La table `linkedin_posts` n'a pas de colonne pour stocker les images/videos. Les edge functions n'extraient pas les medias des posts Unipile
-3. **Interactions non extraites** : Les commentaires sont inseres sans deduplication (doublons a chaque sync), et les likes/reactions individuelles ne sont pas extraites
-4. **Compteurs a zero** : Unipile renvoie les compteurs mais ils sont tous a 0 dans la DB, probablement car les champs Unipile ont des noms differents
+### Probleme
+Tous les posts ont `likes_count: 0`, `comments_count: 0`, `shares_count: 0` en base. Le mapping actuel utilise `||` (OR logique) qui en JavaScript traite `0` comme falsy -- donc si Unipile renvoie `0` pour un champ, il passe au suivant et finit a `0`. De plus, les noms de champs Unipile sont probablement differents de ceux testes.
 
-### Plan
+### Solution
 
-**1. Migration DB : ajouter colonnes medias aux posts**
-- Ajouter `media_urls jsonb DEFAULT '[]'` a `linkedin_posts` pour stocker les URLs d'images/videos
-- Ajouter `media_type text` (image, video, article, none)
-- Ajouter un index unique `(unipile_post_id, post_id)` sur `post_interactions` pour eviter les doublons de commentaires
-- Ajouter `unipile_comment_id text` a `post_interactions` pour la deduplication
+**1. Ajouter un log diagnostic dans `fetch-profile-posts`**
+- Logger le premier post brut recu d'Unipile (`console.log(JSON.stringify(items[0]))`) pour identifier les vrais noms de champs des compteurs
+- Deployer et invoquer pour un profil, puis lire les logs
 
-**2. Edge functions : extraction complete des medias et interactions**
-- `fetch-profile-posts/index.ts` et `sync-linkedin/index.ts` :
-  - Extraire `post.images`, `post.media`, `post.attachments` depuis la reponse Unipile et stocker dans `media_urls`
-  - Mieux mapper les compteurs : verifier `post.reactions_count`, `post.num_likes`, `post.social_counts`
-  - Deduplication des commentaires via `unipile_comment_id` (upsert au lieu d'insert)
-  - Extraire aussi les reactions/likes individuels si disponibles dans l'API Unipile
+**2. Corriger le mapping des compteurs dans les deux edge functions**
+- Remplacer les `||` par des verifications explicites avec `??` (nullish coalescing) et `typeof` pour ne pas ignorer la valeur `0`
+- Ajouter les champs Unipile courants: `social_counts.num_likes`, `social_counts.num_comments`, `social_counts.num_shares`, `reactions.total_count`, `engagement.likes`
+- Pattern corrige :
+```typescript
+likes_count: post.social_counts?.num_likes 
+  ?? post.likes_count ?? post.reactions_count ?? post.num_likes ?? 0,
+```
 
-**3. PostCard : afficher le contenu complet et les medias**
-- Remplacer la troncature par un systeme "Voir plus / Voir moins" avec toggle
-- Afficher les images en galerie sous le texte
-- Afficher les videos avec un player embed ou un lien
-- Afficher les vrais compteurs de likes/commentaires/partages
+**3. Ajouter une colonne `impressions_count` a la table `linkedin_posts`**
+- Migration SQL pour ajouter `impressions_count integer DEFAULT 0`
+- Mapper depuis `post.views_count`, `post.impressions`, `post.social_counts?.num_impressions`
 
-**4. ProfileDetail : afficher les interactions completes**
-- Lister les commentaires avec avatar, nom, texte complet
-- Lister les reactions/likes avec le type de reaction
+**4. Mettre a jour le PostCard pour afficher les impressions**
+- Ajouter une icone Eye avec le compteur d'impressions
 
 ### Fichiers concernes
-- Migration SQL (nouvelle)
-- `supabase/functions/fetch-profile-posts/index.ts` (modifie)
-- `supabase/functions/sync-linkedin/index.ts` (modifie)
-- `src/components/dashboard/PostCard.tsx` (modifie)
-- `src/pages/ProfileDetail.tsx` (modifie)
+- `supabase/functions/fetch-profile-posts/index.ts` (log + fix mapping)
+- `supabase/functions/sync-linkedin/index.ts` (fix mapping)
+- Migration SQL (ajout `impressions_count`)
+- `src/components/dashboard/PostCard.tsx` (afficher impressions)
+- `src/components/dashboard/StatsCards.tsx` (ajout stat impressions)
+
+### Approche
+Etape 1 : deployer avec le log diagnostic, invoquer, lire les logs pour confirmer les noms de champs. Etape 2 : corriger le mapping et re-extraire les posts.
 
