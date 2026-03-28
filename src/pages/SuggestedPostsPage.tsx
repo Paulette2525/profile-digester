@@ -14,6 +14,7 @@ export default function SuggestedPostsPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatingVisualId, setGeneratingVisualId] = useState<string | null>(null);
   const [topic, setTopic] = useState("");
+  const [postCount, setPostCount] = useState(5);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
 
