@@ -3,8 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 async function getLinkedInAccountId(dsn: string, apiKey: string): Promise<string> {
@@ -19,6 +18,40 @@ async function getLinkedInAccountId(dsn: string, apiKey: string): Promise<string
   return linkedin.id;
 }
 
+function parseDate(raw: any): string | null {
+  if (!raw) return null;
+  const parsed = new Date(raw);
+  return isNaN(parsed.getTime()) ? null : parsed.toISOString();
+}
+
+function extractMedia(post: any): { media_urls: any[]; media_type: string } {
+  const urls: any[] = [];
+  if (post.images && Array.isArray(post.images)) {
+    for (const img of post.images) {
+      urls.push({ type: "image", url: typeof img === "string" ? img : img.url || img.src });
+    }
+  }
+  if (post.media && Array.isArray(post.media)) {
+    for (const m of post.media) {
+      const type = m.type || (m.video_url ? "video" : "image");
+      urls.push({ type, url: m.url || m.video_url || m.src || m.image_url });
+    }
+  }
+  if (post.attachments && Array.isArray(post.attachments)) {
+    for (const a of post.attachments) {
+      urls.push({ type: a.type || "article", url: a.url || a.link || a.image_url, title: a.title });
+    }
+  }
+  if (post.image_url && urls.length === 0) urls.push({ type: "image", url: post.image_url });
+  if (post.video_url) urls.push({ type: "video", url: post.video_url });
+
+  const filtered = urls.filter(u => u.url);
+  const hasVideo = filtered.some(u => u.type === "video");
+  const hasImage = filtered.some(u => u.type === "image");
+  const media_type = hasVideo ? "video" : hasImage ? "image" : filtered.length > 0 ? "article" : "none";
+  return { media_urls: filtered, media_type };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -27,9 +60,7 @@ serve(async (req) => {
   try {
     const UNIPILE_API_KEY = Deno.env.get("UNIPILE_API_KEY");
     const UNIPILE_DSN = Deno.env.get("UNIPILE_DSN");
-    if (!UNIPILE_API_KEY || !UNIPILE_DSN) {
-      throw new Error("UNIPILE_API_KEY or UNIPILE_DSN not configured");
-    }
+    if (!UNIPILE_API_KEY || !UNIPILE_DSN) throw new Error("UNIPILE_API_KEY or UNIPILE_DSN not configured");
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -38,60 +69,45 @@ serve(async (req) => {
 
     const accountId = await getLinkedInAccountId(UNIPILE_DSN, UNIPILE_API_KEY);
 
-    // Get all tracked profiles
-    const { data: profiles, error: profilesError } = await supabase
-      .from("tracked_profiles")
-      .select("*");
-
+    const { data: profiles, error: profilesError } = await supabase.from("tracked_profiles").select("*");
     if (profilesError) throw profilesError;
     if (!profiles || profiles.length === 0) {
-      return new Response(
-        JSON.stringify({ message: "No profiles to sync" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ message: "No profiles to sync" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const results = [];
 
     for (const profile of profiles) {
       try {
-        // Extract LinkedIn identifier from URL
         const urlParts = profile.linkedin_url.replace(/\/$/, "").split("/");
         const identifier = urlParts[urlParts.length - 1];
 
-        // First, try to get the user's profile to get their provider_id
         const profileRes = await fetch(
           `https://${UNIPILE_DSN}/api/v1/users/${encodeURIComponent(identifier)}?account_id=${encodeURIComponent(accountId)}`,
-          {
-            headers: { "X-API-KEY": UNIPILE_API_KEY, Accept: "application/json" },
-          }
+          { headers: { "X-API-KEY": UNIPILE_API_KEY, Accept: "application/json" } }
         );
 
         let providerId = identifier;
         if (profileRes.ok) {
           const profileData = await profileRes.json();
           providerId = profileData.provider_id || profileData.id || identifier;
-
-          // Update profile info if available
           if (profileData.name || profileData.first_name) {
-            await supabase
-              .from("tracked_profiles")
-              .update({
-                name: profileData.name || `${profileData.first_name || ""} ${profileData.last_name || ""}`.trim() || profile.name,
-                avatar_url: profileData.profile_picture_url || profileData.avatar_url || profile.avatar_url,
-                headline: profileData.headline || profile.headline,
-                unipile_account_id: providerId,
-              })
-              .eq("id", profile.id);
+            await supabase.from("tracked_profiles").update({
+              name: profileData.name || `${profileData.first_name || ""} ${profileData.last_name || ""}`.trim() || profile.name,
+              avatar_url: profileData.profile_picture_url || profileData.avatar_url || profile.avatar_url,
+              headline: profileData.headline || profile.headline,
+              unipile_account_id: providerId,
+            }).eq("id", profile.id);
           }
+        } else {
+          await profileRes.text();
         }
 
-        // Fetch posts from Unipile using the user's provider_id
         const postsResponse = await fetch(
           `https://${UNIPILE_DSN}/api/v1/users/${encodeURIComponent(providerId)}/posts?account_id=${encodeURIComponent(accountId)}&limit=20`,
-          {
-            headers: { "X-API-KEY": UNIPILE_API_KEY, Accept: "application/json" },
-          }
+          { headers: { "X-API-KEY": UNIPILE_API_KEY, Accept: "application/json" } }
         );
 
         if (!postsResponse.ok) {
@@ -106,52 +122,36 @@ serve(async (req) => {
 
         for (const post of items) {
           const postId = post.id || post.post_id;
-
-          // Check if post exists
-          const { data: existing } = await supabase
-            .from("linkedin_posts")
-            .select("id")
-            .eq("unipile_post_id", String(postId))
-            .eq("profile_id", profile.id)
-            .maybeSingle();
-
-          // Parse posted_at - Unipile may return relative strings like "3yr", "1w"
-          let postedAt: string | null = null;
-          const rawDate = post.created_at || post.date || null;
-          if (rawDate) {
-            const parsed = new Date(rawDate);
-            postedAt = isNaN(parsed.getTime()) ? null : parsed.toISOString();
-          }
+          const { media_urls, media_type } = extractMedia(post);
 
           const postData = {
             profile_id: profile.id,
             unipile_post_id: String(postId),
             content: post.text || post.content || "",
             post_url: post.url || post.share_url || null,
-            likes_count: post.likes_count || post.reactions_count || 0,
-            comments_count: post.comments_count || 0,
-            shares_count: post.shares_count || post.reposts_count || 0,
-            posted_at: postedAt,
+            likes_count: post.likes_count || post.reactions_count || post.num_likes || 0,
+            comments_count: post.comments_count || post.num_comments || 0,
+            shares_count: post.shares_count || post.reposts_count || post.num_shares || 0,
+            posted_at: parseDate(post.created_at || post.date),
+            media_urls,
+            media_type,
           };
 
-          let savedPostId: string;
+          const { data: existing } = await supabase
+            .from("linkedin_posts").select("id")
+            .eq("unipile_post_id", String(postId))
+            .eq("profile_id", profile.id)
+            .maybeSingle();
 
+          let savedPostId: string;
           if (existing) {
-            await supabase
-              .from("linkedin_posts")
-              .update(postData)
-              .eq("id", existing.id);
+            await supabase.from("linkedin_posts").update(postData).eq("id", existing.id);
             savedPostId = existing.id;
           } else {
-            const { data: inserted } = await supabase
-              .from("linkedin_posts")
-              .insert(postData)
-              .select("id")
-              .single();
+            const { data: inserted } = await supabase.from("linkedin_posts").insert(postData).select("id").single();
             savedPostId = inserted?.id || "";
           }
 
-          // Fetch comments for this post
           if (savedPostId) {
             try {
               const commentsRes = await fetch(
@@ -161,15 +161,34 @@ serve(async (req) => {
               if (commentsRes.ok) {
                 const commentsData = await commentsRes.json();
                 for (const comment of (commentsData.items || [])) {
-                  await supabase.from("post_interactions").insert({
+                  const commentId = comment.id || comment.comment_id;
+                  const commentData = {
                     post_id: savedPostId,
                     interaction_type: "comment",
                     author_name: comment.author?.name || comment.name || "Inconnu",
-                    author_avatar_url: comment.author?.profile_picture_url || null,
-                    author_linkedin_url: comment.author?.public_profile_url || null,
+                    author_avatar_url: comment.author?.profile_picture_url || comment.author?.avatar_url || null,
+                    author_linkedin_url: comment.author?.public_profile_url || comment.author?.profile_url || null,
                     comment_text: comment.text || comment.content || "",
-                  });
+                    unipile_comment_id: commentId ? String(commentId) : null,
+                  };
+
+                  if (commentId) {
+                    const { data: existingComment } = await supabase
+                      .from("post_interactions").select("id")
+                      .eq("post_id", savedPostId)
+                      .eq("unipile_comment_id", String(commentId))
+                      .maybeSingle();
+                    if (existingComment) {
+                      await supabase.from("post_interactions").update(commentData).eq("id", existingComment.id);
+                    } else {
+                      await supabase.from("post_interactions").insert(commentData);
+                    }
+                  } else {
+                    await supabase.from("post_interactions").insert(commentData);
+                  }
                 }
+              } else {
+                await commentsRes.text();
               }
             } catch (e) {
               console.error("Error fetching comments:", e);
@@ -190,8 +209,7 @@ serve(async (req) => {
   } catch (error) {
     console.error("Sync error:", error);
     return new Response(JSON.stringify({ error: String(error) }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
