@@ -53,6 +53,27 @@ export default function AnalyserPage() {
     },
   });
 
+  // Stats history for growth chart
+  const { data: statsHistory, refetch: refetchHistory } = useQuery({
+    queryKey: ["account-stats-history"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("account_stats_history" as any)
+        .select("*")
+        .order("snapshot_date", { ascending: true })
+        .limit(90);
+      if (error) return [];
+      return data as any[];
+    },
+    staleTime: 2 * 60 * 1000,
+  });
+
+  const growthData = (statsHistory || []).map((s: any) => ({
+    date: format(new Date(s.snapshot_date), "dd/MM", { locale: fr }),
+    abonnés: s.followers,
+    connexions: s.connections,
+  }));
+
   const handleSync = async () => {
     setIsSyncing(true);
     try {
