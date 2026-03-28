@@ -18,9 +18,15 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
+    const authHeader = req.headers.get("Authorization") || "";
+    const token = authHeader.replace("Bearer ", "");
+    const { data: { user } } = await supabase.auth.getUser(token);
+    if (!user) throw new Error("Not authenticated");
+    const userId = user.id;
+
     const { profile_ids } = await req.json().catch(() => ({}));
 
-    let profilesQuery = supabase.from("tracked_profiles").select("id, name, last_analyzed_at");
+    let profilesQuery = supabase.from("tracked_profiles").select("id, name, last_analyzed_at").eq("user_id", userId);
     if (profile_ids && profile_ids.length > 0) {
       profilesQuery = profilesQuery.in("id", profile_ids);
     }
