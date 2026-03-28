@@ -1,47 +1,29 @@
 
 
-## Plan : Fix generation de posts + visuels + optimisation globale
+## Plan : Optimiser l'affichage des statistiques sur la page Analyser
 
-### Problemes identifies
+### Probleme
 
-1. **generate-posts** : insere les posts SANS `user_id` → RLS bloque la lecture cote frontend (retourne `[]`). Utilise aussi OpenRouter au lieu de Lovable AI.
-
-2. **generate-visual** : le parsing de la reponse image echoue ("No image data in AI response"). Le format `message.images[0].image_url.url` ne correspond pas a la structure reelle de la reponse Gemini image.
-
-3. **Frontend** : genere les visuels sequentiellement pour CHAQUE post (boucle for), ce qui bloque l'UI pendant plusieurs minutes.
+Les 8 cartes statistiques sont affichees sur une seule ligne (`grid-cols-2 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-8`), ce qui les rend trop compressees sur la plupart des ecrans. Les valeurs et labels sont difficiles a lire.
 
 ### Solution
 
-#### 1. Refonte `generate-posts/index.ts`
+Reorganiser en 2 rangees de 4 cartes avec un design plus lisible :
 
-- Remplacer OpenRouter par Lovable AI (`google/gemini-3-flash-preview`)
-- Extraire `user_id` du JWT et l'ajouter a chaque post insere
-- Ajouter retry (502/503) avec delai
-- Filtrer `user_memory`, `user_photos`, `content_ideas` par `user_id`
+**Rangee 1 — Compte LinkedIn** : Abonnes, Connexions, Publies, Score moyen
+**Rangee 2 — Engagement** : Likes, Commentaires, Partages, Impressions
 
-#### 2. Fix `generate-visual/index.ts`
+### Changements concrets dans `src/pages/AnalyserPage.tsx`
 
-- Logger la structure complete de la reponse AI pour diagnostiquer
-- Parser correctement : verifier `message.content` pour les data URIs inline (format courant de Gemini image), puis fallback sur `message.images`
-- Ajouter retry sur 502/503
+1. **Grid** : Remplacer `grid-cols-2 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-8` par deux blocs `grid-cols-2 md:grid-cols-4 gap-4`
+2. **Espacement** : Augmenter le padding interne des cartes pour plus de lisibilite
+3. **Titres de section** : Ajouter des labels discrets ("Compte" / "Engagement") au-dessus de chaque rangee
+4. **Taille du texte** : Passer les valeurs de `text-xl` a `text-2xl font-bold` et les labels de `text-xs` a `text-sm`
+5. **Icones** : Augmenter legerement la taille des icones (`h-5 w-5` au lieu de `h-4 w-4`)
 
-#### 3. Frontend `SuggestedPostsPage.tsx`
+### Fichier a modifier
 
-- Supprimer la boucle de generation automatique de visuels (trop lent, bloque l'UI)
-- L'utilisateur genere les visuels manuellement via le bouton existant
-- Ajouter un bouton "Generer tous les visuels" qui lance les appels en parallele (Promise.allSettled) avec un compteur de progression
-
-### Fichiers a modifier
-
-| Fichier | Changement |
-|---------|-----------|
-| `supabase/functions/generate-posts/index.ts` | Lovable AI + user_id + retry + filtres user |
-| `supabase/functions/generate-visual/index.ts` | Fix parsing reponse image + retry |
-| `src/pages/SuggestedPostsPage.tsx` | Supprimer auto-visual, ajouter bouton batch |
-
-### Details techniques
-
-- `generate-posts` : extraction JWT identique a `analyze-virality` (`req.headers.get("Authorization")` → `supabase.auth.getUser(token)`)
-- `generate-visual` : le modele `google/gemini-3.1-flash-image-preview` avec `modalities: ["image", "text"]` retourne l'image dans `message.content` sous forme de parts multimodales ou dans un champ `inline_data`. Le fix consiste a parcourir toutes les structures possibles : `message.images`, `message.content` (si tableau de parts), et `message.content` (si string avec data URI)
-- Frontend : `Promise.allSettled` pour generer les visuels en parallele par lots de 3
+| Fichier | Action |
+|---------|--------|
+| `src/pages/AnalyserPage.tsx` | Restructurer la grille de stats en 2 rangees de 4 |
 
