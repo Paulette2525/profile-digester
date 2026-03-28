@@ -24,7 +24,8 @@ export default function AnalyserPage() {
       if (error) return { followers: 0, connections: 0 };
       return data;
     },
-    staleTime: 10 * 60 * 1000,
+    staleTime: 2 * 60 * 1000,
+    refetchOnWindowFocus: true,
   });
 
   // Fetch user memory for goals

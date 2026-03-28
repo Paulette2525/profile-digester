@@ -93,6 +93,8 @@ export default function MemoirePage() {
     onSuccess: () => {
       toast.success("Mémoire sauvegardée !");
       queryClient.invalidateQueries({ queryKey: ["user-memory"] });
+      queryClient.invalidateQueries({ queryKey: ["account-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["content-strategy"] });
     },
     onError: (e: any) => toast.error(e.message),
   });
