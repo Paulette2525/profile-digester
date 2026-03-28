@@ -1,69 +1,85 @@
 
 
-## Plan : Page Memoire + Stats compte sur Analyser
+## Plan : Memoire enrichie + Idees avec images + Auto-DM par post
 
-### 1. Page Analyser : Abonnes, connexions et evolution
+### 3 axes de changement
 
-**Ajouts sur `AnalyserPage.tsx` :**
-- Appeler une nouvelle edge function `fetch-account-stats` qui recupere via Unipile les stats du compte LinkedIn (nombre d'abonnes/followers, nombre de connexions)
-- Ajouter 2 cartes en haut : "Abonnes" et "Connexions"
-- Ajouter un graphe LineChart "Evolution de la performance" qui trace l'evolution dans le temps des likes, commentaires, impressions cumules par date de publication (a partir des posts publies existants)
+### 1. Enrichir le formulaire Memoire (profil)
 
-**Nouvelle edge function `fetch-account-stats/index.ts` :**
-- Appel Unipile `GET /api/v1/users/me` pour recuperer followers_count et connections_count
-- Retourne ces chiffres au frontend
+**Nouveaux champs dans `user_memory`** (migration SQL) :
+- `achievements` (text) — realisations, projets crees
+- `unique_methodology` (text) — methode ou approche unique
+- `key_results` (text) — resultats marquants (chiffres, impact)
+- `differentiators` (text) — ce qui vous differencie des autres
+- `audience_pain_points` (text) — problemes de votre audience
+- `call_to_action_style` (text) — style de CTA prefere
+- `linkedin_goals` (text) — objectifs LinkedIn specifiques
+- `target_followers` (integer) — objectif nombre d'abonnes
+- `target_connections` (integer) — objectif nombre de connexions
+- `target_engagement_rate` (numeric) — objectif taux d'engagement %
+- `goal_timeline` (text) — horizon temporel (1 mois, 3 mois, 6 mois)
+- `competitors` (text) — leaders/concurrents dans votre domaine
+- `content_pillars` (text array) — piliers de contenu strategiques
+- `brand_keywords` (text array) — mots-cles de marque
 
-### 2. Page Memoire (`/memoire`)
+**UI** : reorganiser `MemoirePage.tsx` en sections claires avec des titres :
+- Identite (nom, profession, entreprise, industrie)
+- Expertise & Realisations (expertise, realisations, methodologie, resultats, differenciateurs)
+- Audience & Marche (audience cible, problemes audience, concurrents)
+- Objectifs LinkedIn (abonnes vises, connexions visees, engagement vise, horizon)
+- Strategie de contenu (themes, piliers, types, formats, frequence, ton, CTA)
+- Histoire & Valeurs (histoire perso, valeurs, ambitions)
+- Offres & Notes (offres, notes)
 
-**Nouvelle table `user_memory` :**
-- `id`, `created_at`, `updated_at`
-- `full_name`, `profession`, `company`, `industry`
-- `target_audience` (text), `offers_description` (text)
-- `ambitions` (text), `values` (text), `tone_of_voice` (text)
-- `content_themes` (text array), `content_types` (text array)
-- `personal_story` (text), `expertise_areas` (text)
-- `posting_frequency` (text), `preferred_formats` (text)
-- `additional_notes` (text)
+**Impact AI** : mettre a jour `generate-posts/index.ts` pour injecter les nouveaux champs dans le prompt (objectifs, realisations, differenciateurs, etc.)
 
-**Nouvelle table `user_photos` :**
-- `id`, `created_at`, `image_url` (text), `description` (text)
+### 2. Idees de publication avec images
 
-**Nouvelle table `content_ideas` :**
-- `id`, `created_at`, `idea_text` (text), `used` (boolean default false)
+**Modifier `content_ideas`** (migration) :
+- Ajouter `image_url` (text, nullable) — URL de l'image associee
 
-**Storage bucket `user-photos` :** pour stocker les photos uploadees
+**UI dans MemoirePage.tsx** :
+- Ajouter un bouton upload image a cote de chaque idee
+- Afficher la miniature de l'image si presente
+- Lors de l'ajout d'une idee, permettre d'uploader une image en meme temps
 
-**Nouvelle page `src/pages/MemoirePage.tsx` :**
-- **Section 1 - Formulaire Profil** : formulaire complet avec tous les champs de `user_memory` (nom, profession, entreprise, audience cible, offres, ambitions, valeurs, ton, themes, types de contenu, histoire personnelle, expertises, frequence, formats preferes, notes)
-- **Section 2 - Mes Photos** : upload de photos avec description, grille d'apercu, suppression
-- **Section 3 - Idees de publications** : textarea pour ajouter des idees, liste des idees existantes avec option supprimer
+**Impact AI** : dans `generate-posts/index.ts`, quand une idee a une image, la mentionner et l'associer au post genere
 
-### 3. Integrer la memoire dans la generation de posts
+### 3. Auto-DM specifique par post
 
-**Modifier `generate-posts/index.ts` :**
-- Avant de generer, recuperer les donnees de `user_memory`, `user_photos` et `content_ideas` non utilisees
-- Injecter dans le prompt : informations personnelles, ton, themes, idees de contenu
-- Quand des photos utilisateur existent, indiquer a l'IA de suggerer l'utilisation de photos personnelles dans certains posts (en ajoutant un champ `use_personal_photo: true` dans la reponse)
-- Marquer les `content_ideas` utilisees comme `used = true`
+**Nouvelle table `post_dm_rules`** (migration) :
+- `id` (uuid)
+- `post_id` (uuid, ref suggested_posts)
+- `trigger_keyword` (text) — mot-cle declencheur dans le commentaire (ex: "moi", "interessé", "guide")
+- `dm_message` (text) — message DM personnalise avec le lien/ressource
+- `resource_url` (text, nullable) — URL de la ressource a envoyer
+- `is_active` (boolean, default true)
+- `created_at`
 
-**Modifier `analyze-virality/index.ts` :**
-- Recuperer les donnees `user_memory` pour contextualiser l'analyse
+**UI dans EngagementPage.tsx** :
+- Nouvelle section "Regles DM par post"
+- Formulaire : selectionner un post publie, definir le mot-cle declencheur, le message DM et le lien
+- Liste des regles actives avec toggle on/off et suppression
 
-### 4. Navigation
+**Modifier `auto-engage-comments/index.ts`** :
+- Avant d'appliquer le DM global, verifier s'il existe une regle specifique `post_dm_rules` pour ce post
+- Si le commentaire contient le `trigger_keyword`, envoyer le `dm_message` personnalise au lieu du template global
+- Logger l'action avec `action_type = "dm_rule"` pour differencier
 
-- Ajouter "Memoire" dans le groupe "Gestion" de `AppSidebar.tsx` (icone Brain)
-- Route `/memoire` dans `App.tsx` avec lazy loading
+### 4. Objectifs sur la page Analyser
 
-### Fichiers a creer/modifier
+**Modifier `AnalyserPage.tsx`** :
+- Ajouter des indicateurs de progression vers les objectifs (barre de progression abonnes actuels vs objectif, etc.)
+- Recuperer `user_memory` pour afficher les cibles
+
+### Fichiers
 
 | Fichier | Action |
 |---------|--------|
-| Migration SQL | 3 tables + bucket storage |
-| `supabase/functions/fetch-account-stats/index.ts` | Creer |
-| `src/pages/MemoirePage.tsx` | Creer |
-| `src/pages/AnalyserPage.tsx` | Modifier (stats compte + graphe evolution) |
-| `supabase/functions/generate-posts/index.ts` | Modifier (injecter memoire) |
-| `supabase/functions/analyze-virality/index.ts` | Modifier (injecter memoire) |
-| `src/App.tsx` | Ajouter route |
-| `src/components/layout/AppSidebar.tsx` | Ajouter lien Memoire |
+| Migration SQL | Ajouter colonnes `user_memory`, colonne `content_ideas.image_url`, table `post_dm_rules` |
+| `src/pages/MemoirePage.tsx` | Enrichir formulaire + images sur idees |
+| `src/pages/EngagementPage.tsx` | Ajouter section regles DM par post |
+| `src/pages/AnalyserPage.tsx` | Ajouter progression objectifs |
+| `supabase/functions/generate-posts/index.ts` | Injecter nouveaux champs memoire |
+| `supabase/functions/auto-engage-comments/index.ts` | Gerer regles DM specifiques par post |
 
