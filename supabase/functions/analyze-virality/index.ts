@@ -63,6 +63,7 @@ serve(async (req) => {
           .from("linkedin_posts")
           .select("*")
           .eq("profile_id", profile.id)
+          .eq("user_id", userId)
           .order("likes_count", { ascending: false })
           .limit(3);
 
