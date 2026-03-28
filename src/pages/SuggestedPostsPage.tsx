@@ -53,7 +53,7 @@ export default function SuggestedPostsPage() {
     setIsGenerating(true);
     try {
       const { data, error } = await supabase.functions.invoke("generate-posts", {
-        body: { analysis_id: latestAnalysisId, count: 5, topic: topic || undefined },
+        body: { analysis_id: latestAnalysisId, count: postCount, topic: topic || undefined },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
