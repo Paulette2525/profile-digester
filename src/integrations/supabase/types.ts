@@ -117,6 +117,56 @@ export type Database = {
           },
         ]
       }
+      suggested_posts: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          post_performance: Json | null
+          published_at: string | null
+          scheduled_at: string | null
+          source_analysis_id: string | null
+          status: string
+          topic: string | null
+          updated_at: string
+          virality_score: number | null
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          post_performance?: Json | null
+          published_at?: string | null
+          scheduled_at?: string | null
+          source_analysis_id?: string | null
+          status?: string
+          topic?: string | null
+          updated_at?: string
+          virality_score?: number | null
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          post_performance?: Json | null
+          published_at?: string | null
+          scheduled_at?: string | null
+          source_analysis_id?: string | null
+          status?: string
+          topic?: string | null
+          updated_at?: string
+          virality_score?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "suggested_posts_source_analysis_id_fkey"
+            columns: ["source_analysis_id"]
+            isOneToOne: false
+            referencedRelation: "virality_analyses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tracked_profiles: {
         Row: {
           avatar_url: string | null
@@ -149,6 +199,38 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      virality_analyses: {
+        Row: {
+          analysis_json: Json
+          created_at: string
+          id: string
+          profile_id: string | null
+          status: string
+        }
+        Insert: {
+          analysis_json?: Json
+          created_at?: string
+          id?: string
+          profile_id?: string | null
+          status?: string
+        }
+        Update: {
+          analysis_json?: Json
+          created_at?: string
+          id?: string
+          profile_id?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "virality_analyses_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "tracked_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
