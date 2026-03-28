@@ -36,12 +36,12 @@ serve(async (req) => {
 
     const { data: analysis, error: aErr } = await supabase
       .from("virality_analyses")
-      .insert({ status: "pending", analysis_json: {} })
+      .insert({ status: "pending", analysis_json: {}, user_id: userId })
       .select("id")
       .single();
     if (aErr) throw aErr;
 
-    const { data: memory } = await supabase.from("user_memory").select("*").limit(1).maybeSingle();
+    const { data: memory } = await supabase.from("user_memory").select("*").eq("user_id", userId).limit(1).maybeSingle();
 
     const allTopPosts: any[] = [];
     for (const profile of profiles) {
