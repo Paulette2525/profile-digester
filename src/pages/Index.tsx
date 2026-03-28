@@ -5,13 +5,14 @@ import { StatsCards } from "@/components/dashboard/StatsCards";
 import { ProfileCard } from "@/components/dashboard/ProfileCard";
 import { PostCard } from "@/components/dashboard/PostCard";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Plus } from "lucide-react";
+import { RefreshCw, Plus, ChevronDown } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useState } from "react";
 import { toast } from "sonner";
 
 const Index = () => {
   const [syncing, setSyncing] = useState(false);
+  const [showAllPosts, setShowAllPosts] = useState(false);
 
   const { data: profiles = [], refetch: refetchProfiles } = useQuery({
     queryKey: ["tracked_profiles"],
@@ -121,7 +122,14 @@ const Index = () => {
                 <p className="text-sm">Ajoutez des profils et synchronisez pour voir les publications</p>
               </div>
             ) : (
-              posts.map((post) => <PostCard key={post.id} post={post} />)
+              <>
+                {posts.slice(0, showAllPosts ? undefined : 10).map((post) => <PostCard key={post.id} post={post} />)}
+                {posts.length > 10 && !showAllPosts && (
+                  <Button variant="ghost" className="w-full" onClick={() => setShowAllPosts(true)}>
+                    <ChevronDown className="h-4 w-4 mr-1" /> Voir les {posts.length - 10} autres
+                  </Button>
+                )}
+              </>
             )}
           </div>
         </div>
