@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX IF NOT EXISTS idx_linkedin_posts_unipile ON public.linkedin_posts(unipile_post_id, profile_id) WHERE unipile_post_id IS NOT NULL;
