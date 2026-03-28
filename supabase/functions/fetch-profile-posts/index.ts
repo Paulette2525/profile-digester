@@ -110,11 +110,13 @@ serve(async (req) => {
 
         let savedPostId: string;
         if (existing) {
-          await supabase.from("linkedin_posts").update(postData).eq("id", existing.id);
+          const { error: updateErr } = await supabase.from("linkedin_posts").update(postData).eq("id", existing.id);
+          if (updateErr) console.error("Update error:", updateErr);
           savedPostId = existing.id;
         } else {
-          const { data: inserted } = await supabase
+          const { data: inserted, error: insertErr } = await supabase
             .from("linkedin_posts").insert(postData).select("id").single();
+          if (insertErr) console.error("Insert error:", insertErr);
           savedPostId = inserted?.id || "";
         }
 
