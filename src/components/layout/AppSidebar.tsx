@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { LayoutDashboard, Zap, PenLine, Calendar, BarChart3, UserPlus, Settings, Linkedin } from "lucide-react";
+import { LayoutDashboard, Zap, PenLine, Calendar, BarChart3, UserPlus, Settings, Linkedin, MessageSquareHeart } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -24,6 +24,10 @@ const workflowItems = [
   { to: "/posts-suggeres", label: "Posts Suggérés", icon: PenLine },
   { to: "/planifier", label: "Planifier", icon: Calendar },
   { to: "/analyser", label: "Analyser", icon: BarChart3 },
+];
+
+const automationItems = [
+  { to: "/engagement", label: "Engagement", icon: MessageSquareHeart },
 ];
 
 const managementItems = [
@@ -78,6 +82,28 @@ export function AppSidebar() {
                     <NavLink
                       to={item.to}
                       end={item.to === "/"}
+                      className="hover:bg-sidebar-accent"
+                      activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
+                    >
+                      <item.icon className="h-4 w-4" />
+                      {!collapsed && <span>{item.label}</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Automation</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {automationItems.map((item) => (
+                <SidebarMenuItem key={item.to}>
+                  <SidebarMenuButton asChild>
+                    <NavLink
+                      to={item.to}
                       className="hover:bg-sidebar-accent"
                       activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
                     >
