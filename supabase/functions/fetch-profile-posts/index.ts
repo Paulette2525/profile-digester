@@ -9,6 +9,7 @@ const corsHeaders = {
 async function getLinkedInAccountId(dsn: string, apiKey: string): Promise<string> {
   const res = await fetch(`https://${dsn}/api/v1/accounts`, {
     headers: { "X-API-KEY": apiKey, Accept: "application/json" },
+    signal: AbortSignal.timeout(15000),
   });
   if (!res.ok) throw new Error(`Failed to list accounts: ${res.status}`);
   const data = await res.json();
@@ -19,7 +20,6 @@ async function getLinkedInAccountId(dsn: string, apiKey: string): Promise<string
 
 function parseDate(raw: any): string | null {
   if (!raw) return null;
-  // Handle relative dates from Unipile (e.g. "16h", "1w", "3yr")
   const relMatch = String(raw).match(/^(\d+)(m|h|d|w|mo|yr)$/);
   if (relMatch) {
     const [, num, unit] = relMatch;
@@ -46,8 +46,6 @@ function getNum(val: any): number {
 
 function extractMedia(post: any): { media_urls: any[]; media_type: string } {
   const urls: any[] = [];
-
-  // Unipile uses "attachments" with type "img" or "video"
   if (post.attachments && Array.isArray(post.attachments)) {
     for (const a of post.attachments) {
       const rawType = a.type || "";
@@ -91,7 +89,7 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const { profile_id, max_pages = 5 } = await req.json();
+    const { profile_id, max_pages = 2 } = await req.json();
     if (!profile_id) {
       return new Response(JSON.stringify({ error: "Missing profile_id" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -111,14 +109,12 @@ serve(async (req) => {
       try {
         const userRes = await fetch(
           `https://${UNIPILE_DSN}/api/v1/users/${encodeURIComponent(providerId)}?account_id=${encodeURIComponent(accountId)}`,
-          { headers: { "X-API-KEY": UNIPILE_API_KEY, Accept: "application/json" } }
+          { headers: { "X-API-KEY": UNIPILE_API_KEY, Accept: "application/json" }, signal: AbortSignal.timeout(15000) }
         );
         if (userRes.ok) {
           const userData = await userRes.json();
           providerId = userData.provider_id || userData.id || providerId;
           await supabase.from("tracked_profiles").update({ unipile_account_id: providerId }).eq("id", profile.id);
-        } else {
-          await userRes.text();
         }
       } catch (_) { /* keep existing providerId */ }
     }
@@ -127,15 +123,16 @@ serve(async (req) => {
     let cursor: string | null = null;
 
     for (let page = 0; page < max_pages; page++) {
-      let url = `https://${UNIPILE_DSN}/api/v1/users/${encodeURIComponent(providerId)}/posts?account_id=${encodeURIComponent(accountId)}&limit=100`;
+      let url = `https://${UNIPILE_DSN}/api/v1/users/${encodeURIComponent(providerId)}/posts?account_id=${encodeURIComponent(accountId)}&limit=50`;
       if (cursor) url += `&cursor=${encodeURIComponent(cursor)}`;
 
       const postsRes = await fetch(url, {
         headers: { "X-API-KEY": UNIPILE_API_KEY, Accept: "application/json" },
+        signal: AbortSignal.timeout(25000),
       });
 
       if (!postsRes.ok) {
-        console.error(`Posts fetch failed: ${postsRes.status} ${await postsRes.text()}`);
+        console.error(`Posts fetch failed: ${postsRes.status}`);
         break;
       }
 
@@ -143,12 +140,13 @@ serve(async (req) => {
       const items = postsData.items || postsData.data || [];
       if (items.length === 0) break;
 
-      for (const post of items) {
+      // Build batch for upsert
+      const batch = items.map((post: any) => {
         const postId = post.id || post.post_id || post.social_id;
         const { media_urls, media_type } = extractMedia(post);
-
-        const postData = {
+        return {
           profile_id: profile.id,
+          user_id: profile.user_id,
           unipile_post_id: String(postId),
           content: post.text || post.content || "",
           post_url: post.share_url || post.url || null,
@@ -160,70 +158,16 @@ serve(async (req) => {
           media_urls,
           media_type,
         };
+      }).filter((p: any) => p.unipile_post_id && p.unipile_post_id !== "undefined");
 
-        const { data: existing } = await supabase
-          .from("linkedin_posts").select("id")
-          .eq("unipile_post_id", String(postId))
-          .eq("profile_id", profile.id)
-          .maybeSingle();
-
-        let savedPostId: string;
-        if (existing) {
-          const { error: updateErr } = await supabase.from("linkedin_posts").update(postData).eq("id", existing.id);
-          if (updateErr) console.error("Update error:", updateErr);
-          savedPostId = existing.id;
-        } else {
-          const { data: inserted, error: insertErr } = await supabase
-            .from("linkedin_posts").insert(postData).select("id").single();
-          if (insertErr) console.error("Insert error:", insertErr);
-          savedPostId = inserted?.id || "";
-        }
-
-        // Fetch comments with deduplication
-        if (savedPostId) {
-          try {
-            const commentsRes = await fetch(
-              `https://${UNIPILE_DSN}/api/v1/posts/${postId}/comments?account_id=${encodeURIComponent(accountId)}&limit=50`,
-              { headers: { "X-API-KEY": UNIPILE_API_KEY, Accept: "application/json" } }
-            );
-            if (commentsRes.ok) {
-              const commentsData = await commentsRes.json();
-              for (const comment of (commentsData.items || [])) {
-                const commentId = comment.id || comment.comment_id;
-                const commentData = {
-                  post_id: savedPostId,
-                  interaction_type: "comment",
-                  author_name: comment.author?.name || comment.name || "Inconnu",
-                  author_avatar_url: comment.author?.profile_picture_url || comment.author?.avatar_url || null,
-                  author_linkedin_url: comment.author?.public_profile_url || comment.author?.profile_url || null,
-                  comment_text: comment.text || comment.content || "",
-                  unipile_comment_id: commentId ? String(commentId) : null,
-                };
-
-                if (commentId) {
-                  const { data: existingComment } = await supabase
-                    .from("post_interactions").select("id")
-                    .eq("post_id", savedPostId)
-                    .eq("unipile_comment_id", String(commentId))
-                    .maybeSingle();
-                  if (existingComment) {
-                    await supabase.from("post_interactions").update(commentData).eq("id", existingComment.id);
-                  } else {
-                    await supabase.from("post_interactions").insert(commentData);
-                  }
-                } else {
-                  await supabase.from("post_interactions").insert(commentData);
-                }
-              }
-            } else {
-              await commentsRes.text();
-            }
-          } catch (e) { console.error("Comments error:", e); }
-        }
-
-        totalPosts++;
+      if (batch.length > 0) {
+        const { error: upsertErr } = await supabase
+          .from("linkedin_posts")
+          .upsert(batch, { onConflict: "unipile_post_id,profile_id" });
+        if (upsertErr) console.error("Upsert error:", upsertErr);
       }
 
+      totalPosts += batch.length;
       cursor = postsData.cursor || postsData.next_cursor || null;
       if (!cursor) break;
     }
