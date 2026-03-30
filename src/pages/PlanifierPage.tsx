@@ -192,7 +192,14 @@ export default function PlanifierPage() {
                     {post.image_url && post.image_url.startsWith("http") && (
                       <img src={post.image_url} alt="Visuel" className="h-16 w-16 rounded-md object-cover shrink-0" />
                     )}
-                    <p className="text-sm line-clamp-3">{post.content}</p>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm line-clamp-3">{post.content}</p>
+                      {post.scheduled_at && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          📅 Prévu : {format(new Date(post.scheduled_at), "EEEE d MMM 'à' HH:mm", { locale: fr })}
+                        </p>
+                      )}
+                    </div>
                   </div>
                   <div className="flex flex-col sm:flex-row gap-2">
                     <Input
