@@ -50,8 +50,6 @@ export default function MemoirePage() {
   });
   const [themeInput, setThemeInput] = useState("");
   const [typeInput, setTypeInput] = useState("");
-  const [pillarInput, setPillarInput] = useState("");
-  const [keywordInput, setKeywordInput] = useState("");
 
   const { data: memory, isLoading: memoryLoading } = useQuery({
     queryKey: ["user-memory"],
