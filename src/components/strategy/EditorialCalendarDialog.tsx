@@ -39,7 +39,7 @@ const DAYS_OF_WEEK = [
   { key: 0, label: "Dim" },
 ];
 
-const POST_TYPES = ["Storytelling", "Viral", "Tuto", "Social Proof", "News", "Carousel", "Sondage"];
+const POST_TYPES = ["Storytelling", "Viral", "Tuto", "Social Proof", "News"];
 
 const typeColors: Record<string, string> = {
   Storytelling: "bg-pink-500/10 text-pink-600",
@@ -47,8 +47,6 @@ const typeColors: Record<string, string> = {
   Tuto: "bg-blue-500/10 text-blue-600",
   "Social Proof": "bg-amber-500/10 text-amber-600",
   News: "bg-emerald-500/10 text-emerald-600",
-  Carousel: "bg-purple-500/10 text-purple-600",
-  Sondage: "bg-cyan-500/10 text-cyan-600",
 };
 
 export function EditorialCalendarDialog({ open, onOpenChange, analysisId, strategyVariant }: EditorialCalendarDialogProps) {

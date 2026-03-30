@@ -36,6 +36,43 @@ export default function PlanifierPage() {
   const scheduledPosts = posts?.filter(p => p.status === "scheduled") || [];
   const draftPosts = posts?.filter(p => p.status === "draft") || [];
   const publishedPosts = posts?.filter(p => p.status === "published") || [];
+  const [isSchedulingAll, setIsSchedulingAll] = useState(false);
+
+  const handleScheduleAll = async () => {
+    if (draftPosts.length === 0) return;
+    setIsSchedulingAll(true);
+    try {
+      const hours = [9, 12, 17];
+      let dayOffset = 1;
+      let hourIdx = 0;
+
+      const schedule = draftPosts.map((post) => {
+        let scheduledAt = post.scheduled_at;
+        if (!scheduledAt) {
+          const d = new Date();
+          d.setDate(d.getDate() + dayOffset);
+          // Skip weekends
+          while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
+          d.setHours(hours[hourIdx % hours.length], 0, 0, 0);
+          scheduledAt = d.toISOString();
+          hourIdx++;
+          if (hourIdx % hours.length === 0) dayOffset++;
+        }
+        return { post_id: post.id, scheduled_at: scheduledAt };
+      });
+
+      const { error } = await supabase.functions.invoke("schedule-posts", {
+        body: { schedule },
+      });
+      if (error) throw error;
+      toast.success(`${schedule.length} posts planifiés !`);
+      refetch();
+    } catch (e: any) {
+      toast.error(e.message || "Erreur de planification");
+    } finally {
+      setIsSchedulingAll(false);
+    }
+  };
 
   const handleSchedule = async (postId: string) => {
     const dateStr = scheduleInputs[postId];
