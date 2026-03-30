@@ -1,88 +1,57 @@
 
 
-## Plan : Prioriser les instructions de redaction + Calendrier editorial avant generation
+## Plan : Optimiser la generation de posts (longueur, contenu, heures, planification)
 
-### Partie 1 — Prioriser les instructions de redaction dans le prompt
+### Problemes identifies
 
-**Probleme** : Les `writing_instructions` sont mentionnees a la fin du bloc memoire, noyees parmi 25+ autres champs. L'IA les ignore car elles n'ont pas assez de poids.
+1. **Longueur uniforme** : Le prompt ne demande pas explicitement de varier les longueurs (court 3-5 lignes, moyen 8-15 lignes, long 20-40 lignes)
+2. **Carrousels inutiles** : Le type "Carousel" genere "Slide 1, Slide 2..." au lieu de vrai contenu — et "Sondage" n'est pas pertinent
+3. **Posts top performants tronques** : Les posts des profils suivis sont coupes a 200 caracteres — insuffisant pour capter le style complet
+4. **Pas d'heure de publication** : Les posts generes depuis SuggestedPostsPage n'ont pas de `scheduled_at`
+5. **Planifier page** : Les brouillons necessitent une saisie manuelle de date — pas de bouton "Tout planifier" en 1 clic
 
-**Solution** : Restructurer le prompt dans `generate-posts/index.ts` :
-- Deplacer `writing_instructions` dans le **system message** (pas dans le user message) pour lui donner le plus haut niveau de priorite
-- Ajouter une section dediee `STYLE OBLIGATOIRE` tout en haut du prompt utilisateur, AVANT l'analyse de viralite
-- Ajouter dans les REGLES une ligne explicite : "Respecter IMPERATIVEMENT les instructions de redaction de l'auteur"
-- Insister sur le ton humain : "Les posts doivent etre authentiques et humanises, PAS des posts vendeurs"
-- Inclure les donnees des profils scraped (tracked_profiles + linkedin_posts) pour enrichir le contexte
+### Modifications
 
-### Partie 2 — Workflow calendrier editorial depuis la strategie
+**1. `generate-posts/index.ts` — Prompt restructure**
+- Supprimer "Carousel" et "Sondage" des types de contenu
+- Ajouter une regle explicite de variation de longueur : chaque post doit avoir un attribut `length` (short/medium/long) et le prompt exige un mix des 3
+- Augmenter l'extrait des posts performants de 200 a 800 caracteres pour capturer le style complet
+- Ajouter dans le tool schema un champ `suggested_hour` (entier 7-20) pour que l'IA assigne une heure optimale a chaque post
+- Quand un `calendar` est fourni, l'heure du slot est utilisee ; sinon l'IA decide de l'heure
+- Stocker `scheduled_at` meme en mode non-calendrier (date = creation + idx jours, heure = suggested_hour)
 
-**Flux actuel** : Strategie → clic "Creer des posts" → redirige vers SuggestedPostsPage → generation immediate
+**2. `EditorialCalendarDialog.tsx` — Retirer types inutiles**
+- Supprimer "Carousel" et "Sondage" de `POST_TYPES`
 
-**Nouveau flux** : Strategie → clic "Creer des posts" → ouvre un **dialogue/page de configuration** avec :
-
-1. **Type de calendrier** : choix entre Hebdomadaire (1 semaine) ou Mensuel (4 semaines) — boutons radio
-2. **Nombre de posts par jour** : selecteur (1-3)
-3. **Jours de publication** : cases a cocher (Lun-Dim)
-4. L'IA genere un **calendrier editorial preview** (liste de jours + theme/type prevu pour chaque slot) base sur la strategie selectionnee
-5. L'utilisateur **valide ou ajuste** ce calendrier
-6. A la validation, generation des posts en respectant le calendrier et les instructions de redaction
+**3. `PlanifierPage.tsx` — Bouton "Tout planifier"**
+- Ajouter un bouton "Valider et planifier tous les brouillons" qui prend chaque draft ayant un `scheduled_at` et les passe en status "scheduled" en un seul appel a `schedule-posts`
+- Si des drafts n'ont pas de `scheduled_at`, leur attribuer automatiquement des creneaux (jours ouvrables a 9h, 12h, 17h)
 
 ### Fichiers a modifier
 
 | Fichier | Action |
 |---------|--------|
-| `supabase/functions/generate-posts/index.ts` | Restructurer le prompt : writing_instructions dans system msg + en tete du prompt + ajout profils scrapes + regles humanisation |
-| `src/pages/StrategiePage.tsx` | Remplacer le bouton "Creer des posts" par un dialogue de configuration calendrier editorial |
-| `src/pages/SuggestedPostsPage.tsx` | Accepter les params du calendrier editorial (via query params ou state) pour generer les posts en lot |
-| Nouveau : `src/components/strategy/EditorialCalendarDialog.tsx` | Composant dialog : choix hebdo/mensuel, posts/jour, jours actifs, preview calendrier IA, validation |
-| `supabase/functions/generate-posts/index.ts` | Accepter un param `calendar` optionnel avec les slots (date + theme) pour generer les posts en respectant le planning |
+| `supabase/functions/generate-posts/index.ts` | Prompt : longueurs variees, pas de carousel/sondage, posts complets, heure de publication, scheduled_at auto |
+| `src/components/strategy/EditorialCalendarDialog.tsx` | Retirer Carousel et Sondage des types |
+| `src/pages/PlanifierPage.tsx` | Bouton "Tout planifier" pour valider tous les brouillons d'un coup |
 
-### Detail technique du prompt restructure
+### Detail technique du prompt
 
 ```
-System message:
-"Tu es un copywriter LinkedIn expert qui ecrit des posts HUMAINS et authentiques.
-INSTRUCTIONS DE REDACTION OBLIGATOIRES A RESPECTER POUR CHAQUE POST :
-{writing_instructions}"
-
-User message:
-"STYLE OBLIGATOIRE DE L'AUTEUR:
-{writing_instructions repete}
-
-PROFIL DE L'AUTEUR: ...
-PROFILS ANALYSES (inspiration): ...
-ANALYSE DE VIRALITE: ...
-
-REGLES:
-- Respecter IMPERATIVEMENT les instructions de redaction
-- Posts HUMAINS, authentiques, PAS vendeurs
-- ..."
+RÈGLES IMPÉRATIVES:
+...
+11. VARIER LES LONGUEURS : certains posts doivent être LONGS (20-40 lignes avec storytelling développé),
+    d'autres MOYENS (8-15 lignes), d'autres COURTS (3-7 lignes percutants). Mélange obligatoire.
+12. NE JAMAIS écrire de posts "Carousel" avec "Slide 1, Slide 2" — écris des posts complets et lisibles.
+13. NE JAMAIS écrire de sondages.
+14. Pour chaque post, suggère une heure de publication optimale (7h-20h).
 ```
 
-### Detail du dialogue calendrier editorial
-
-```text
-+------------------------------------------+
-|  Planifier mon calendrier editorial       |
-|                                          |
-|  Periode:  [x] Hebdomadaire  [ ] Mensuel |
-|                                          |
-|  Posts par jour:  [2]                    |
-|                                          |
-|  Jours actifs:                           |
-|  [x] Lun [x] Mar [x] Mer [ ] Jeu        |
-|  [x] Ven [ ] Sam [ ] Dim                |
-|                                          |
-|  [Generer le calendrier]                 |
-|                                          |
-|  --- Preview calendrier ---              |
-|  Lun 31/03 - Storytelling: "Mon parcours"|
-|  Lun 31/03 - Tuto: "3 astuces..."       |
-|  Mar 01/04 - Viral: "Ce que personne..." |
-|  ...                                     |
-|                                          |
-|  [Valider et generer les posts]          |
-+------------------------------------------+
+Tool schema enrichi :
+```json
+{
+  "suggested_hour": { "type": "number", "description": "Heure optimale de publication (7-20)" },
+  "length": { "type": "string", "enum": ["short", "medium", "long"] }
+}
 ```
-
-A la validation, le nombre total de posts = jours actifs x posts/jour x nombre de semaines. Les posts sont generes par lots avec le theme/type de chaque slot injecte dans le prompt.
 
