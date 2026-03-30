@@ -239,6 +239,16 @@ serve(async (req) => {
       const usePhoto = p.use_personal_photo && photoUrls.length > 0;
       const ideaImage = ideaImages[idx] || null;
       const calendarSlot = calendar?.[idx];
+
+      // Auto-assign scheduled_at: use calendar slot, or compute from suggested_hour
+      let scheduledAt = calendarSlot?.scheduled_at || null;
+      if (!scheduledAt && p.suggested_hour) {
+        const postDate = new Date();
+        postDate.setDate(postDate.getDate() + 1 + idx); // spread across days
+        postDate.setHours(Math.max(7, Math.min(20, p.suggested_hour)), 0, 0, 0);
+        scheduledAt = postDate.toISOString();
+      }
+
       return {
         content: p.content,
         topic: p.topic,
@@ -247,7 +257,7 @@ serve(async (req) => {
         status: "draft",
         user_id: userId,
         image_url: ideaImage || (usePhoto ? photoUrls[Math.floor(Math.random() * photoUrls.length)] : null),
-        scheduled_at: calendarSlot?.scheduled_at || null,
+        scheduled_at: scheduledAt,
       };
     });
 
