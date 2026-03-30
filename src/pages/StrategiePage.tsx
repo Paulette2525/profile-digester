@@ -179,6 +179,23 @@ export default function StrategiePage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [selectedVariant, setSelectedVariant] = useState<number | null>(null);
+  const [calendarOpen, setCalendarOpen] = useState(false);
+
+  // Fetch latest analysis for calendar dialog
+  const { data: latestAnalysis } = useQuery({
+    queryKey: ["latest-analysis", user?.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("virality_analyses")
+        .select("id")
+        .eq("status", "done")
+        .order("created_at", { ascending: false })
+        .limit(1);
+      return data?.[0] || null;
+    },
+    enabled: !!user,
+    staleTime: 10 * 60 * 1000,
+  });
 
   const { data: strategyRow, isLoading } = useQuery({
     queryKey: ["content-strategy", user?.id],
