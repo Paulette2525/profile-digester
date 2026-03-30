@@ -414,7 +414,8 @@ export default function MemoirePage() {
 
         {/* Section 4: Histoire & Offres */}
         <SectionCard icon={BookOpen} title="Histoire & Offres">
-          {renderField("Histoire et valeurs", "personal_story", true, "Votre parcours, moments décisifs, valeurs fondamentales, ambitions…")}
+          {renderField("Mon histoire", "personal_story", true, "Votre parcours personnel, moments clés, anecdotes marquantes, valeurs, ambitions…")}
+          {renderField("Instructions de rédaction", "writing_instructions", true, "Consignes obligatoires : style d'écriture, structure des posts, ton, longueur, mots interdits, expressions à utiliser…")}
           {renderField("Offres et notes", "offers_description", true, "Vos offres, produits, services et toute info utile supplémentaire…")}
         </SectionCard>
 

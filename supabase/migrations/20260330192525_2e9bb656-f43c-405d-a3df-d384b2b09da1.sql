@@ -1,0 +1,1 @@
+ALTER TABLE public.user_memory ADD COLUMN writing_instructions text;
