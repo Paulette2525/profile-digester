@@ -24,14 +24,13 @@ serve(async (req) => {
 
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
-    // Extract user_id from JWT
     const authHeader = req.headers.get("Authorization") || "";
     const token = authHeader.replace("Bearer ", "");
     const { data: { user } } = await supabase.auth.getUser(token);
     if (!user) throw new Error("Not authenticated");
     const userId = user.id;
 
-    const { analysis_id, count = 5, topic } = await req.json();
+    const { analysis_id, count = 5, topic, calendar } = await req.json();
     if (!analysis_id) throw new Error("Missing analysis_id");
 
     const { data: analysis, error: aErr } = await supabase.from("virality_analyses").select("*").eq("id", analysis_id).single();
@@ -40,76 +39,127 @@ serve(async (req) => {
 
     const factors = analysis.analysis_json;
 
-    // Filter all queries by user_id
     const { data: memory } = await supabase.from("user_memory").select("*").eq("user_id", userId).limit(1).maybeSingle();
     const { data: photos } = await supabase.from("user_photos").select("*").eq("user_id", userId);
     const { data: ideas } = await supabase.from("content_ideas").select("*").eq("user_id", userId).eq("used", false).limit(count);
 
-    let memoryContext = "";
-    if (memory) {
-      const m = memory as any;
-      memoryContext = `\n\nINFORMATIONS SUR L'AUTEUR:
-- Nom: ${m.full_name || "Non renseigné"}
-- Profession: ${m.profession || "Non renseigné"}
-- Entreprise: ${m.company || "Non renseigné"}
-- Industrie: ${m.industry || "Non renseigné"}
-- Audience cible: ${m.target_audience || "Non renseigné"}
-- Problèmes de l'audience: ${m.audience_pain_points || "Non renseigné"}
-- Offres/Services: ${m.offers_description || "Non renseigné"}
-- Ambitions: ${m.ambitions || "Non renseigné"}
-- Valeurs: ${m.values || "Non renseigné"}
-- Ton de voix: ${m.tone_of_voice || "Non renseigné"}
-- Thèmes: ${(m.content_themes as string[])?.join(", ") || "Non renseigné"}
-- Piliers de contenu: ${(m.content_pillars as string[])?.join(", ") || "Non renseigné"}
-- Mots-clés de marque: ${(m.brand_keywords as string[])?.join(", ") || "Non renseigné"}
-- Types de contenu: ${(m.content_types as string[])?.join(", ") || "Non renseigné"}
-- Histoire personnelle: ${m.personal_story || "Non renseigné"}
-- Domaines d'expertise: ${m.expertise_areas || "Non renseigné"}
-- Réalisations majeures: ${m.achievements || "Non renseigné"}
-- Résultats marquants: ${m.key_results || "Non renseigné"}
-- Méthodologie unique: ${m.unique_methodology || "Non renseigné"}
-- Ce qui le différencie: ${m.differentiators || "Non renseigné"}
-- Style de CTA: ${m.call_to_action_style || "Non renseigné"}
-- Formats préférés: ${m.preferred_formats || "Non renseigné"}
-- Concurrents/Leaders: ${m.competitors || "Non renseigné"}
-- Objectifs LinkedIn: ${m.linkedin_goals || "Non renseigné"}
-- Objectif abonnés: ${m.target_followers || "Non défini"}
-- Objectif engagement: ${m.target_engagement_rate ? m.target_engagement_rate + "%" : "Non défini"}
-- Horizon: ${m.goal_timeline || "Non défini"}
-- Notes: ${m.additional_notes || "Non renseigné"}
+    // Fetch scraped profiles for inspiration
+    const { data: trackedProfiles } = await supabase.from("tracked_profiles").select("name, headline, analysis_summary").eq("user_id", userId).limit(5);
+    const { data: topLinkedinPosts } = await supabase.from("linkedin_posts").select("content, likes_count, comments_count, impressions_count").eq("user_id", userId).order("likes_count", { ascending: false }).limit(10);
 
-${m.writing_instructions ? `INSTRUCTIONS OBLIGATOIRES DE RÉDACTION (à respecter impérativement pour chaque post) :\n${m.writing_instructions}` : ""}
+    const m = memory as any;
+    const writingInstructions = m?.writing_instructions || "";
 
-IMPORTANT: Utilise ces informations pour créer des posts qui positionnent l'auteur comme LEADER dans son domaine.`;
+    // === SYSTEM MESSAGE: writing instructions get maximum priority ===
+    let systemMessage = `Tu es un copywriter LinkedIn expert spécialisé dans la rédaction de posts HUMAINS, authentiques et engageants. Tu n'écris JAMAIS de posts vendeurs, corporate ou artificiels.`;
+    if (writingInstructions) {
+      systemMessage += `\n\n🚨 INSTRUCTIONS DE RÉDACTION OBLIGATOIRES DE L'AUTEUR (À RESPECTER IMPÉRATIVEMENT POUR CHAQUE POST, C'EST LA PRIORITÉ ABSOLUE) :\n${writingInstructions}`;
+    }
+    systemMessage += `\n\nGénère des posts via la fonction generate_posts.`;
+
+    // === USER MESSAGE ===
+    let userPrompt = "";
+
+    // 1. Writing instructions repeated at the top for emphasis
+    if (writingInstructions) {
+      userPrompt += `⚠️ STYLE OBLIGATOIRE DE L'AUTEUR (PRIORITÉ #1 — à respecter avant toute autre consigne) :\n${writingInstructions}\n\n---\n\n`;
     }
 
-    let ideasContext = "";
+    // 2. Author profile
+    if (m) {
+      userPrompt += `PROFIL DE L'AUTEUR:\n`;
+      userPrompt += `- Nom: ${m.full_name || "Non renseigné"}\n`;
+      userPrompt += `- Profession: ${m.profession || "Non renseigné"}\n`;
+      userPrompt += `- Entreprise: ${m.company || "Non renseigné"}\n`;
+      userPrompt += `- Industrie: ${m.industry || "Non renseigné"}\n`;
+      userPrompt += `- Audience cible: ${m.target_audience || "Non renseigné"}\n`;
+      userPrompt += `- Problèmes de l'audience: ${m.audience_pain_points || "Non renseigné"}\n`;
+      userPrompt += `- Offres/Services: ${m.offers_description || "Non renseigné"}\n`;
+      userPrompt += `- Ambitions: ${m.ambitions || "Non renseigné"}\n`;
+      userPrompt += `- Valeurs: ${m.values || "Non renseigné"}\n`;
+      userPrompt += `- Ton de voix: ${m.tone_of_voice || "Non renseigné"}\n`;
+      userPrompt += `- Thèmes: ${(m.content_themes as string[])?.join(", ") || "Non renseigné"}\n`;
+      userPrompt += `- Piliers de contenu: ${(m.content_pillars as string[])?.join(", ") || "Non renseigné"}\n`;
+      userPrompt += `- Mots-clés de marque: ${(m.brand_keywords as string[])?.join(", ") || "Non renseigné"}\n`;
+      userPrompt += `- Types de contenu: ${(m.content_types as string[])?.join(", ") || "Non renseigné"}\n`;
+      userPrompt += `- Histoire personnelle: ${m.personal_story || "Non renseigné"}\n`;
+      userPrompt += `- Domaines d'expertise: ${m.expertise_areas || "Non renseigné"}\n`;
+      userPrompt += `- Réalisations majeures: ${m.achievements || "Non renseigné"}\n`;
+      userPrompt += `- Résultats marquants: ${m.key_results || "Non renseigné"}\n`;
+      userPrompt += `- Méthodologie unique: ${m.unique_methodology || "Non renseigné"}\n`;
+      userPrompt += `- Ce qui le différencie: ${m.differentiators || "Non renseigné"}\n`;
+      userPrompt += `- Style de CTA: ${m.call_to_action_style || "Non renseigné"}\n`;
+      userPrompt += `- Formats préférés: ${m.preferred_formats || "Non renseigné"}\n`;
+      userPrompt += `- Concurrents/Leaders: ${m.competitors || "Non renseigné"}\n`;
+      userPrompt += `- Objectifs LinkedIn: ${m.linkedin_goals || "Non renseigné"}\n`;
+      userPrompt += `- Notes: ${m.additional_notes || "Non renseigné"}\n\n`;
+    }
+
+    // 3. Scraped profiles for inspiration
+    if (trackedProfiles && trackedProfiles.length > 0) {
+      userPrompt += `PROFILS ANALYSÉS (inspiration de style et de structure) :\n`;
+      trackedProfiles.forEach((p: any) => {
+        userPrompt += `- ${p.name} (${p.headline || ""})\n`;
+        if (p.analysis_summary && Object.keys(p.analysis_summary).length > 0) {
+          userPrompt += `  Résumé: ${JSON.stringify(p.analysis_summary).slice(0, 300)}\n`;
+        }
+      });
+      userPrompt += `\n`;
+    }
+
+    // 4. Top performing posts as examples
+    if (topLinkedinPosts && topLinkedinPosts.length > 0) {
+      userPrompt += `POSTS LINKEDIN LES PLUS PERFORMANTS (à utiliser comme inspiration de style) :\n`;
+      topLinkedinPosts.slice(0, 5).forEach((p: any, i: number) => {
+        const excerpt = (p.content || "").slice(0, 200);
+        userPrompt += `${i + 1}. [${p.likes_count}❤️ ${p.comments_count}💬] "${excerpt}..."\n`;
+      });
+      userPrompt += `\n`;
+    }
+
+    // 5. Virality analysis
+    userPrompt += `ANALYSE DE VIRALITÉ:\n${JSON.stringify(factors, null, 2)}\n\n`;
+
+    // 6. Calendar slots if provided
+    const effectiveCount = calendar ? calendar.length : count;
+    if (calendar && calendar.length > 0) {
+      userPrompt += `CALENDRIER ÉDITORIAL À SUIVRE (génère exactement 1 post par slot) :\n`;
+      calendar.forEach((slot: any, i: number) => {
+        userPrompt += `${i + 1}. ${slot.date} — Type: ${slot.type} — Thème: ${slot.theme}\n`;
+      });
+      userPrompt += `\n`;
+    }
+
+    // 7. Topic
+    if (topic) {
+      userPrompt += `THÈME SOUHAITÉ: ${topic}\n\n`;
+    } else if (!calendar) {
+      userPrompt += `Propose des thèmes variés.\n\n`;
+    }
+
+    // 8. Ideas
     if (ideas && ideas.length > 0) {
-      ideasContext = `\n\nIDÉES DE PUBLICATIONS À INTÉGRER:\n${ideas.map((i: any, idx: number) => `${idx + 1}. ${i.idea_text}${i.image_url ? " [IMAGE ASSOCIÉE]" : ""}`).join("\n")}`;
+      userPrompt += `IDÉES DE PUBLICATIONS À INTÉGRER:\n${ideas.map((i: any, idx: number) => `${idx + 1}. ${i.idea_text}${i.image_url ? " [IMAGE ASSOCIÉE]" : ""}`).join("\n")}\n\n`;
     }
 
-    let photosContext = "";
+    // 9. Photos
     if (photos && photos.length > 0) {
-      photosContext = `\n\nL'auteur dispose de ${photos.length} photo(s) personnelles. Pour certains posts, suggère l'utilisation d'une photo personnelle en mettant "use_personal_photo": true.`;
+      userPrompt += `L'auteur dispose de ${photos.length} photo(s) personnelles. Pour certains posts, suggère "use_personal_photo": true.\n\n`;
     }
 
-    const prompt = `Tu es un expert copywriter LinkedIn. En te basant sur l'analyse de viralité suivante, génère ${count} publications LinkedIn ORIGINALES et conçues pour MAXIMISER la viralité.
-
-ANALYSE DE VIRALITÉ:
-${JSON.stringify(factors, null, 2)}
-
-${topic ? `THÈME SOUHAITÉ: ${topic}` : "Propose des thèmes variés."}${memoryContext}${ideasContext}${photosContext}
-
-RÈGLES:
-- Chaque post doit être UNIQUE
-- Utilise les facteurs de viralité identifiés
-- Inclure des emojis naturellement
-- Hook puissant sur la première ligne
-- Varier les structures
-- CTA clair à la fin
-- Écrire en français
-
-Pour chaque post: contenu complet, topic/thème, score de viralité estimé (1-100).`;
+    // 10. Rules with writing instructions emphasis
+    userPrompt += `RÈGLES IMPÉRATIVES:\n`;
+    userPrompt += `1. 🚨 RESPECTER IMPÉRATIVEMENT les instructions de rédaction de l'auteur ci-dessus — c'est la PRIORITÉ ABSOLUE\n`;
+    userPrompt += `2. Les posts doivent être HUMAINS, authentiques, personnels — PAS des posts vendeurs, corporate ou génériques\n`;
+    userPrompt += `3. Écrire comme si l'auteur parlait naturellement à son réseau, avec SA voix et SON style\n`;
+    userPrompt += `4. Chaque post doit être UNIQUE avec une structure différente\n`;
+    userPrompt += `5. Hook puissant sur la première ligne (accroche émotionnelle ou surprenante)\n`;
+    userPrompt += `6. Inclure des emojis naturellement mais sans en abuser\n`;
+    userPrompt += `7. CTA subtil et naturel à la fin (pas vendeur)\n`;
+    userPrompt += `8. Écrire en français\n`;
+    userPrompt += `9. S'inspirer du style des posts performants analysés ci-dessus\n`;
+    userPrompt += `10. Utiliser l'histoire personnelle et les anecdotes réelles de l'auteur\n`;
+    userPrompt += `\nGénère exactement ${effectiveCount} posts. Pour chaque post: contenu complet, topic/thème, score de viralité estimé (1-100).`;
 
     console.log("Generating posts with Lovable AI for user:", userId);
 
@@ -122,8 +172,8 @@ Pour chaque post: contenu complet, topic/thème, score de viralité estimé (1-1
       body: JSON.stringify({
         model: "google/gemini-3-flash-preview",
         messages: [
-          { role: "system", content: "Tu es un copywriter LinkedIn expert. Génère des posts viraux via la fonction generate_posts." },
-          { role: "user", content: prompt },
+          { role: "system", content: systemMessage },
+          { role: "user", content: userPrompt },
         ],
         tools: [{
           type: "function",
@@ -179,10 +229,10 @@ Pour chaque post: contenu complet, topic/thème, score de viralité estimé (1-1
     const photoUrls = photos?.map((p: any) => p.image_url) || [];
     const ideaImages = (ideas || []).filter((i: any) => i.image_url).map((i: any) => i.image_url);
 
-    // Include user_id in every inserted post
     const toInsert = generatedPosts.map((p, idx) => {
       const usePhoto = p.use_personal_photo && photoUrls.length > 0;
       const ideaImage = ideaImages[idx] || null;
+      const calendarSlot = calendar?.[idx];
       return {
         content: p.content,
         topic: p.topic,
@@ -191,6 +241,7 @@ Pour chaque post: contenu complet, topic/thème, score de viralité estimé (1-1
         status: "draft",
         user_id: userId,
         image_url: ideaImage || (usePhoto ? photoUrls[Math.floor(Math.random() * photoUrls.length)] : null),
+        scheduled_at: calendarSlot?.scheduled_at || null,
       };
     });
 
