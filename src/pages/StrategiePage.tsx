@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { EditorialCalendarDialog } from "@/components/strategy/EditorialCalendarDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -178,6 +179,23 @@ export default function StrategiePage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [selectedVariant, setSelectedVariant] = useState<number | null>(null);
+  const [calendarOpen, setCalendarOpen] = useState(false);
+
+  // Fetch latest analysis for calendar dialog
+  const { data: latestAnalysis } = useQuery({
+    queryKey: ["latest-analysis", user?.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("virality_analyses")
+        .select("id")
+        .eq("status", "done")
+        .order("created_at", { ascending: false })
+        .limit(1);
+      return data?.[0] || null;
+    },
+    enabled: !!user,
+    staleTime: 10 * 60 * 1000,
+  });
 
   const { data: strategyRow, isLoading } = useQuery({
     queryKey: ["content-strategy", user?.id],
@@ -294,7 +312,7 @@ export default function StrategiePage() {
               <>
                 <StrategyView strategy={strategyData!.variants![activeVariantIndex]} />
                 <div className="flex justify-center">
-                  <Button onClick={() => navigate("/posts-suggeres")} className="gap-2">
+                  <Button onClick={() => setCalendarOpen(true)} className="gap-2">
                     Créer des posts basés sur cette stratégie <ArrowRight className="h-4 w-4" />
                   </Button>
                 </div>
@@ -308,7 +326,7 @@ export default function StrategiePage() {
           <>
             <StrategyView strategy={strategyData} />
             <div className="flex justify-center">
-              <Button onClick={() => navigate("/posts-suggeres")} className="gap-2">
+              <Button onClick={() => setCalendarOpen(true)} className="gap-2">
                 Créer des posts <ArrowRight className="h-4 w-4" />
               </Button>
             </div>
@@ -320,6 +338,13 @@ export default function StrategiePage() {
             Dernière mise à jour : {new Date(strategyRow.updated_at).toLocaleString("fr-FR")}
           </p>
         )}
+
+        <EditorialCalendarDialog
+          open={calendarOpen}
+          onOpenChange={setCalendarOpen}
+          analysisId={latestAnalysis?.id || null}
+          strategyVariant={activeVariantIndex !== null ? strategyData?.variants?.[activeVariantIndex] : undefined}
+        />
       </div>
     </AppLayout>
   );
