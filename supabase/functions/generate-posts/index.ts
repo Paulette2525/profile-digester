@@ -192,12 +192,14 @@ serve(async (req) => {
                   items: {
                     type: "object",
                     properties: {
-                      content: { type: "string" },
+                      content: { type: "string", description: "Le contenu complet du post LinkedIn" },
                       topic: { type: "string" },
                       virality_score: { type: "number" },
                       use_personal_photo: { type: "boolean" },
+                      suggested_hour: { type: "number", description: "Heure optimale de publication (7-20)" },
+                      length: { type: "string", enum: ["short", "medium", "long"], description: "Longueur du post" },
                     },
-                    required: ["content", "topic", "virality_score"],
+                    required: ["content", "topic", "virality_score", "suggested_hour", "length"],
                   },
                 },
               },
