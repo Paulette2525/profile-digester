@@ -157,9 +157,13 @@ serve(async (req) => {
     userPrompt += `6. Inclure des emojis naturellement mais sans en abuser\n`;
     userPrompt += `7. CTA subtil et naturel à la fin (pas vendeur)\n`;
     userPrompt += `8. Écrire en français\n`;
-    userPrompt += `9. S'inspirer du style des posts performants analysés ci-dessus\n`;
+    userPrompt += `9. S'inspirer du style et de la LONGUEUR des posts performants analysés ci-dessus — reproduire leur structure\n`;
     userPrompt += `10. Utiliser l'histoire personnelle et les anecdotes réelles de l'auteur\n`;
-    userPrompt += `\nGénère exactement ${effectiveCount} posts. Pour chaque post: contenu complet, topic/thème, score de viralité estimé (1-100).`;
+    userPrompt += `11. 🔥 VARIER OBLIGATOIREMENT LES LONGUEURS : certains posts doivent être LONGS (20-40 lignes avec storytelling développé, narration complète), d'autres MOYENS (8-15 lignes), d'autres COURTS (3-7 lignes percutants). Le mélange est OBLIGATOIRE.\n`;
+    userPrompt += `12. NE JAMAIS écrire de posts "Carousel" avec "Slide 1, Slide 2..." — écris toujours des posts complets et lisibles en texte continu\n`;
+    userPrompt += `13. NE JAMAIS écrire de sondages\n`;
+    userPrompt += `14. Pour chaque post, suggère une heure de publication optimale entre 7h et 20h (champ suggested_hour)\n`;
+    userPrompt += `\nGénère exactement ${effectiveCount} posts. Pour chaque post: contenu complet, topic/thème, score de viralité estimé (1-100), longueur (short/medium/long), heure de publication suggérée (7-20).`;
 
     console.log("Generating posts with Lovable AI for user:", userId);
 
