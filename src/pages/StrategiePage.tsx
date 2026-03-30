@@ -338,6 +338,13 @@ export default function StrategiePage() {
             Dernière mise à jour : {new Date(strategyRow.updated_at).toLocaleString("fr-FR")}
           </p>
         )}
+
+        <EditorialCalendarDialog
+          open={calendarOpen}
+          onOpenChange={setCalendarOpen}
+          analysisId={latestAnalysis?.id || null}
+          strategyVariant={activeVariantIndex !== null ? strategyData?.variants?.[activeVariantIndex] : undefined}
+        />
       </div>
     </AppLayout>
   );
