@@ -42,7 +42,7 @@ export default function MemoirePage() {
     target_audience: "", offers_description: "", ambitions: "", values: "",
     tone_of_voice: "", content_themes: [] as string[], content_types: [] as string[],
     personal_story: "", expertise_areas: "", posting_frequency: "",
-    preferred_formats: "", additional_notes: "",
+    preferred_formats: "", additional_notes: "", writing_instructions: "",
     achievements: "", unique_methodology: "", key_results: "", differentiators: "",
     audience_pain_points: "", call_to_action_style: "", linkedin_goals: "",
     target_followers: 0, target_connections: 0, target_engagement_rate: 0,
