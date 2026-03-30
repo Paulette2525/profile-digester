@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
-import { Calendar, Clock, Send, Loader2, CalendarDays, ChevronDown, ArrowRight, BarChart3 } from "lucide-react";
+import { Calendar, Clock, Send, Loader2, CalendarDays, ChevronDown, ArrowRight, BarChart3, CalendarCheck } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
@@ -36,6 +36,43 @@ export default function PlanifierPage() {
   const scheduledPosts = posts?.filter(p => p.status === "scheduled") || [];
   const draftPosts = posts?.filter(p => p.status === "draft") || [];
   const publishedPosts = posts?.filter(p => p.status === "published") || [];
+  const [isSchedulingAll, setIsSchedulingAll] = useState(false);
+
+  const handleScheduleAll = async () => {
+    if (draftPosts.length === 0) return;
+    setIsSchedulingAll(true);
+    try {
+      const hours = [9, 12, 17];
+      let dayOffset = 1;
+      let hourIdx = 0;
+
+      const schedule = draftPosts.map((post) => {
+        let scheduledAt = post.scheduled_at;
+        if (!scheduledAt) {
+          const d = new Date();
+          d.setDate(d.getDate() + dayOffset);
+          // Skip weekends
+          while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
+          d.setHours(hours[hourIdx % hours.length], 0, 0, 0);
+          scheduledAt = d.toISOString();
+          hourIdx++;
+          if (hourIdx % hours.length === 0) dayOffset++;
+        }
+        return { post_id: post.id, scheduled_at: scheduledAt };
+      });
+
+      const { error } = await supabase.functions.invoke("schedule-posts", {
+        body: { schedule },
+      });
+      if (error) throw error;
+      toast.success(`${schedule.length} posts planifiés !`);
+      refetch();
+    } catch (e: any) {
+      toast.error(e.message || "Erreur de planification");
+    } finally {
+      setIsSchedulingAll(false);
+    }
+  };
 
   const handleSchedule = async (postId: string) => {
     const dateStr = scheduleInputs[postId];
@@ -141,8 +178,12 @@ export default function PlanifierPage() {
         {/* Draft posts to schedule */}
         {draftPosts.length > 0 && (
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-base">Brouillons à planifier ({draftPosts.length})</CardTitle>
+              <Button size="sm" onClick={handleScheduleAll} disabled={isSchedulingAll}>
+                {isSchedulingAll ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <CalendarCheck className="h-3.5 w-3.5 mr-1" />}
+                Tout planifier
+              </Button>
             </CardHeader>
             <CardContent className="space-y-4">
               {draftPosts.slice(0, showAllDrafts ? undefined : 10).map((post) => (
@@ -151,7 +192,14 @@ export default function PlanifierPage() {
                     {post.image_url && post.image_url.startsWith("http") && (
                       <img src={post.image_url} alt="Visuel" className="h-16 w-16 rounded-md object-cover shrink-0" />
                     )}
-                    <p className="text-sm line-clamp-3">{post.content}</p>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm line-clamp-3">{post.content}</p>
+                      {post.scheduled_at && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          📅 Prévu : {format(new Date(post.scheduled_at), "EEEE d MMM 'à' HH:mm", { locale: fr })}
+                        </p>
+                      )}
+                    </div>
                   </div>
                   <div className="flex flex-col sm:flex-row gap-2">
                     <Input

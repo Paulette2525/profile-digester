@@ -109,10 +109,10 @@ serve(async (req) => {
 
     // 4. Top performing posts as examples
     if (topLinkedinPosts && topLinkedinPosts.length > 0) {
-      userPrompt += `POSTS LINKEDIN LES PLUS PERFORMANTS (à utiliser comme inspiration de style) :\n`;
-      topLinkedinPosts.slice(0, 5).forEach((p: any, i: number) => {
-        const excerpt = (p.content || "").slice(0, 200);
-        userPrompt += `${i + 1}. [${p.likes_count}❤️ ${p.comments_count}💬] "${excerpt}..."\n`;
+      userPrompt += `POSTS LINKEDIN LES PLUS PERFORMANTS (à analyser en profondeur pour reproduire le style, la longueur, la structure et le ton) :\n`;
+      topLinkedinPosts.slice(0, 8).forEach((p: any, i: number) => {
+        const excerpt = (p.content || "").slice(0, 800);
+        userPrompt += `${i + 1}. [${p.likes_count}❤️ ${p.comments_count}💬 ${p.impressions_count || 0}👁️] "${excerpt}${(p.content || "").length > 800 ? "..." : ""}"\n\n`;
       });
       userPrompt += `\n`;
     }
@@ -157,9 +157,13 @@ serve(async (req) => {
     userPrompt += `6. Inclure des emojis naturellement mais sans en abuser\n`;
     userPrompt += `7. CTA subtil et naturel à la fin (pas vendeur)\n`;
     userPrompt += `8. Écrire en français\n`;
-    userPrompt += `9. S'inspirer du style des posts performants analysés ci-dessus\n`;
+    userPrompt += `9. S'inspirer du style et de la LONGUEUR des posts performants analysés ci-dessus — reproduire leur structure\n`;
     userPrompt += `10. Utiliser l'histoire personnelle et les anecdotes réelles de l'auteur\n`;
-    userPrompt += `\nGénère exactement ${effectiveCount} posts. Pour chaque post: contenu complet, topic/thème, score de viralité estimé (1-100).`;
+    userPrompt += `11. 🔥 VARIER OBLIGATOIREMENT LES LONGUEURS : certains posts doivent être LONGS (20-40 lignes avec storytelling développé, narration complète), d'autres MOYENS (8-15 lignes), d'autres COURTS (3-7 lignes percutants). Le mélange est OBLIGATOIRE.\n`;
+    userPrompt += `12. NE JAMAIS écrire de posts "Carousel" avec "Slide 1, Slide 2..." — écris toujours des posts complets et lisibles en texte continu\n`;
+    userPrompt += `13. NE JAMAIS écrire de sondages\n`;
+    userPrompt += `14. Pour chaque post, suggère une heure de publication optimale entre 7h et 20h (champ suggested_hour)\n`;
+    userPrompt += `\nGénère exactement ${effectiveCount} posts. Pour chaque post: contenu complet, topic/thème, score de viralité estimé (1-100), longueur (short/medium/long), heure de publication suggérée (7-20).`;
 
     console.log("Generating posts with Lovable AI for user:", userId);
 
@@ -188,12 +192,14 @@ serve(async (req) => {
                   items: {
                     type: "object",
                     properties: {
-                      content: { type: "string" },
+                      content: { type: "string", description: "Le contenu complet du post LinkedIn" },
                       topic: { type: "string" },
                       virality_score: { type: "number" },
                       use_personal_photo: { type: "boolean" },
+                      suggested_hour: { type: "number", description: "Heure optimale de publication (7-20)" },
+                      length: { type: "string", enum: ["short", "medium", "long"], description: "Longueur du post" },
                     },
-                    required: ["content", "topic", "virality_score"],
+                    required: ["content", "topic", "virality_score", "suggested_hour", "length"],
                   },
                 },
               },
@@ -233,6 +239,16 @@ serve(async (req) => {
       const usePhoto = p.use_personal_photo && photoUrls.length > 0;
       const ideaImage = ideaImages[idx] || null;
       const calendarSlot = calendar?.[idx];
+
+      // Auto-assign scheduled_at: use calendar slot, or compute from suggested_hour
+      let scheduledAt = calendarSlot?.scheduled_at || null;
+      if (!scheduledAt && p.suggested_hour) {
+        const postDate = new Date();
+        postDate.setDate(postDate.getDate() + 1 + idx); // spread across days
+        postDate.setHours(Math.max(7, Math.min(20, p.suggested_hour)), 0, 0, 0);
+        scheduledAt = postDate.toISOString();
+      }
+
       return {
         content: p.content,
         topic: p.topic,
@@ -241,7 +257,7 @@ serve(async (req) => {
         status: "draft",
         user_id: userId,
         image_url: ideaImage || (usePhoto ? photoUrls[Math.floor(Math.random() * photoUrls.length)] : null),
-        scheduled_at: calendarSlot?.scheduled_at || null,
+        scheduled_at: scheduledAt,
       };
     });
 
