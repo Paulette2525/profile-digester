@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
-import { Calendar, Clock, Send, Loader2, CalendarDays, ChevronDown, ArrowRight, BarChart3 } from "lucide-react";
+import { Calendar, Clock, Send, Loader2, CalendarDays, ChevronDown, ArrowRight, BarChart3, CalendarCheck } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
