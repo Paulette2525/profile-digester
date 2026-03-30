@@ -78,6 +78,8 @@ serve(async (req) => {
 - Horizon: ${m.goal_timeline || "Non défini"}
 - Notes: ${m.additional_notes || "Non renseigné"}
 
+${m.writing_instructions ? `INSTRUCTIONS OBLIGATOIRES DE RÉDACTION (à respecter impérativement pour chaque post) :\n${m.writing_instructions}` : ""}
+
 IMPORTANT: Utilise ces informations pour créer des posts qui positionnent l'auteur comme LEADER dans son domaine.`;
     }
 

@@ -489,6 +489,7 @@ export type Database = {
           updated_at: string
           user_id: string | null
           values: string | null
+          writing_instructions: string | null
         }
         Insert: {
           achievements?: string | null
@@ -525,6 +526,7 @@ export type Database = {
           updated_at?: string
           user_id?: string | null
           values?: string | null
+          writing_instructions?: string | null
         }
         Update: {
           achievements?: string | null
@@ -561,6 +563,7 @@ export type Database = {
           updated_at?: string
           user_id?: string | null
           values?: string | null
+          writing_instructions?: string | null
         }
         Relationships: []
       }

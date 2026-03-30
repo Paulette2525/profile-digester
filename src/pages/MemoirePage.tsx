@@ -42,7 +42,7 @@ export default function MemoirePage() {
     target_audience: "", offers_description: "", ambitions: "", values: "",
     tone_of_voice: "", content_themes: [] as string[], content_types: [] as string[],
     personal_story: "", expertise_areas: "", posting_frequency: "",
-    preferred_formats: "", additional_notes: "",
+    preferred_formats: "", additional_notes: "", writing_instructions: "",
     achievements: "", unique_methodology: "", key_results: "", differentiators: "",
     audience_pain_points: "", call_to_action_style: "", linkedin_goals: "",
     target_followers: 0, target_connections: 0, target_engagement_rate: 0,
@@ -92,6 +92,7 @@ export default function MemoirePage() {
         target_engagement_rate: (memory as any).target_engagement_rate || 0,
         goal_timeline: (memory as any).goal_timeline || "",
         competitors: (memory as any).competitors || "",
+        writing_instructions: (memory as any).writing_instructions || "",
         content_pillars: ((memory as any).content_pillars as string[]) || [],
         brand_keywords: ((memory as any).brand_keywords as string[]) || [],
       });
@@ -414,7 +415,8 @@ export default function MemoirePage() {
 
         {/* Section 4: Histoire & Offres */}
         <SectionCard icon={BookOpen} title="Histoire & Offres">
-          {renderField("Histoire et valeurs", "personal_story", true, "Votre parcours, moments décisifs, valeurs fondamentales, ambitions…")}
+          {renderField("Mon histoire", "personal_story", true, "Votre parcours personnel, moments clés, anecdotes marquantes, valeurs, ambitions…")}
+          {renderField("Instructions de rédaction", "writing_instructions", true, "Consignes obligatoires : style d'écriture, structure des posts, ton, longueur, mots interdits, expressions à utiliser…")}
           {renderField("Offres et notes", "offers_description", true, "Vos offres, produits, services et toute info utile supplémentaire…")}
         </SectionCard>
 
