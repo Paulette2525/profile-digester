@@ -109,10 +109,10 @@ serve(async (req) => {
 
     // 4. Top performing posts as examples
     if (topLinkedinPosts && topLinkedinPosts.length > 0) {
-      userPrompt += `POSTS LINKEDIN LES PLUS PERFORMANTS (à utiliser comme inspiration de style) :\n`;
-      topLinkedinPosts.slice(0, 5).forEach((p: any, i: number) => {
-        const excerpt = (p.content || "").slice(0, 200);
-        userPrompt += `${i + 1}. [${p.likes_count}❤️ ${p.comments_count}💬] "${excerpt}..."\n`;
+      userPrompt += `POSTS LINKEDIN LES PLUS PERFORMANTS (à analyser en profondeur pour reproduire le style, la longueur, la structure et le ton) :\n`;
+      topLinkedinPosts.slice(0, 8).forEach((p: any, i: number) => {
+        const excerpt = (p.content || "").slice(0, 800);
+        userPrompt += `${i + 1}. [${p.likes_count}❤️ ${p.comments_count}💬 ${p.impressions_count || 0}👁️] "${excerpt}${(p.content || "").length > 800 ? "..." : ""}"\n\n`;
       });
       userPrompt += `\n`;
     }
