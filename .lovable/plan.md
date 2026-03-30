@@ -1,29 +1,47 @@
 
 
-## Plan : Optimiser l'affichage des statistiques sur la page Analyser
+## Plan : Simplifier la page Memoire
 
-### Probleme
+### Constat
 
-Les 8 cartes statistiques sont affichees sur une seule ligne (`grid-cols-2 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-8`), ce qui les rend trop compressees sur la plupart des ecrans. Les valeurs et labels sont difficiles a lire.
+La page contient 7 sections avec ~25 champs texte + 4 champs tags + 4 champs numeriques = trop de questions. Beaucoup sont redondants ou trop granulaires.
 
-### Solution
+### Restructuration proposee
 
-Reorganiser en 2 rangees de 4 cartes avec un design plus lisible :
+Passer de 7 sections a 4 sections avec des champs consolides :
 
-**Rangee 1 — Compte LinkedIn** : Abonnes, Connexions, Publies, Score moyen
-**Rangee 2 — Engagement** : Likes, Commentaires, Partages, Impressions
+**Section 1 — Identite & Expertise** (fusion des sections 1 et 2)
+- Nom complet (input)
+- Profession (input)
+- Entreprise (input)
+- Industrie (input)
+- Expertise et realisations (1 seul textarea fusionnant : expertise_areas, achievements, key_results, unique_methodology, differentiators)
 
-### Changements concrets dans `src/pages/AnalyserPage.tsx`
+**Section 2 — Audience & Objectifs** (fusion des sections 3 et 4)
+- Audience cible (textarea)
+- Objectifs LinkedIn (textarea — fusionne linkedin_goals + audience_pain_points + competitors)
+- Objectifs chiffres : abonnes / connexions / engagement / horizon (4 inputs sur 1 ligne, garde)
 
-1. **Grid** : Remplacer `grid-cols-2 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-8` par deux blocs `grid-cols-2 md:grid-cols-4 gap-4`
-2. **Espacement** : Augmenter le padding interne des cartes pour plus de lisibilite
-3. **Titres de section** : Ajouter des labels discrets ("Compte" / "Engagement") au-dessus de chaque rangee
-4. **Taille du texte** : Passer les valeurs de `text-xl` a `text-2xl font-bold` et les labels de `text-xs` a `text-sm`
-5. **Icones** : Augmenter legerement la taille des icones (`h-5 w-5` au lieu de `h-4 w-4`)
+**Section 3 — Contenu & Ton** (simplifie la section 5)
+- Themes de contenu (tags — fusionne content_themes + content_pillars)
+- Types de contenu (tags — garde)
+- Ton et style (1 textarea fusionnant : tone_of_voice, call_to_action_style, preferred_formats, posting_frequency)
+
+**Section 4 — Histoire & Offres** (fusion des sections 6 et 7)
+- Histoire et valeurs (1 textarea fusionnant : personal_story, values, ambitions)
+- Offres et notes (1 textarea fusionnant : offers_description, additional_notes)
+
+Les sections Photos et Idees restent inchangees.
+
+### Resultat
+- De ~25 champs texte a ~12
+- De 4 champs tags a 2
+- De 7 sections a 4
+- Les donnees existantes sont preservees (les champs DB restent, on les concatene a l'affichage et on les stocke dans les memes colonnes)
 
 ### Fichier a modifier
 
 | Fichier | Action |
 |---------|--------|
-| `src/pages/AnalyserPage.tsx` | Restructurer la grille de stats en 2 rangees de 4 |
+| `src/pages/MemoirePage.tsx` | Fusionner sections et reduire champs |
 
