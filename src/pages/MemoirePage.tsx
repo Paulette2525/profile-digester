@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Brain, Save, Loader2, Upload, X, Plus, Lightbulb, Trash2, Image as ImageIcon, Target, User, Award, Users, Megaphone, BookOpen, Briefcase, Mic, MicOff, Sparkles } from "lucide-react";
+import { Brain, Save, Loader2, Upload, X, Plus, Lightbulb, Trash2, Image as ImageIcon, Target, User, Megaphone, BookOpen, Mic, MicOff, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
