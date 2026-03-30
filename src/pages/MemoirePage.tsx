@@ -92,6 +92,7 @@ export default function MemoirePage() {
         target_engagement_rate: (memory as any).target_engagement_rate || 0,
         goal_timeline: (memory as any).goal_timeline || "",
         competitors: (memory as any).competitors || "",
+        writing_instructions: (memory as any).writing_instructions || "",
         content_pillars: ((memory as any).content_pillars as string[]) || [],
         brand_keywords: ((memory as any).brand_keywords as string[]) || [],
       });
