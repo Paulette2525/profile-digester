@@ -178,8 +178,12 @@ export default function PlanifierPage() {
         {/* Draft posts to schedule */}
         {draftPosts.length > 0 && (
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-base">Brouillons à planifier ({draftPosts.length})</CardTitle>
+              <Button size="sm" onClick={handleScheduleAll} disabled={isSchedulingAll}>
+                {isSchedulingAll ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <CalendarCheck className="h-3.5 w-3.5 mr-1" />}
+                Tout planifier
+              </Button>
             </CardHeader>
             <CardContent className="space-y-4">
               {draftPosts.slice(0, showAllDrafts ? undefined : 10).map((post) => (
