@@ -312,7 +312,7 @@ export default function StrategiePage() {
               <>
                 <StrategyView strategy={strategyData!.variants![activeVariantIndex]} />
                 <div className="flex justify-center">
-                  <Button onClick={() => navigate("/posts-suggeres")} className="gap-2">
+                  <Button onClick={() => setCalendarOpen(true)} className="gap-2">
                     Créer des posts basés sur cette stratégie <ArrowRight className="h-4 w-4" />
                   </Button>
                 </div>
@@ -326,7 +326,7 @@ export default function StrategiePage() {
           <>
             <StrategyView strategy={strategyData} />
             <div className="flex justify-center">
-              <Button onClick={() => navigate("/posts-suggeres")} className="gap-2">
+              <Button onClick={() => setCalendarOpen(true)} className="gap-2">
                 Créer des posts <ArrowRight className="h-4 w-4" />
               </Button>
             </div>
