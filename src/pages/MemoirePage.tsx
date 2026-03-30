@@ -384,68 +384,40 @@ export default function MemoirePage() {
           </Button>
         </div>
 
-        {/* Section 1: Identité */}
-        <SectionCard icon={User} title="Identité">
+        {/* Section 1: Identité & Expertise */}
+        <SectionCard icon={User} title="Identité & Expertise">
           <div className="grid gap-4 md:grid-cols-2">
             {renderField("Nom complet", "full_name", false, "Jean Dupont")}
             {renderField("Profession / Titre", "profession", false, "CEO, Coach, Consultant…")}
             {renderField("Entreprise", "company", false, "Ma Société SAS")}
             {renderField("Industrie / Secteur", "industry", false, "Tech, Finance, Marketing…")}
           </div>
+          {renderField("Expertise et réalisations", "expertise_areas", true, "Vos domaines d'expertise, réalisations majeures, résultats chiffrés, méthodologie unique, ce qui vous différencie…")}
         </SectionCard>
 
-        {/* Section 2: Expertise & Réalisations */}
-        <SectionCard icon={Award} title="Expertise & Réalisations">
-          {renderField("Domaines d'expertise", "expertise_areas", true, "Marketing digital, leadership, IA, growth hacking…")}
-          {renderField("Réalisations majeures", "achievements", true, "Projets créés, entreprises fondées, résultats obtenus, prix, certifications…")}
-          {renderField("Résultats marquants (chiffres)", "key_results", true, "Ex: +200% de CA en 1 an, 10k abonnés en 3 mois, 50 clients accompagnés…")}
-          {renderField("Méthodologie unique", "unique_methodology", true, "Votre approche ou méthode distinctive qui vous différencie…")}
-          {renderField("Ce qui vous différencie", "differentiators", true, "Pourquoi les gens devraient vous suivre plutôt qu'un autre ?")}
-        </SectionCard>
-
-        {/* Section 3: Audience & Marché */}
-        <SectionCard icon={Users} title="Audience & Marché">
-          {renderField("Audience cible", "target_audience", true, "Entrepreneurs, dirigeants PME, marketeurs B2B…")}
-          {renderField("Problèmes de votre audience", "audience_pain_points", true, "Quels sont les problèmes, frustrations, besoins de votre audience ?")}
-          {renderField("Concurrents / Leaders dans votre domaine", "competitors", true, "Qui sont les leaders ou concurrents que vous observez ?")}
-        </SectionCard>
-
-        {/* Section 4: Objectifs LinkedIn */}
-        <SectionCard icon={Target} title="Objectifs LinkedIn">
-          {renderField("Objectifs LinkedIn (qualitatifs)", "linkedin_goals", true, "Devenir leader d'opinion, générer des leads, recruter…")}
+        {/* Section 2: Audience & Objectifs */}
+        <SectionCard icon={Target} title="Audience & Objectifs">
+          {renderField("Audience cible", "target_audience", true, "Entrepreneurs, dirigeants PME, marketeurs B2B… et leurs problèmes/frustrations")}
+          {renderField("Objectifs LinkedIn", "linkedin_goals", true, "Devenir leader d'opinion, générer des leads, concurrents à observer…")}
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             {renderField("Objectif abonnés", "target_followers", false, "10000", "number")}
             {renderField("Objectif connexions", "target_connections", false, "5000", "number")}
-            {renderField("Objectif taux d'engagement (%)", "target_engagement_rate", false, "5", "number")}
+            {renderField("Taux d'engagement (%)", "target_engagement_rate", false, "5", "number")}
             {renderField("Horizon temporel", "goal_timeline", false, "3 mois, 6 mois, 1 an…")}
           </div>
         </SectionCard>
 
-        {/* Section 5: Stratégie de contenu */}
-        <SectionCard icon={Megaphone} title="Stratégie de contenu">
-          {renderTagInput("Piliers de contenu stratégiques", "content_pillars", pillarInput, setPillarInput, "Leadership, IA, Entrepreneuriat…")}
-          {renderTagInput("Thèmes de contenu", "content_themes", themeInput, setThemeInput, "Productivité, mindset, vente…")}
-          {renderTagInput("Mots-clés de marque", "brand_keywords", keywordInput, setKeywordInput, "Innovation, impact, authentique…")}
+        {/* Section 3: Contenu & Ton */}
+        <SectionCard icon={Megaphone} title="Contenu & Ton">
+          {renderTagInput("Thèmes de contenu", "content_themes", themeInput, setThemeInput, "Productivité, mindset, leadership, IA…")}
           {renderTagInput("Types de contenu", "content_types", typeInput, setTypeInput, "Storytelling, liste, carrousel…")}
-          <div className="grid gap-4 md:grid-cols-2">
-            {renderField("Fréquence de publication", "posting_frequency", false, "3 fois par semaine")}
-            {renderField("Formats préférés", "preferred_formats", false, "Texte long, carrousel, vidéo…")}
-          </div>
-          {renderField("Ton de voix", "tone_of_voice", false, "Professionnel mais accessible, inspirant, provocateur…")}
-          {renderField("Style de CTA préféré", "call_to_action_style", true, "Question ouverte, invitation au commentaire, partage d'expérience…")}
+          {renderField("Ton et style", "tone_of_voice", true, "Votre ton de voix, style de CTA, formats préférés, fréquence de publication…")}
         </SectionCard>
 
-        {/* Section 6: Histoire & Valeurs */}
-        <SectionCard icon={BookOpen} title="Histoire & Valeurs">
-          {renderField("Histoire personnelle", "personal_story", true, "Votre parcours, moments décisifs, anecdotes marquantes…")}
-          {renderField("Valeurs fondamentales", "values", true, "Authenticité, excellence, partage, innovation…")}
-          {renderField("Ambitions", "ambitions", true, "Vos ambitions à court et long terme…")}
-        </SectionCard>
-
-        {/* Section 7: Offres & Notes */}
-        <SectionCard icon={Briefcase} title="Offres & Notes">
-          {renderField("Offres & services", "offers_description", true, "Décrivez vos offres, produits ou services…")}
-          {renderField("Notes additionnelles", "additional_notes", true, "Toute information utile supplémentaire…")}
+        {/* Section 4: Histoire & Offres */}
+        <SectionCard icon={BookOpen} title="Histoire & Offres">
+          {renderField("Histoire et valeurs", "personal_story", true, "Votre parcours, moments décisifs, valeurs fondamentales, ambitions…")}
+          {renderField("Offres et notes", "offers_description", true, "Vos offres, produits, services et toute info utile supplémentaire…")}
         </SectionCard>
 
         {/* Photos */}
