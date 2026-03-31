@@ -182,6 +182,17 @@ serve(async (req) => {
     userPrompt += `12. NE JAMAIS écrire de posts "Carousel" avec "Slide 1, Slide 2..." — écris toujours des posts complets et lisibles en texte continu\n`;
     userPrompt += `13. NE JAMAIS écrire de sondages\n`;
     userPrompt += `14. Pour chaque post, suggère une heure de publication optimale entre 7h et 20h (champ suggested_hour)\n`;
+
+    // Add informational content rules when trends are available
+    if (externalTrends) {
+      userPrompt += `\n📰 RÈGLES DE CONTENU INFORMATIF (car des tendances/actualités sont disponibles) :\n`;
+      userPrompt += `- Chaque post doit apporter une INFORMATION CONCRÈTE et ACTIONNABLE basée sur les actualités\n`;
+      userPrompt += `- Transformer les news en contenu UTILE : comment utiliser l'outil, à quoi il sert, comparaison avec les alternatives, guide d'implémentation\n`;
+      userPrompt += `- L'objectif est que les lecteurs viennent sur ce compte pour APPRENDRE et RESTER INFORMÉS\n`;
+      userPrompt += `- Inclure des CHIFFRES, des FAITS, des EXEMPLES CONCRETS\n`;
+      userPrompt += `- Varier les types : tuto step-by-step, analyse comparative, cas d'usage, guide d'implémentation, news flash\n`;
+    }
+
     userPrompt += `\nGénère exactement ${effectiveCount} posts. Pour chaque post: contenu complet, topic/thème, score de viralité estimé (1-100), longueur (short/medium/long), heure de publication suggérée (7-20).`;
 
     console.log("Generating posts with Lovable AI for user:", userId);
