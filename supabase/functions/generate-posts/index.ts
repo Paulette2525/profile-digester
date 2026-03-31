@@ -47,6 +47,9 @@ serve(async (req) => {
     const { data: trackedProfiles } = await supabase.from("tracked_profiles").select("name, headline, analysis_summary").eq("user_id", userId).limit(5);
     const { data: topLinkedinPosts } = await supabase.from("linkedin_posts").select("content, likes_count, comments_count, impressions_count").eq("user_id", userId).order("likes_count", { ascending: false }).limit(10);
 
+    // Load recent posts for continuity
+    const { data: recentPosts } = await supabase.from("suggested_posts").select("content, topic, status, post_performance").eq("user_id", userId).order("created_at", { ascending: false }).limit(10);
+
     const m = memory as any;
     const writingInstructions = m?.writing_instructions || "";
 
