@@ -21,6 +21,8 @@ const MemoirePage = lazy(() => import("./pages/MemoirePage"));
 const AutopilotPage = lazy(() => import("./pages/AutopilotPage"));
 const AuthPage = lazy(() => import("./pages/AuthPage"));
 const ResetPasswordPage = lazy(() => import("./pages/ResetPasswordPage"));
+const CalendarPage = lazy(() => import("./pages/CalendarPage"));
+const IdeasPage = lazy(() => import("./pages/IdeasPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient({
