@@ -30,7 +30,7 @@ serve(async (req) => {
     if (!user) throw new Error("Not authenticated");
     const userId = user.id;
 
-    const { analysis_id, count = 5, topic, calendar } = await req.json();
+    const { analysis_id, count = 5, topic, calendar, trends: externalTrends } = await req.json();
     if (!analysis_id) throw new Error("Missing analysis_id");
 
     const { data: analysis, error: aErr } = await supabase.from("virality_analyses").select("*").eq("id", analysis_id).single();
