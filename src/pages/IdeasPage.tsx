@@ -135,6 +135,17 @@ export default function IdeasPage() {
                 </div>
               </div>
             </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Lien / Ressource à partager (optionnel)</Label>
+                <Input
+                  value={resourceUrl}
+                  onChange={(e) => setResourceUrl(e.target.value)}
+                  placeholder="https://... (lien guide, PDF, outil…)"
+                />
+                <p className="text-[10px] text-muted-foreground">Si renseigné, une règle DM automatique sera créée pour distribuer ce lien</p>
+              </div>
+            </div>
             <div className="space-y-2">
               <Label>Décrivez votre idée</Label>
               <Textarea

@@ -72,10 +72,11 @@ export default function EngagementPage() {
 
   // Fetch DM rules
   const { data: dmRules, isLoading: rulesLoading } = useQuery({
-    queryKey: ["post-dm-rules"],
+    queryKey: ["post-dm-rules", user?.id],
     staleTime: 1000 * 60 * 5,
+    enabled: !!user,
     queryFn: async () => {
-      const { data, error } = await supabase.from("post_dm_rules" as any).select("*").order("created_at", { ascending: false });
+      const { data, error } = await supabase.from("post_dm_rules" as any).select("*").eq("user_id", user!.id).order("created_at", { ascending: false });
       if (error) throw error;
       return (data || []) as any[];
     },
