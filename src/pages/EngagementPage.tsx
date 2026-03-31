@@ -22,14 +22,27 @@ export default function EngagementPage() {
   const [isRunning, setIsRunning] = useState(false);
   const { user } = useAuth();
 
-  // Fetch config
+  // Fetch config with auto-upsert
   const { data: config, isLoading: configLoading } = useQuery({
-    queryKey: ["auto-engagement-config"],
+    queryKey: ["auto-engagement-config", user?.id],
     staleTime: 1000 * 60 * 5,
+    enabled: !!user,
     queryFn: async () => {
-      const { data, error } = await supabase.from("auto_engagement_config").select("*").limit(1).maybeSingle();
+      const { data, error } = await supabase
+        .from("auto_engagement_config")
+        .select("*")
+        .eq("user_id", user!.id)
+        .maybeSingle();
       if (error) throw error;
-      return data;
+      if (data) return data;
+      // Auto-create default config if none exists
+      const { data: newConfig, error: insertErr } = await supabase
+        .from("auto_engagement_config")
+        .insert({ user_id: user!.id })
+        .select("*")
+        .single();
+      if (insertErr) throw insertErr;
+      return newConfig;
     },
   });
 
