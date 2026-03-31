@@ -89,11 +89,30 @@ serve(async (req) => {
             messages: [
               {
                 role: "system",
-                content: "Tu es un analyste de tendances LinkedIn. Retourne les sujets chauds du moment de manière concise et structurée en français.",
+                content: "Tu es un veilleur technologique et business expert. Tu identifies les ACTUALITÉS CONCRÈTES et NOUVEAUTÉS sorties très récemment. Tu donnes des faits précis, pas des généralités. Réponds en français de manière structurée.",
               },
               {
                 role: "user",
-                content: `Quels sont les 5 sujets les plus tendance aujourd'hui sur LinkedIn et les réseaux professionnels dans les domaines suivants : ${industriesQuery} ? Pour chaque sujet, donne : le titre, pourquoi c'est tendance, et un angle original pour en parler. Cherche aussi sur Reddit et Twitter ce qui buzz dans ces domaines.`,
+                content: `Quelles sont les actualités et nouveautés CONCRÈTES sorties ces dernières 24h dans : ${industriesQuery} ?
+
+Je cherche UNIQUEMENT des faits précis :
+- Lancements de nouveaux produits ou outils (ex: "OpenAI lance GPT-5", "Anthropic sort Claude 4")
+- Mises à jour majeures d'outils existants (ex: "Notion ajoute l'IA native")
+- Levées de fonds et acquisitions significatives
+- Études et rapports marquants avec chiffres
+- Nouvelles fonctionnalités de plateformes (LinkedIn, Meta, Google, etc.)
+
+Pour CHAQUE actualité trouvée, donne :
+1. LE FAIT PRÉCIS : quoi, qui, quand (avec des noms, des chiffres, des dates)
+2. POURQUOI C'EST IMPORTANT : impact concret pour les professionnels
+3. ANGLE DE POST LINKEDIN suggéré parmi :
+   - Tuto : "Comment utiliser X pour faire Y en 5 étapes"
+   - Comparatif : "X vs Y : lequel choisir pour Z ?"
+   - Analyse d'impact : "Ce que X change concrètement pour les professionnels de Y"
+   - Guide d'implémentation : "Comment intégrer X dans votre workflow en 10 min"
+   - Cas d'usage : "J'ai testé X pendant 1 semaine, voici mes résultats"
+
+Si tu ne trouves pas de news des dernières 24h, cherche celles des 48h-72h dernières heures.`,
               },
             ],
             search_recency_filter: "day",
@@ -248,23 +267,23 @@ serve(async (req) => {
           userPrompt += `L'auteur a ${photos.length} photo(s). Suggère "use_personal_photo": true quand pertinent.\n\n`;
         }
 
-        // Rules
-        userPrompt += `RÈGLES IMPÉRATIVES:\n`;
+        // Rules - informational content focus
+        userPrompt += `RÈGLES DE CONTENU INFORMATIF (OBJECTIF : être une RÉFÉRENCE d'information) :\n`;
         userPrompt += `1. 🚨 RESPECTER les instructions de rédaction — PRIORITÉ ABSOLUE\n`;
-        userPrompt += `2. Posts HUMAINS, authentiques — PAS vendeurs\n`;
-        userPrompt += `3. Écrire avec la voix de l'auteur\n`;
-        userPrompt += `4. Chaque post UNIQUE avec structure différente\n`;
-        userPrompt += `5. Hook puissant en première ligne\n`;
-        userPrompt += `6. Emojis naturels sans abuser\n`;
-        userPrompt += `7. CTA subtil et naturel\n`;
-        userPrompt += `8. En français\n`;
-        userPrompt += `9. S'inspirer des posts performants\n`;
-        userPrompt += `10. Utiliser l'histoire personnelle\n`;
-        userPrompt += `11. 🔥 VARIER les longueurs : LONGS (20-40 lignes), MOYENS (8-15), COURTS (3-7)\n`;
+        userPrompt += `2. Chaque post doit apporter une INFORMATION CONCRÈTE et ACTIONNABLE basée sur les actualités ci-dessus\n`;
+        userPrompt += `3. Transformer chaque news en contenu UTILE : comment utiliser l'outil, à quoi il sert, comparaison avec les alternatives, guide d'implémentation, ROI concret\n`;
+        userPrompt += `4. L'objectif est que les lecteurs viennent sur ce compte pour APPRENDRE et RESTER INFORMÉS en premier\n`;
+        userPrompt += `5. Inclure des CHIFFRES, des FAITS, des EXEMPLES CONCRETS tirés des actualités\n`;
+        userPrompt += `6. Varier OBLIGATOIREMENT les types de posts informatifs : tuto step-by-step, analyse comparative, cas d'usage concret, prédiction/vision, guide d'implémentation\n`;
+        userPrompt += `7. Posts HUMAINS et authentiques — écrire avec la voix de l'auteur, PAS vendeur\n`;
+        userPrompt += `8. Hook puissant en première ligne (fait marquant ou question provocante liée à l'actualité)\n`;
+        userPrompt += `9. Emojis naturels, CTA subtil\n`;
+        userPrompt += `10. En français\n`;
+        userPrompt += `11. 🔥 VARIER les longueurs : LONGS (20-40 lignes pour tutos et analyses), MOYENS (8-15), COURTS (3-7 pour news flash)\n`;
         userPrompt += `12. NE JAMAIS écrire de carousel ou sondage\n`;
-        userPrompt += `13. INTÉGRER les tendances du jour de manière naturelle\n`;
-        userPrompt += `14. Assurer un FIL NARRATIF cohérent avec les posts précédents\n`;
-        userPrompt += `15. Pour chaque post, suggère une heure entre 7h et 20h\n`;
+        userPrompt += `13. Assurer un FIL NARRATIF cohérent avec les posts précédents\n`;
+        userPrompt += `14. Pour chaque post, suggère une heure entre 7h et 20h\n`;
+        userPrompt += `15. Pour chaque post, indique le type (post_type) parmi : news_analysis, tutorial, comparison, use_case, industry_insight\n`;
         userPrompt += `\nGénère exactement ${config.posts_per_day} posts.`;
 
         // 8. Call AI
@@ -299,8 +318,9 @@ serve(async (req) => {
                           use_personal_photo: { type: "boolean" },
                           suggested_hour: { type: "number" },
                           length: { type: "string", enum: ["short", "medium", "long"] },
+                          post_type: { type: "string", enum: ["news_analysis", "tutorial", "comparison", "use_case", "industry_insight"], description: "Type de post informatif" },
                         },
-                        required: ["content", "topic", "virality_score", "suggested_hour", "length"],
+                        required: ["content", "topic", "virality_score", "suggested_hour", "length", "post_type"],
                       },
                     },
                   },
