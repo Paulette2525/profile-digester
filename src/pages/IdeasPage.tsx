@@ -29,6 +29,7 @@ export default function IdeasPage() {
   const [text, setText] = useState("");
   const [type, setType] = useState("autre");
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [resourceUrl, setResourceUrl] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const { data: ideas = [], isLoading } = useQuery({
