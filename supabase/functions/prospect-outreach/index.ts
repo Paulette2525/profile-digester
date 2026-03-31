@@ -24,7 +24,7 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const { campaign_id } = await req.json();
+    const { campaign_id, daily_limit = 50, delay_seconds = 3 } = await req.json();
     if (!campaign_id) {
       return new Response(JSON.stringify({ error: "Missing campaign_id" }), {
         status: 400,
@@ -52,7 +52,7 @@ serve(async (req) => {
     let sentCount = 0;
     let errorCount = 0;
 
-    for (const msg of (messages || [])) {
+    for (const msg of (messages || []).slice(0, daily_limit)) {
       try {
         // Send message via Unipile
         const sendRes = await fetch(
@@ -89,7 +89,7 @@ serve(async (req) => {
         }
 
         // Rate limiting: wait between messages
-        await new Promise((r) => setTimeout(r, 3000));
+        await new Promise((r) => setTimeout(r, delay_seconds * 1000));
       } catch (e) {
         console.error(`Error sending to ${msg.prospect_name}:`, e);
         await supabase
