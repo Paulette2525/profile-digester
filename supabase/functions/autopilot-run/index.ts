@@ -267,24 +267,54 @@ Si tu ne trouves pas de news des dernières 24h, cherche celles des 48h-72h dern
           userPrompt += `L'auteur a ${photos.length} photo(s). Suggère "use_personal_photo": true quand pertinent.\n\n`;
         }
 
+        // Compute content mix distribution
+        const contentMix = config.content_mix || { news: 30, tutorial: 25, viral: 25, storytelling: 20 };
+        const totalPosts = config.posts_per_day;
+        const mixEntries = Object.entries(contentMix as Record<string, number>).filter(([_, v]) => v > 0);
+        const totalWeight = mixEntries.reduce((s, [_, v]) => s + v, 0);
+        
+        // Distribute posts by type
+        let remaining = totalPosts;
+        const postSlots: { type: string; instructions: string }[] = [];
+        const typeInstructions: Record<string, string> = {
+          news: `Type: NEWS & VEILLE — Écris un post basé sur une ACTUALITÉ CONCRÈTE des tendances ci-dessus. Inclus le fait précis (qui, quoi, quand), pourquoi c'est important, et comment l'utiliser concrètement. Ton informatif et expert.`,
+          tutorial: `Type: TUTORIEL — Écris un tutoriel step-by-step montrant comment utiliser un outil, une technique ou une méthode. Inclus des étapes numérotées, des exemples concrets et un résultat attendu. Format LONG (20-40 lignes). Ton pédagogue et pratique.`,
+          viral: `Type: VIRAL — Écris un post avec un hook ultra-percutant en première ligne, une opinion tranchée ou un constat surprenant. Format court ou moyen, optimisé pour l'engagement et les réactions. Utilise le storytelling, la controverse constructive ou un fait choquant.`,
+          storytelling: `Type: STORYTELLING — Raconte une histoire personnelle de l'auteur basée sur son parcours, ses échecs, ses réussites ou une anecdote professionnelle marquante. Ton authentique et émotionnel, avec une leçon concrète à la fin. Format LONG (20-40 lignes).`,
+        };
+
+        mixEntries.forEach(([type, weight], idx) => {
+          const count = idx === mixEntries.length - 1
+            ? remaining
+            : Math.max(0, Math.round((weight / totalWeight) * totalPosts));
+          remaining -= count;
+          for (let i = 0; i < count; i++) {
+            postSlots.push({ type, instructions: typeInstructions[type] || typeInstructions.news });
+          }
+        });
+
+        // If no slots, default to news
+        if (postSlots.length === 0) {
+          postSlots.push({ type: "news", instructions: typeInstructions.news });
+        }
+
+        // Build slot instructions for prompt
+        const slotDescriptions = postSlots.map((s, i) => `Post ${i + 1}: ${s.instructions}`).join("\n\n");
+
         // Rules - informational content focus
-        userPrompt += `RÈGLES DE CONTENU INFORMATIF (OBJECTIF : être une RÉFÉRENCE d'information) :\n`;
+        userPrompt += `RÈGLES DE CONTENU (OBJECTIF : être une RÉFÉRENCE d'information) :\n`;
         userPrompt += `1. 🚨 RESPECTER les instructions de rédaction — PRIORITÉ ABSOLUE\n`;
-        userPrompt += `2. Chaque post doit apporter une INFORMATION CONCRÈTE et ACTIONNABLE basée sur les actualités ci-dessus\n`;
-        userPrompt += `3. Transformer chaque news en contenu UTILE : comment utiliser l'outil, à quoi il sert, comparaison avec les alternatives, guide d'implémentation, ROI concret\n`;
-        userPrompt += `4. L'objectif est que les lecteurs viennent sur ce compte pour APPRENDRE et RESTER INFORMÉS en premier\n`;
-        userPrompt += `5. Inclure des CHIFFRES, des FAITS, des EXEMPLES CONCRETS tirés des actualités\n`;
-        userPrompt += `6. Varier OBLIGATOIREMENT les types de posts informatifs : tuto step-by-step, analyse comparative, cas d'usage concret, prédiction/vision, guide d'implémentation\n`;
-        userPrompt += `7. Posts HUMAINS et authentiques — écrire avec la voix de l'auteur, PAS vendeur\n`;
-        userPrompt += `8. Hook puissant en première ligne (fait marquant ou question provocante liée à l'actualité)\n`;
-        userPrompt += `9. Emojis naturels, CTA subtil\n`;
-        userPrompt += `10. En français\n`;
-        userPrompt += `11. 🔥 VARIER les longueurs : LONGS (20-40 lignes pour tutos et analyses), MOYENS (8-15), COURTS (3-7 pour news flash)\n`;
-        userPrompt += `12. NE JAMAIS écrire de carousel ou sondage\n`;
-        userPrompt += `13. Assurer un FIL NARRATIF cohérent avec les posts précédents\n`;
-        userPrompt += `14. Pour chaque post, suggère une heure entre 7h et 20h\n`;
-        userPrompt += `15. Pour chaque post, indique le type (post_type) parmi : news_analysis, tutorial, comparison, use_case, industry_insight\n`;
-        userPrompt += `\nGénère exactement ${config.posts_per_day} posts.`;
+        userPrompt += `2. Chaque post doit apporter une INFORMATION CONCRÈTE et ACTIONNABLE\n`;
+        userPrompt += `3. Posts HUMAINS et authentiques — écrire avec la voix de l'auteur, PAS vendeur\n`;
+        userPrompt += `4. Hook puissant en première ligne\n`;
+        userPrompt += `5. Emojis naturels, CTA subtil\n`;
+        userPrompt += `6. En français\n`;
+        userPrompt += `7. 🔥 VARIER les longueurs selon le type de post\n`;
+        userPrompt += `8. NE JAMAIS écrire de carousel ou sondage\n`;
+        userPrompt += `9. Assurer un FIL NARRATIF cohérent avec les posts précédents\n`;
+        userPrompt += `10. Pour chaque post, suggère une heure entre 7h et 20h\n\n`;
+        userPrompt += `📋 ASSIGNATION DES TYPES PAR POST (RESPECTER OBLIGATOIREMENT) :\n${slotDescriptions}\n\n`;
+        userPrompt += `Génère exactement ${postSlots.length} posts en respectant le type assigné à chacun.`;
 
         // 8. Call AI
         const aiRes = await fetchWithRetry("https://ai.gateway.lovable.dev/v1/chat/completions", {
