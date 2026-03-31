@@ -22,7 +22,13 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const PERPLEXITY_API_KEY = Deno.env.get("PERPLEXITY_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
-    // PERPLEXITY_API_KEY is now optional — only needed for "news" type posts
+
+    // Check if this is a forced manual execution
+    let forceRun = false;
+    try {
+      const body = await req.json();
+      forceRun = body?.force === true;
+    } catch { /* no body */ }
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -54,7 +60,7 @@ serve(async (req) => {
       const userId = config.user_id;
 
       const activeDayNumbers = (config.active_days || []).map((d: string) => dayMap[d.toLowerCase()] ?? -1);
-      if (!activeDayNumbers.includes(todayDay)) {
+      if (!forceRun && !activeDayNumbers.includes(todayDay)) {
         results.push({ userId, status: "skipped", reason: "not an active day" });
         continue;
       }
