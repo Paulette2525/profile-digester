@@ -260,7 +260,7 @@ Si tu ne trouves pas de news des dernières 24h, cherche celles des 48h-72h dern
 
         // Ideas
         if (ideas?.length) {
-          userPrompt += `IDÉES À INTÉGRER:\n${ideas.map((i: any, idx: number) => `${idx + 1}. ${i.idea_text}`).join("\n")}\n\n`;
+          userPrompt += `IDÉES DE L'UTILISATEUR À INTÉGRER OBLIGATOIREMENT :\n${ideas.map((i: any, idx: number) => `${idx + 1}. [${i.content_type || "autre"}] ${i.idea_text}${i.image_url ? " (visuel fourni)" : ""}`).join("\n")}\n\n`;
         }
 
         // Photos
