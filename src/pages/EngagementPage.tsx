@@ -60,10 +60,11 @@ export default function EngagementPage() {
 
   // Fetch published posts for DM rules
   const { data: publishedPosts } = useQuery({
-    queryKey: ["published-posts-for-rules"],
+    queryKey: ["published-posts-for-rules", user?.id],
     staleTime: 1000 * 60 * 10,
+    enabled: !!user,
     queryFn: async () => {
-      const { data, error } = await supabase.from("suggested_posts").select("id, content, topic").eq("status", "published").order("published_at", { ascending: false }).limit(50);
+      const { data, error } = await supabase.from("suggested_posts").select("id, content, topic").eq("user_id", user!.id).eq("status", "published").order("published_at", { ascending: false }).limit(50);
       if (error) throw error;
       return data || [];
     },
