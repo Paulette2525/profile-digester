@@ -32,7 +32,7 @@ serve(async (req) => {
 
     const body = await req.json();
     const { query, limit: requestedLimit } = body;
-    const searchLimit = Math.min(Math.max(Number(requestedLimit) || 10, 1), 1000);
+    const totalLimit = Math.max(Number(requestedLimit) || 10, 1);
     if (!query || typeof query !== "string") {
       return new Response(
         JSON.stringify({ error: "Missing 'query' parameter" }),
