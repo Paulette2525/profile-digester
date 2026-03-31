@@ -60,7 +60,7 @@ serve(async (req) => {
       const userId = config.user_id;
 
       const activeDayNumbers = (config.active_days || []).map((d: string) => dayMap[d.toLowerCase()] ?? -1);
-      if (!activeDayNumbers.includes(todayDay)) {
+      if (!forceRun && !activeDayNumbers.includes(todayDay)) {
         results.push({ userId, status: "skipped", reason: "not an active day" });
         continue;
       }
