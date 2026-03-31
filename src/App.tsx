@@ -76,6 +76,8 @@ const App = () => (
               <Route path="/memoire" element={<ProtectedRoute><MemoirePage /></ProtectedRoute>} />
               <Route path="/autopilote" element={<ProtectedRoute><AutopilotPage /></ProtectedRoute>} />
               <Route path="/add-profile" element={<ProtectedRoute><AddProfile /></ProtectedRoute>} />
+              <Route path="/calendrier" element={<ProtectedRoute><CalendarPage /></ProtectedRoute>} />
+              <Route path="/idees" element={<ProtectedRoute><IdeasPage /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>

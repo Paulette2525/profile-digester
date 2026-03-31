@@ -34,6 +34,7 @@ const automationItems = [
 
 const managementItems = [
   { to: "/memoire", label: "Mémoire", icon: Brain },
+  { to: "/idees", label: "Boîte à idées", icon: Lightbulb },
   { to: "/add-profile", label: "Profils", icon: UserPlus },
   { to: "/settings", label: "Configuration", icon: Settings },
 ];
