@@ -1,94 +1,37 @@
 
 
-## Plan : Restructurer la plateforme autour de l'Autopilote + Visuels automatiques
+## Plan : Calendrier editorial + Boite a idees
 
-### Constat
+### 1. Page Calendrier (`/calendrier`)
 
-L'Autopilote rend 4 pages redondantes : **Traitement** (analyse viralite manuelle), **Strategie** (generee manuellement), **Posts Suggeres** (generation manuelle), **Planifier** (planification manuelle). Seule **Analyser** reste utile pour le suivi de performance post-publication.
+Nouvelle page affichant une vue calendrier mensuelle de toutes les publications (publiees, planifiees, brouillons). Chaque jour montre les posts avec un code couleur par statut (vert = publie, bleu = planifie, gris = brouillon). Clic sur un post pour voir/editer. Utilise les donnees existantes de `suggested_posts` (champs `scheduled_at`, `published_at`, `status`).
 
-### Architecture cible
+Position dans la sidebar : entre Publications et Performance.
 
-```text
-SIDEBAR SIMPLIFIEE :
-  ── Dashboard
-  ── Autopilote (hub central — config + execution)
-  ── Publications (ex Posts Suggeres — tous les posts generes, edition, visuels)
-  ── Performance (ex Analyser — stats post-publication)
-  ── Engagement (inchange)
-  ── Memoire (inchange)
-  ── Profils (inchange)
-  ── Configuration (inchange)
-```
+### 2. Page Boite a idees (`/idees`)
 
-Pages **supprimees** du menu : Traitement, Strategie, Planifier (le code reste pour ne rien casser, mais inaccessibles depuis la sidebar).
+Nouvelle page permettant de sauvegarder des idees de contenu avec :
+- Selection du type (Tuto, Viral, Storytelling, News, Autre)
+- Zone de texte pour decrire l'idee
+- Upload optionnel d'une image (bucket `user-photos`)
+- Liste des idees existantes avec badge de type et bouton supprimer
 
-### Modifications
+Utilise la table `content_ideas` existante. Ajout d'une colonne `content_type` (text) pour stocker le type choisi.
 
-**1. Sidebar** — Reduire de 12 a 8 entrees
+Position dans la sidebar : entre Memoire et Profils.
 
-Retirer `Traitement`, `Strategie`, `Planifier` du menu. Renommer `Posts Suggeres` → `Publications`, `Analyser` → `Performance`. Deplacer `Autopilote` en premiere position du groupe Workflow apres Dashboard.
+### 3. Integration avec l'Autopilote
 
-**2. AutopilotPage — Planification par jour**
+Dans `autopilot-run/index.ts`, avant de generer les posts, verifier s'il y a des idees non utilisees dans `content_ideas`. Si oui, les integrer dans le prompt de generation et marquer `used = true` apres utilisation.
 
-Ajouter une nouvelle carte "Planning hebdomadaire" permettant de definir le type de contenu dominant par jour :
-- Chaque jour actif affiche un select avec les types (News, Tuto, Viral, Storytelling, Auto)
-- "Auto" = laisser le content_mix decider
-- Stocke dans un nouveau champ `daily_content_plan` (jsonb) dans `autopilot_config`
-
-**3. AutopilotPage — Generation de visuels automatiques**
-
-Ajouter un toggle "Generer un visuel pour chaque post" dans la config. Quand actif, l'edge function `autopilot-run` appelle `generate-visual` apres chaque post genere. Le toggle s'appuie sur un nouveau champ `auto_visuals` (boolean) dans `autopilot_config`.
-
-**4. Migration DB** — 2 colonnes dans `autopilot_config`
-
-```sql
-ALTER TABLE public.autopilot_config 
-  ADD COLUMN daily_content_plan jsonb NOT NULL DEFAULT '{}'::jsonb,
-  ADD COLUMN auto_visuals boolean NOT NULL DEFAULT false;
-```
-
-`daily_content_plan` format : `{"monday": "news", "tuesday": "tutorial", "wednesday": "auto", ...}`
-
-**5. autopilot-run/index.ts** — Utiliser le plan journalier
-
-Avant de calculer le mix, verifier si le jour actuel a un type force dans `daily_content_plan`. Si oui, tous les posts du jour sont de ce type. Sinon, utiliser le content_mix en pourcentage (logique actuelle).
-
-Apres generation, si `auto_visuals` est actif, appeler `generate-visual` pour chaque post cree.
-
-**6. MemoirePage — Banque d'images personnelles**
-
-Ajouter une section "Mes visuels" dans la page Memoire permettant d'uploader des images dans le bucket `user-photos`. Ces images seront disponibles comme visuels par defaut pour les posts quand la generation IA n'est pas activee.
-
-**7. Publications page (ex SuggestedPostsPage)** — Hub de gestion
-
-Renommer et ajouter :
-- Bouton "Planifier tout" (logique existante de PlanifierPage fusionnee ici)
-- Affichage du statut (brouillon / planifie / publie) avec filtres
-- Edition inline du contenu et du visuel
-
-### Fichiers a modifier
+### Fichiers a creer/modifier
 
 | Fichier | Action |
 |---------|--------|
-| Migration SQL | Ajouter `daily_content_plan` et `auto_visuals` |
-| `src/components/layout/AppSidebar.tsx` | Reorganiser les menus |
-| `src/App.tsx` | Garder les routes mais supprimer celles inutiles des imports |
-| `src/pages/AutopilotPage.tsx` | Ajouter planning journalier + toggle visuels |
-| `src/pages/SuggestedPostsPage.tsx` | Fusionner logique Planifier, renommer |
-| `src/pages/MemoirePage.tsx` | Ajouter section upload d'images |
-| `supabase/functions/autopilot-run/index.ts` | Integrer daily plan + appel generate-visual |
-
-### Section technique : Visuels automatiques
-
-Le edge function `generate-visual` existe deja et genere un PNG via Gemini 3.1 Flash Image. L'autopilot-run appelera :
-
-```typescript
-if (config.auto_visuals) {
-  for (const postId of generatedPostIds) {
-    await supabase.functions.invoke("generate-visual", { body: { post_id: postId } });
-  }
-}
-```
-
-Pour les posts News, le prompt de visuel inclura le theme bleu de la marque utilisateur.
+| Migration SQL | Ajouter `content_type` a `content_ideas` |
+| `src/pages/CalendarPage.tsx` | Nouvelle page calendrier |
+| `src/pages/IdeasPage.tsx` | Nouvelle page boite a idees |
+| `src/components/layout/AppSidebar.tsx` | Ajouter les 2 entrees |
+| `src/App.tsx` | Ajouter les 2 routes |
+| `supabase/functions/autopilot-run/index.ts` | Consommer les idees |
 
