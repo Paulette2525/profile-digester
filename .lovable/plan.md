@@ -1,75 +1,58 @@
 
 
-## Plan : Transformer l'Autopilote en veille intelligence temps reel
+## Plan : Ajouter les types de contenu (Tuto, Viral, Storytelling) a l'Autopilote
 
-### Probleme
+### Objectif
 
-Le prompt Perplexity actuel demande des "sujets tendance LinkedIn" de maniere vague. Il ne demande pas specifiquement des **news concretes** (nouveau produit IA lance, mise a jour d'un outil, etc.) ni des **angles pedagogiques** (tuto, comparatif, implementation). Les posts generes restent generiques au lieu d'etre des posts d'actualite informatifs et utiles.
-
-### Solution
-
-Restructurer le prompt Perplexity et le prompt de generation pour produire des posts de type **veille informationnelle** : news + explication + cas d'usage concret.
+Transformer l'Autopilote en hub central de creation de contenu avec 4 types configurables : News/Veille (existant), Tuto, Viral, Storytelling. L'utilisateur choisit la repartition par semaine directement depuis la page Autopilote.
 
 ### Modifications
 
-**1. `autopilot-run/index.ts` — Prompt Perplexity restructure**
+**1. Migration DB** — Ajouter une colonne `content_mix` (jsonb) a `autopilot_config`
 
-Remplacer le prompt generique par un prompt en 2 etapes :
-
-- **Etape 1 — News fraiches** : Demander a Perplexity les **nouveautes concretes** (nouveaux outils IA, mises a jour, levees de fonds, lancements produit) dans les domaines surveilles. Filtre `search_recency_filter: "day"` conserve.
-- **Etape 2 — Angles de contenu** : Pour chaque news, demander un angle pratique (tuto, comparatif, implementation, impact business).
-
-Le prompt Perplexity deviendra :
-```
-Quelles sont les actualites et nouveautes CONCRETES sorties ces dernieres 24h 
-dans : ${industries} ?
-Je cherche : lancements de produits, nouvelles IA, mises a jour d'outils, 
-acquisitions, etudes marquantes.
-Pour chaque news, donne :
-- Le fait precis (quoi, qui, quand)
-- Pourquoi c'est important pour les professionnels
-- Un angle de post LinkedIn : tuto, comparatif, retour d'experience, 
-  guide d'implementation, ou analyse d'impact
-```
-
-**2. `autopilot-run/index.ts` — Prompt de generation restructure**
-
-Ajouter des regles specifiques pour transformer les news en contenu a forte valeur :
-
-```
-RÈGLES DE CONTENU INFORMATIF :
-- Chaque post doit apporter une INFORMATION CONCRETE et ACTIONNABLE
-- Transforme les news en contenu utile : comment utiliser l'outil, 
-  a quoi il sert, comparaison avec les alternatives, guide d'implementation
-- L'objectif est que les lecteurs viennent sur ce compte pour APPRENDRE 
-  et RESTER INFORMES en premier
-- Inclure des chiffres, des faits, des exemples concrets
-- Varier les formats : tuto step-by-step, analyse comparative, 
-  retour d'experience, prediction/vision, cas d'usage concret
-```
-
-Ajouter un champ `post_type` dans le tool schema pour forcer la variete :
 ```json
-"post_type": { 
-  "type": "string", 
-  "enum": ["news_analysis", "tutorial", "comparison", "use_case", "industry_insight"],
-  "description": "Type de post informatif" 
+{
+  "news": 30,
+  "tutorial": 25,
+  "viral": 25,
+  "storytelling": 20
 }
 ```
 
-**3. `generate-posts/index.ts` — Meme renforcement**
+Chaque valeur = pourcentage du total de posts. La somme fait 100%.
 
-Ajouter les memes regles de contenu informatif quand des `trends` sont fournies en parametre, pour que la generation manuelle beneficie aussi de cette logique.
+**2. AutopilotPage.tsx** — Nouvelle carte "Types de contenu"
+
+Affiche 4 types avec sliders ou boutons +/- pour ajuster le pourcentage de chaque type :
+- **News & Veille** (icone Newspaper) — Actualites, analyses, comparatifs (Perplexity)
+- **Tuto** (icone GraduationCap) — Guides step-by-step, comment faire X avec Y
+- **Viral** (icone Flame) — Hooks percutants, opinions tranchees, formats engageants
+- **Storytelling** (icone BookOpen) — Histoire personnelle, parcours, lecons apprises
+
+Chaque type a une description courte et un pourcentage ajustable. La somme est maintenue a 100%.
+
+**3. autopilot-run/index.ts** — Generation par type
+
+Au lieu de generer N posts tous du meme type :
+- Lire `content_mix` depuis la config
+- Calculer combien de posts par type (ex: 3 posts/jour, 30% news = 1 news, 25% tuto = 1 tuto, etc.)
+- Pour chaque type, injecter des instructions specifiques dans le prompt :
+  - **News** : utilise les tendances Perplexity (logique actuelle)
+  - **Tuto** : "Ecris un tutoriel step-by-step montrant comment utiliser un outil/technique. Inclus des etapes numerotees, des exemples concrets et un resultat attendu."
+  - **Viral** : "Ecris un post avec un hook ultra-percutant, une opinion tranchee ou un constat surprenant. Format court ou moyen, optimise pour l'engagement et les reactions."
+  - **Storytelling** : "Raconte une histoire personnelle de l'auteur basee sur son parcours, ses echecs, ses reussites. Ton authentique et emotionnel, avec une lecon concrete a la fin."
+
+Le champ `post_type` dans le schema est mis a jour pour inclure `viral` et `storytelling`.
 
 ### Fichiers a modifier
 
 | Fichier | Action |
 |---------|--------|
-| `supabase/functions/autopilot-run/index.ts` | Prompt Perplexity + prompt generation restructures pour news concretes |
-| `supabase/functions/generate-posts/index.ts` | Ajouter regles de contenu informatif quand trends disponibles |
+| Migration SQL | Ajouter colonne `content_mix` jsonb |
+| `src/pages/AutopilotPage.tsx` | Nouvelle carte avec sliders pour le mix de contenu |
+| `supabase/functions/autopilot-run/index.ts` | Repartir la generation par type avec prompts specifiques |
 
-### Resultat attendu
+### Resultat
 
-Au lieu de : *"L'IA transforme le marketing — voici pourquoi"* (generique)
-On obtient : *"OpenAI vient de lancer GPT-5. Voici 3 facons concretes de l'utiliser pour automatiser votre prospection LinkedIn..."* (informatif, actionnable, d'actualite)
+L'utilisateur configure depuis une seule page : "Cette semaine, 30% news, 25% tutos, 25% viral, 20% storytelling" et l'Autopilote genere automatiquement le bon mix chaque jour.
 
