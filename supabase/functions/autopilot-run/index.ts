@@ -420,6 +420,27 @@ Si tu ne trouves pas de news des dernières 24h, cherche celles des 48h-72h dern
         const { data: saved, error: sErr } = await supabase.from("suggested_posts").insert(toInsert).select("*");
         if (sErr) throw sErr;
 
+        // Generate visuals if auto_visuals is enabled
+        if (config.auto_visuals && saved?.length) {
+          const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+          const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+          for (const post of saved) {
+            try {
+              await fetchWithRetry(`${SUPABASE_URL}/functions/v1/generate-visual`, {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ post_id: post.id }),
+              });
+              console.log(`Visual generated for post ${post.id}`);
+            } catch (vizErr) {
+              console.error(`Visual generation failed for post ${post.id}:`, vizErr);
+            }
+          }
+        }
+
         // Mark ideas as used
         if (ideas?.length) {
           await supabase.from("content_ideas").update({ used: true }).in("id", ideas.map((i: any) => i.id));
