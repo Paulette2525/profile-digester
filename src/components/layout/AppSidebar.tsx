@@ -31,6 +31,7 @@ const workflowItems = [
 
 const automationItems = [
   { to: "/engagement", label: "Engagement", icon: MessageSquareHeart },
+  { to: "/autopilote", label: "Autopilote", icon: Rocket },
 ];
 
 const managementItems = [
