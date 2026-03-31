@@ -30,6 +30,7 @@ const workflowItems = [
 
 const automationItems = [
   { to: "/engagement", label: "Engagement", icon: MessageSquareHeart },
+  { to: "/prospection", label: "Prospection", icon: Target },
 ];
 
 const managementItems = [

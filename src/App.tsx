@@ -79,6 +79,7 @@ const App = () => (
               <Route path="/add-profile" element={<ProtectedRoute><AddProfile /></ProtectedRoute>} />
               <Route path="/calendrier" element={<ProtectedRoute><CalendarPage /></ProtectedRoute>} />
               <Route path="/idees" element={<ProtectedRoute><IdeasPage /></ProtectedRoute>} />
+              <Route path="/prospection" element={<ProtectedRoute><ProspectionPage /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
