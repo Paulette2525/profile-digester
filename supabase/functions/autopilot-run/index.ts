@@ -267,23 +267,23 @@ Si tu ne trouves pas de news des dernières 24h, cherche celles des 48h-72h dern
           userPrompt += `L'auteur a ${photos.length} photo(s). Suggère "use_personal_photo": true quand pertinent.\n\n`;
         }
 
-        // Rules
-        userPrompt += `RÈGLES IMPÉRATIVES:\n`;
+        // Rules - informational content focus
+        userPrompt += `RÈGLES DE CONTENU INFORMATIF (OBJECTIF : être une RÉFÉRENCE d'information) :\n`;
         userPrompt += `1. 🚨 RESPECTER les instructions de rédaction — PRIORITÉ ABSOLUE\n`;
-        userPrompt += `2. Posts HUMAINS, authentiques — PAS vendeurs\n`;
-        userPrompt += `3. Écrire avec la voix de l'auteur\n`;
-        userPrompt += `4. Chaque post UNIQUE avec structure différente\n`;
-        userPrompt += `5. Hook puissant en première ligne\n`;
-        userPrompt += `6. Emojis naturels sans abuser\n`;
-        userPrompt += `7. CTA subtil et naturel\n`;
-        userPrompt += `8. En français\n`;
-        userPrompt += `9. S'inspirer des posts performants\n`;
-        userPrompt += `10. Utiliser l'histoire personnelle\n`;
-        userPrompt += `11. 🔥 VARIER les longueurs : LONGS (20-40 lignes), MOYENS (8-15), COURTS (3-7)\n`;
+        userPrompt += `2. Chaque post doit apporter une INFORMATION CONCRÈTE et ACTIONNABLE basée sur les actualités ci-dessus\n`;
+        userPrompt += `3. Transformer chaque news en contenu UTILE : comment utiliser l'outil, à quoi il sert, comparaison avec les alternatives, guide d'implémentation, ROI concret\n`;
+        userPrompt += `4. L'objectif est que les lecteurs viennent sur ce compte pour APPRENDRE et RESTER INFORMÉS en premier\n`;
+        userPrompt += `5. Inclure des CHIFFRES, des FAITS, des EXEMPLES CONCRETS tirés des actualités\n`;
+        userPrompt += `6. Varier OBLIGATOIREMENT les types de posts informatifs : tuto step-by-step, analyse comparative, cas d'usage concret, prédiction/vision, guide d'implémentation\n`;
+        userPrompt += `7. Posts HUMAINS et authentiques — écrire avec la voix de l'auteur, PAS vendeur\n`;
+        userPrompt += `8. Hook puissant en première ligne (fait marquant ou question provocante liée à l'actualité)\n`;
+        userPrompt += `9. Emojis naturels, CTA subtil\n`;
+        userPrompt += `10. En français\n`;
+        userPrompt += `11. 🔥 VARIER les longueurs : LONGS (20-40 lignes pour tutos et analyses), MOYENS (8-15), COURTS (3-7 pour news flash)\n`;
         userPrompt += `12. NE JAMAIS écrire de carousel ou sondage\n`;
-        userPrompt += `13. INTÉGRER les tendances du jour de manière naturelle\n`;
-        userPrompt += `14. Assurer un FIL NARRATIF cohérent avec les posts précédents\n`;
-        userPrompt += `15. Pour chaque post, suggère une heure entre 7h et 20h\n`;
+        userPrompt += `13. Assurer un FIL NARRATIF cohérent avec les posts précédents\n`;
+        userPrompt += `14. Pour chaque post, suggère une heure entre 7h et 20h\n`;
+        userPrompt += `15. Pour chaque post, indique le type (post_type) parmi : news_analysis, tutorial, comparison, use_case, industry_insight\n`;
         userPrompt += `\nGénère exactement ${config.posts_per_day} posts.`;
 
         // 8. Call AI
