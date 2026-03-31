@@ -92,7 +92,7 @@ export default function AutopilotPage() {
   const runNow = async () => {
     setRunning(true);
     try {
-      const { data, error } = await supabase.functions.invoke("autopilot-run");
+      const { data, error } = await supabase.functions.invoke("autopilot-run", { body: { force: true } });
       if (error) throw error;
       toast({ title: "Autopilote exécuté", description: `${data?.results?.[0]?.postsGenerated || 0} posts générés` });
       queryClient.invalidateQueries({ queryKey: ["trend-insights"] });
