@@ -9,9 +9,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Slider } from "@/components/ui/slider";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Search, Users, Send, Loader2, UserPlus, CheckCircle, XCircle, Clock, BarChart3 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Search, Users, Send, Loader2, UserPlus, CheckCircle, XCircle, Clock, BarChart3, CheckSquare } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -32,6 +34,9 @@ export default function ProspectionPage() {
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [selectedProspects, setSelectedProspects] = useState<SearchResult[]>([]);
   const [campaignName, setCampaignName] = useState("");
+  const [maxResults, setMaxResults] = useState(25);
+  const [dailyContactLimit, setDailyContactLimit] = useState(20);
+  const [delayBetweenMessages, setDelayBetweenMessages] = useState(5);
   const [messageTemplate, setMessageTemplate] = useState(
     "Bonjour {name},\n\nJ'ai vu votre profil ({headline}) et j'aimerais échanger avec vous.\n\nBien cordialement"
   );
@@ -72,7 +77,7 @@ export default function ProspectionPage() {
     setSearching(true);
     try {
       const { data, error } = await supabase.functions.invoke("search-profiles", {
-        body: { query: searchQuery.trim() },
+        body: { query: searchQuery.trim(), limit: maxResults },
       });
       if (error) throw error;
       setSearchResults(data?.results || []);
@@ -91,11 +96,18 @@ export default function ProspectionPage() {
     );
   };
 
+  const selectAll = () => {
+    if (selectedProspects.length === searchResults.length) {
+      setSelectedProspects([]);
+    } else {
+      setSelectedProspects([...searchResults]);
+    }
+  };
+
   const launchCampaign = useMutation({
     mutationFn: async () => {
       if (!user || !campaignName.trim() || selectedProspects.length === 0) return;
 
-      // Create campaign
       const { data: campaign, error: campErr } = await supabase
         .from("prospection_campaigns" as any)
         .insert({
@@ -109,7 +121,6 @@ export default function ProspectionPage() {
         .single();
       if (campErr) throw campErr;
 
-      // Create messages
       const messages = selectedProspects.map((p) => ({
         campaign_id: (campaign as any).id,
         user_id: user.id,
@@ -128,9 +139,12 @@ export default function ProspectionPage() {
         .insert(messages as any);
       if (msgErr) throw msgErr;
 
-      // Invoke outreach function
       const { error: fnErr } = await supabase.functions.invoke("prospect-outreach", {
-        body: { campaign_id: (campaign as any).id },
+        body: {
+          campaign_id: (campaign as any).id,
+          daily_limit: dailyContactLimit,
+          delay_seconds: delayBetweenMessages,
+        },
       });
       if (fnErr) console.error("Outreach function error:", fnErr);
 
@@ -155,6 +169,8 @@ export default function ProspectionPage() {
   const totalAccepted = campaigns.reduce((s: number, c: any) => s + (c.accepted_count || 0), 0);
   const replyRate = totalSent > 0 ? Math.round((totalReplies / totalSent) * 100) : 0;
   const acceptRate = totalSent > 0 ? Math.round((totalAccepted / totalSent) * 100) : 0;
+
+  const allSelected = searchResults.length > 0 && selectedProspects.length === searchResults.length;
 
   return (
     <AppLayout>
@@ -196,41 +212,67 @@ export default function ProspectionPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Search controls */}
             <div className="flex gap-2">
               <Input
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Ex: CEO startup IA, Growth Marketer, Consultant digital..."
                 onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                className="flex-1"
               />
+              <Select value={String(maxResults)} onValueChange={(v) => setMaxResults(Number(v))}>
+                <SelectTrigger className="w-[130px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10 profils</SelectItem>
+                  <SelectItem value="25">25 profils</SelectItem>
+                  <SelectItem value="50">50 profils</SelectItem>
+                  <SelectItem value="100">100 profils</SelectItem>
+                </SelectContent>
+              </Select>
               <Button onClick={handleSearch} disabled={searching || !searchQuery.trim()}>
                 {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
               </Button>
             </div>
 
+            {/* Results header with select all */}
             {searchResults.length > 0 && (
-              <div className="space-y-2 max-h-[300px] overflow-y-auto">
-                {searchResults.map((r) => (
-                  <div
-                    key={r.id}
-                    className="flex items-center gap-3 p-3 rounded-lg border cursor-pointer hover:bg-accent/50 transition-colors"
-                    onClick={() => toggleProspect(r)}
-                  >
-                    <Checkbox checked={selectedProspects.some((p) => p.id === r.id)} />
-                    {r.avatar_url ? (
-                      <img src={r.avatar_url} alt="" className="h-10 w-10 rounded-full object-cover" />
-                    ) : (
-                      <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-sm font-medium">
-                        {r.name?.charAt(0)}
+              <>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-muted-foreground">
+                    {searchResults.length} profil(s) trouvé(s)
+                  </p>
+                  <Button variant="outline" size="sm" onClick={selectAll}>
+                    <CheckSquare className="h-4 w-4 mr-1" />
+                    {allSelected ? "Tout désélectionner" : "Tout sélectionner"}
+                  </Button>
+                </div>
+
+                <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                  {searchResults.map((r) => (
+                    <div
+                      key={r.id}
+                      className="flex items-center gap-3 p-3 rounded-lg border cursor-pointer hover:bg-accent/50 transition-colors"
+                      onClick={() => toggleProspect(r)}
+                    >
+                      <Checkbox checked={selectedProspects.some((p) => p.id === r.id)} />
+                      {r.avatar_url ? (
+                        <img src={r.avatar_url} alt="" className="h-10 w-10 rounded-full object-cover" />
+                      ) : (
+                        <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-sm font-medium">
+                          {r.name?.charAt(0)}
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium">{r.name}</p>
+                        <p className="text-xs text-muted-foreground truncate">{r.headline}</p>
                       </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium">{r.name}</p>
-                      <p className="text-xs text-muted-foreground truncate">{r.headline}</p>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              </>
             )}
 
             {selectedProspects.length > 0 && (
@@ -250,7 +292,7 @@ export default function ProspectionPage() {
                 Variables disponibles : {"{name}"}, {"{headline}"}
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-5">
               <div className="space-y-2">
                 <Label>Nom de la campagne</Label>
                 <Input
@@ -259,6 +301,7 @@ export default function ProspectionPage() {
                   placeholder="Ex: Prospection CEO startup Mars 2026"
                 />
               </div>
+
               <div className="space-y-2">
                 <Label>Message personnalisé</Label>
                 <Textarea
@@ -267,16 +310,44 @@ export default function ProspectionPage() {
                   rows={5}
                 />
               </div>
+
+              {/* Advanced settings */}
+              <div className="grid gap-4 md:grid-cols-2 p-4 rounded-lg border bg-muted/30">
+                <div className="space-y-3">
+                  <Label className="text-sm">Contacts par jour : <span className="font-bold text-primary">{dailyContactLimit}</span></Label>
+                  <Slider
+                    value={[dailyContactLimit]}
+                    onValueChange={(v) => setDailyContactLimit(v[0])}
+                    min={5}
+                    max={100}
+                    step={5}
+                  />
+                  <p className="text-xs text-muted-foreground">Limite quotidienne pour protéger votre compte</p>
+                </div>
+                <div className="space-y-3">
+                  <Label className="text-sm">Délai entre messages : <span className="font-bold text-primary">{delayBetweenMessages}s</span></Label>
+                  <Slider
+                    value={[delayBetweenMessages]}
+                    onValueChange={(v) => setDelayBetweenMessages(v[0])}
+                    min={3}
+                    max={30}
+                    step={1}
+                  />
+                  <p className="text-xs text-muted-foreground">Temps d'attente entre chaque envoi (secondes)</p>
+                </div>
+              </div>
+
               <Button
                 onClick={() => launchCampaign.mutate()}
                 disabled={launchCampaign.isPending || !campaignName.trim()}
+                className="w-full"
               >
                 {launchCampaign.isPending ? (
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
                 ) : (
                   <Send className="h-4 w-4 mr-2" />
                 )}
-                Lancer ({selectedProspects.length} prospects)
+                Lancer ({selectedProspects.length} prospects — {Math.ceil(selectedProspects.length / dailyContactLimit)} jour(s))
               </Button>
             </CardContent>
           </Card>
