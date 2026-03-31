@@ -89,11 +89,30 @@ serve(async (req) => {
             messages: [
               {
                 role: "system",
-                content: "Tu es un analyste de tendances LinkedIn. Retourne les sujets chauds du moment de manière concise et structurée en français.",
+                content: "Tu es un veilleur technologique et business expert. Tu identifies les ACTUALITÉS CONCRÈTES et NOUVEAUTÉS sorties très récemment. Tu donnes des faits précis, pas des généralités. Réponds en français de manière structurée.",
               },
               {
                 role: "user",
-                content: `Quels sont les 5 sujets les plus tendance aujourd'hui sur LinkedIn et les réseaux professionnels dans les domaines suivants : ${industriesQuery} ? Pour chaque sujet, donne : le titre, pourquoi c'est tendance, et un angle original pour en parler. Cherche aussi sur Reddit et Twitter ce qui buzz dans ces domaines.`,
+                content: `Quelles sont les actualités et nouveautés CONCRÈTES sorties ces dernières 24h dans : ${industriesQuery} ?
+
+Je cherche UNIQUEMENT des faits précis :
+- Lancements de nouveaux produits ou outils (ex: "OpenAI lance GPT-5", "Anthropic sort Claude 4")
+- Mises à jour majeures d'outils existants (ex: "Notion ajoute l'IA native")
+- Levées de fonds et acquisitions significatives
+- Études et rapports marquants avec chiffres
+- Nouvelles fonctionnalités de plateformes (LinkedIn, Meta, Google, etc.)
+
+Pour CHAQUE actualité trouvée, donne :
+1. LE FAIT PRÉCIS : quoi, qui, quand (avec des noms, des chiffres, des dates)
+2. POURQUOI C'EST IMPORTANT : impact concret pour les professionnels
+3. ANGLE DE POST LINKEDIN suggéré parmi :
+   - Tuto : "Comment utiliser X pour faire Y en 5 étapes"
+   - Comparatif : "X vs Y : lequel choisir pour Z ?"
+   - Analyse d'impact : "Ce que X change concrètement pour les professionnels de Y"
+   - Guide d'implémentation : "Comment intégrer X dans votre workflow en 10 min"
+   - Cas d'usage : "J'ai testé X pendant 1 semaine, voici mes résultats"
+
+Si tu ne trouves pas de news des dernières 24h, cherche celles des 48h-72h dernières heures.`,
               },
             ],
             search_recency_filter: "day",
