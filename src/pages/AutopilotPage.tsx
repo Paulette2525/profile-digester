@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "@/hooks/use-toast";
 import { Loader2, Zap, Clock, Calendar, Eye, Rocket, TrendingUp, Brain, Play } from "lucide-react";
+import { ContentMixCard } from "@/components/autopilot/ContentMixCard";
 
 const DAYS = [
   { key: "monday", label: "Lun" },
