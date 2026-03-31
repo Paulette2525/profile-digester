@@ -1,0 +1,1 @@
+ALTER TABLE public.autopilot_config ADD COLUMN content_mix jsonb NOT NULL DEFAULT '{"news": 30, "tutorial": 25, "viral": 25, "storytelling": 20}'::jsonb;

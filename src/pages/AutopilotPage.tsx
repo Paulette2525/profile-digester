@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "@/hooks/use-toast";
 import { Loader2, Zap, Clock, Calendar, Eye, Rocket, TrendingUp, Brain, Play } from "lucide-react";
+import { ContentMixCard } from "@/components/autopilot/ContentMixCard";
 
 const DAYS = [
   { key: "monday", label: "Lun" },
@@ -109,6 +110,7 @@ export default function AutopilotPage() {
     industries_to_watch: [],
     approval_mode: "review",
     last_run_at: null,
+    content_mix: { news: 30, tutorial: 25, viral: 25, storytelling: 20 },
   };
 
   const toggleDay = (day: string) => {
@@ -293,6 +295,12 @@ export default function AutopilotPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Content mix */}
+        <ContentMixCard
+          contentMix={(currentConfig.content_mix || { news: 30, tutorial: 25, viral: 25, storytelling: 20 }) as { news: number; tutorial: number; viral: number; storytelling: number }}
+          onSave={(content_mix) => saveMutation.mutate({ content_mix })}
+        />
 
         {/* Industries to watch */}
         <Card>
