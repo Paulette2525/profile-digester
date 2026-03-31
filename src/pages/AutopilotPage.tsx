@@ -110,6 +110,7 @@ export default function AutopilotPage() {
     industries_to_watch: [],
     approval_mode: "review",
     last_run_at: null,
+    content_mix: { news: 30, tutorial: 25, viral: 25, storytelling: 20 },
   };
 
   const toggleDay = (day: string) => {
