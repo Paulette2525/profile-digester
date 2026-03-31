@@ -131,6 +131,7 @@ export type Database = {
         Row: {
           active_days: string[]
           approval_mode: string
+          content_mix: Json
           created_at: string
           enabled: boolean
           id: string
@@ -144,6 +145,7 @@ export type Database = {
         Insert: {
           active_days?: string[]
           approval_mode?: string
+          content_mix?: Json
           created_at?: string
           enabled?: boolean
           id?: string
@@ -157,6 +159,7 @@ export type Database = {
         Update: {
           active_days?: string[]
           approval_mode?: string
+          content_mix?: Json
           created_at?: string
           enabled?: boolean
           id?: string
