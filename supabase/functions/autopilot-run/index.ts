@@ -22,14 +22,13 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const PERPLEXITY_API_KEY = Deno.env.get("PERPLEXITY_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
-    if (!PERPLEXITY_API_KEY) throw new Error("PERPLEXITY_API_KEY not configured");
+    // PERPLEXITY_API_KEY is now optional — only needed for "news" type posts
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Get all users with autopilot enabled
     const { data: configs, error: cfgErr } = await supabase
       .from("autopilot_config")
       .select("*")
@@ -54,7 +53,6 @@ serve(async (req) => {
     for (const config of configs) {
       const userId = config.user_id;
 
-      // Check if today is an active day
       const activeDayNumbers = (config.active_days || []).map((d: string) => dayMap[d.toLowerCase()] ?? -1);
       if (!activeDayNumbers.includes(todayDay)) {
         results.push({ userId, status: "skipped", reason: "not an active day" });
@@ -73,27 +71,72 @@ serve(async (req) => {
         const writingInstructions = m?.writing_instructions || "";
         const industry = m?.industry || (config.industries_to_watch?.[0]) || "business";
 
-        // 2. Fetch trends from Perplexity
-        const industriesQuery = (config.industries_to_watch || []).length > 0
-          ? config.industries_to_watch.join(", ")
-          : industry;
+        // 2. Compute content mix / daily plan FIRST (before Perplexity)
+        const dayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+        const todayName = dayNames[todayDay];
+        const dailyPlan = config.daily_content_plan || {};
+        const forcedType = dailyPlan[todayName];
 
-        const perplexityRes = await fetchWithRetry("https://api.perplexity.ai/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${PERPLEXITY_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "sonar",
-            messages: [
-              {
-                role: "system",
-                content: "Tu es un veilleur technologique et business expert. Tu identifies les ACTUALITÉS CONCRÈTES et NOUVEAUTÉS sorties très récemment. Tu donnes des faits précis, pas des généralités. Réponds en français de manière structurée.",
-              },
-              {
-                role: "user",
-                content: `Quelles sont les actualités et nouveautés CONCRÈTES sorties ces dernières 24h dans : ${industriesQuery} ?
+        const contentMix = config.content_mix || { news: 30, tutorial: 25, viral: 25, storytelling: 20 };
+        const totalPosts = config.posts_per_day;
+        const typeInstructions: Record<string, string> = {
+          news: `Type: NEWS & VEILLE — Écris un post basé sur une ACTUALITÉ CONCRÈTE des tendances ci-dessus. Inclus le fait précis (qui, quoi, quand), pourquoi c'est important, et comment l'utiliser concrètement. Ton informatif et expert.`,
+          tutorial: `Type: TUTORIEL — Écris un tutoriel step-by-step montrant comment utiliser un outil, une technique ou une méthode. Inclus des étapes numérotées, des exemples concrets et un résultat attendu. Format LONG (20-40 lignes). Ton pédagogue et pratique.`,
+          viral: `Type: VIRAL — Écris un post avec un hook ultra-percutant en première ligne, une opinion tranchée ou un constat surprenant. Format court ou moyen, optimisé pour l'engagement et les réactions. Utilise le storytelling, la controverse constructive ou un fait choquant.`,
+          storytelling: `Type: STORYTELLING — Raconte une histoire personnelle de l'auteur basée sur son parcours, ses échecs, ses réussites ou une anecdote professionnelle marquante. Ton authentique et émotionnel, avec une leçon concrète à la fin. Format LONG (20-40 lignes).`,
+        };
+
+        const postSlots: { type: string; instructions: string }[] = [];
+
+        if (forcedType && forcedType !== "auto" && typeInstructions[forcedType]) {
+          for (let i = 0; i < totalPosts; i++) {
+            postSlots.push({ type: forcedType, instructions: typeInstructions[forcedType] });
+          }
+        } else {
+          const mixEntries = Object.entries(contentMix as Record<string, number>).filter(([_, v]) => v > 0);
+          const totalWeight = mixEntries.reduce((s, [_, v]) => s + v, 0);
+          let remaining = totalPosts;
+          mixEntries.forEach(([type, weight], idx) => {
+            const count = idx === mixEntries.length - 1
+              ? remaining
+              : Math.max(0, Math.round((weight / totalWeight) * totalPosts));
+            remaining -= count;
+            for (let i = 0; i < count; i++) {
+              postSlots.push({ type, instructions: typeInstructions[type] || typeInstructions.news });
+            }
+          });
+        }
+
+        if (postSlots.length === 0) {
+          postSlots.push({ type: "news", instructions: typeInstructions.news });
+        }
+
+        // 3. Only call Perplexity if news slots exist AND key is available
+        const needsNews = postSlots.some(slot => slot.type === "news");
+        let trends = "";
+        let trendTopics: string[] = [];
+
+        if (needsNews && PERPLEXITY_API_KEY) {
+          const industriesQuery = (config.industries_to_watch || []).length > 0
+            ? config.industries_to_watch.join(", ")
+            : industry;
+
+          const perplexityRes = await fetchWithRetry("https://api.perplexity.ai/chat/completions", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${PERPLEXITY_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "sonar",
+              messages: [
+                {
+                  role: "system",
+                  content: "Tu es un veilleur technologique et business expert. Tu identifies les ACTUALITÉS CONCRÈTES et NOUVEAUTÉS sorties très récemment. Tu donnes des faits précis, pas des généralités. Réponds en français de manière structurée.",
+                },
+                {
+                  role: "user",
+                  content: `Quelles sont les actualités et nouveautés CONCRÈTES sorties ces dernières 24h dans : ${industriesQuery} ?
 
 Je cherche UNIQUEMENT des faits précis :
 - Lancements de nouveaux produits ou outils (ex: "OpenAI lance GPT-5", "Anthropic sort Claude 4")
@@ -113,38 +156,37 @@ Pour CHAQUE actualité trouvée, donne :
    - Cas d'usage : "J'ai testé X pendant 1 semaine, voici mes résultats"
 
 Si tu ne trouves pas de news des dernières 24h, cherche celles des 48h-72h dernières heures.`,
-              },
-            ],
-            search_recency_filter: "day",
-          }),
-        });
+                },
+              ],
+              search_recency_filter: "day",
+            }),
+          });
 
-        let trends = "Aucune tendance trouvée";
-        let trendTopics: string[] = [];
-        if (perplexityRes.ok) {
-          const perplexityData = await perplexityRes.json();
-          trends = perplexityData.choices?.[0]?.message?.content || "Aucune tendance trouvée";
+          if (perplexityRes.ok) {
+            const perplexityData = await perplexityRes.json();
+            trends = perplexityData.choices?.[0]?.message?.content || "";
 
-          // Extract topics for storage
-          const topicMatches = trends.match(/\d+\.\s*\*?\*?([^*\n:]+)/g);
-          trendTopics = (topicMatches || []).map((t: string) => t.replace(/^\d+\.\s*\*?\*?/, "").trim()).slice(0, 5);
+            const topicMatches = trends.match(/\d+\.\s*\*?\*?([^*\n:]+)/g);
+            trendTopics = (topicMatches || []).map((t: string) => t.replace(/^\d+\.\s*\*?\*?/, "").trim()).slice(0, 5);
 
-          // Store trend insights
-          if (trendTopics.length > 0) {
-            const trendInserts = trendTopics.map((topic: string) => ({
-              user_id: userId,
-              topic,
-              source: "perplexity",
-              summary: trends.slice(0, 500),
-              used: false,
-            }));
-            await supabase.from("trend_insights").insert(trendInserts);
+            if (trendTopics.length > 0) {
+              const trendInserts = trendTopics.map((topic: string) => ({
+                user_id: userId,
+                topic,
+                source: "perplexity",
+                summary: trends.slice(0, 500),
+                used: false,
+              }));
+              await supabase.from("trend_insights").insert(trendInserts);
+            }
+          } else {
+            console.error("Perplexity error:", await perplexityRes.text());
           }
-        } else {
-          console.error("Perplexity error:", await perplexityRes.text());
+        } else if (needsNews && !PERPLEXITY_API_KEY) {
+          console.warn(`User ${userId}: news slots requested but PERPLEXITY_API_KEY not configured`);
         }
 
-        // 3. Load tracked profiles and their top posts
+        // 4. Load tracked profiles and their top posts
         const { data: trackedProfiles } = await supabase
           .from("tracked_profiles")
           .select("name, headline, analysis_summary")
@@ -158,7 +200,7 @@ Si tu ne trouves pas de news des dernières 24h, cherche celles des 48h-72h dern
           .order("likes_count", { ascending: false })
           .limit(10);
 
-        // 4. Load recent generated posts for continuity
+        // 5. Load recent generated posts for continuity
         const { data: recentPosts } = await supabase
           .from("suggested_posts")
           .select("content, topic, status, scheduled_at, post_performance")
@@ -166,7 +208,7 @@ Si tu ne trouves pas de news des dernières 24h, cherche celles des 48h-72h dern
           .order("created_at", { ascending: false })
           .limit(10);
 
-        // 5. Load a virality analysis for the function
+        // 6. Load virality analysis (OPTIONAL — no longer blocks generation)
         const { data: latestAnalysis } = await supabase
           .from("virality_analyses")
           .select("*")
@@ -176,17 +218,11 @@ Si tu ne trouves pas de news des dernières 24h, cherche celles des 48h-72h dern
           .limit(1)
           .maybeSingle();
 
-        if (!latestAnalysis) {
-          results.push({ userId, status: "skipped", reason: "no virality analysis available" });
-          continue;
-        }
-
-        // 6. Load photos and ideas
+        // 7. Load photos and ideas
         const { data: photos } = await supabase.from("user_photos").select("*").eq("user_id", userId);
         const { data: ideas } = await supabase.from("content_ideas").select("*").eq("user_id", userId).eq("used", false).limit(config.posts_per_day);
 
-
-        // 7. Build the enhanced prompt
+        // 8. Build the enhanced prompt
         let systemMessage = `Tu es un copywriter LinkedIn expert spécialisé dans la rédaction de posts HUMAINS, authentiques et engageants. Tu n'écris JAMAIS de posts vendeurs, corporate ou artificiels.`;
         if (writingInstructions) {
           systemMessage += `\n\n🚨 INSTRUCTIONS DE RÉDACTION OBLIGATOIRES DE L'AUTEUR (À RESPECTER IMPÉRATIVEMENT POUR CHAQUE POST, C'EST LA PRIORITÉ ABSOLUE) :\n${writingInstructions}`;
@@ -195,15 +231,14 @@ Si tu ne trouves pas de news des dernières 24h, cherche celles des 48h-72h dern
 
         let userPrompt = "";
 
-        // Writing instructions emphasis
         if (writingInstructions) {
           userPrompt += `⚠️ STYLE OBLIGATOIRE DE L'AUTEUR (PRIORITÉ #1) :\n${writingInstructions}\n\n---\n\n`;
         }
 
-        // Trends of the day
-        userPrompt += `📊 TENDANCES DU JOUR (utilise ces sujets pour créer des posts d'actualité et pertinents) :\n${trends}\n\n---\n\n`;
+        if (trends) {
+          userPrompt += `📊 TENDANCES DU JOUR (utilise ces sujets pour créer des posts d'actualité et pertinents) :\n${trends}\n\n---\n\n`;
+        }
 
-        // Author profile
         if (m) {
           userPrompt += `PROFIL DE L'AUTEUR:\n`;
           const fields = [
@@ -224,7 +259,6 @@ Si tu ne trouves pas de news des dernières 24h, cherche celles des 48h-72h dern
           userPrompt += `\n`;
         }
 
-        // Tracked profiles
         if (trackedProfiles?.length) {
           userPrompt += `PROFILS ANALYSÉS (inspiration de style) :\n`;
           trackedProfiles.forEach((p: any) => {
@@ -236,7 +270,6 @@ Si tu ne trouves pas de news des dernières 24h, cherche celles des 48h-72h dern
           userPrompt += `\n`;
         }
 
-        // Top performing posts
         if (topPosts?.length) {
           userPrompt += `POSTS LES PLUS PERFORMANTS (reproduire le style, la longueur et le ton) :\n`;
           topPosts.slice(0, 8).forEach((p: any, i: number) => {
@@ -245,7 +278,6 @@ Si tu ne trouves pas de news des dernières 24h, cherche celles des 48h-72h dern
           });
         }
 
-        // Recent posts for continuity
         if (recentPosts?.length) {
           userPrompt += `📝 DERNIERS POSTS GÉNÉRÉS (assure une CONTINUITÉ LOGIQUE, ne répète pas les mêmes sujets) :\n`;
           recentPosts.slice(0, 10).forEach((p: any, i: number) => {
@@ -255,66 +287,20 @@ Si tu ne trouves pas de news des dernières 24h, cherche celles des 48h-72h dern
           userPrompt += `\n`;
         }
 
-        // Virality analysis
-        userPrompt += `ANALYSE DE VIRALITÉ:\n${JSON.stringify(latestAnalysis.analysis_json, null, 2)}\n\n`;
+        if (latestAnalysis) {
+          userPrompt += `ANALYSE DE VIRALITÉ:\n${JSON.stringify(latestAnalysis.analysis_json, null, 2)}\n\n`;
+        }
 
-        // Ideas
         if (ideas?.length) {
           userPrompt += `IDÉES DE L'UTILISATEUR À INTÉGRER OBLIGATOIREMENT :\n${ideas.map((i: any, idx: number) => `${idx + 1}. [${i.content_type || "autre"}] ${i.idea_text}${i.image_url ? " (visuel fourni)" : ""}`).join("\n")}\n\n`;
         }
 
-        // Photos
         if (photos?.length) {
           userPrompt += `L'auteur a ${photos.length} photo(s). Suggère "use_personal_photo": true quand pertinent.\n\n`;
         }
 
-        // Compute content mix distribution - check daily plan first
-        const dayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
-        const todayName = dayNames[todayDay];
-        const dailyPlan = config.daily_content_plan || {};
-        const forcedType = dailyPlan[todayName];
-        
-        const contentMix = config.content_mix || { news: 30, tutorial: 25, viral: 25, storytelling: 20 };
-        const totalPosts = config.posts_per_day;
-        const typeInstructions: Record<string, string> = {
-          news: `Type: NEWS & VEILLE — Écris un post basé sur une ACTUALITÉ CONCRÈTE des tendances ci-dessus. Inclus le fait précis (qui, quoi, quand), pourquoi c'est important, et comment l'utiliser concrètement. Ton informatif et expert.`,
-          tutorial: `Type: TUTORIEL — Écris un tutoriel step-by-step montrant comment utiliser un outil, une technique ou une méthode. Inclus des étapes numérotées, des exemples concrets et un résultat attendu. Format LONG (20-40 lignes). Ton pédagogue et pratique.`,
-          viral: `Type: VIRAL — Écris un post avec un hook ultra-percutant en première ligne, une opinion tranchée ou un constat surprenant. Format court ou moyen, optimisé pour l'engagement et les réactions. Utilise le storytelling, la controverse constructive ou un fait choquant.`,
-          storytelling: `Type: STORYTELLING — Raconte une histoire personnelle de l'auteur basée sur son parcours, ses échecs, ses réussites ou une anecdote professionnelle marquante. Ton authentique et émotionnel, avec une leçon concrète à la fin. Format LONG (20-40 lignes).`,
-        };
-        
-        const postSlots: { type: string; instructions: string }[] = [];
-        
-        if (forcedType && forcedType !== "auto" && typeInstructions[forcedType]) {
-          // All posts today are of the forced type
-          for (let i = 0; i < totalPosts; i++) {
-            postSlots.push({ type: forcedType, instructions: typeInstructions[forcedType] });
-          }
-        } else {
-          // Use percentage-based mix
-          const mixEntries = Object.entries(contentMix as Record<string, number>).filter(([_, v]) => v > 0);
-          const totalWeight = mixEntries.reduce((s, [_, v]) => s + v, 0);
-          let remaining = totalPosts;
-          mixEntries.forEach(([type, weight], idx) => {
-            const count = idx === mixEntries.length - 1
-              ? remaining
-              : Math.max(0, Math.round((weight / totalWeight) * totalPosts));
-            remaining -= count;
-            for (let i = 0; i < count; i++) {
-              postSlots.push({ type, instructions: typeInstructions[type] || typeInstructions.news });
-            }
-          });
-        }
-
-        // If no slots, default to news
-        if (postSlots.length === 0) {
-          postSlots.push({ type: "news", instructions: typeInstructions.news });
-        }
-
-        // Build slot instructions for prompt
         const slotDescriptions = postSlots.map((s, i) => `Post ${i + 1}: ${s.instructions}`).join("\n\n");
 
-        // Rules - informational content focus
         userPrompt += `RÈGLES DE CONTENU (OBJECTIF : être une RÉFÉRENCE d'information) :\n`;
         userPrompt += `1. 🚨 RESPECTER les instructions de rédaction — PRIORITÉ ABSOLUE\n`;
         userPrompt += `2. Chaque post doit apporter une INFORMATION CONCRÈTE et ACTIONNABLE\n`;
@@ -329,7 +315,7 @@ Si tu ne trouves pas de news des dernières 24h, cherche celles des 48h-72h dern
         userPrompt += `📋 ASSIGNATION DES TYPES PAR POST (RESPECTER OBLIGATOIREMENT) :\n${slotDescriptions}\n\n`;
         userPrompt += `Génère exactement ${postSlots.length} posts en respectant le type assigné à chacun.`;
 
-        // 8. Call AI
+        // 9. Call AI
         const aiRes = await fetchWithRetry("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
           headers: {
@@ -361,7 +347,7 @@ Si tu ne trouves pas de news des dernières 24h, cherche celles des 48h-72h dern
                           use_personal_photo: { type: "boolean" },
                           suggested_hour: { type: "number" },
                           length: { type: "string", enum: ["short", "medium", "long"] },
-                          post_type: { type: "string", enum: ["news_analysis", "tutorial", "comparison", "use_case", "industry_insight", "viral", "storytelling"], description: "Type de post" },
+                          post_type: { type: "string", enum: ["news_analysis", "tutorial", "comparison", "use_case", "industry_insight", "viral", "storytelling"] },
                         },
                         required: ["content", "topic", "virality_score", "suggested_hour", "length", "post_type"],
                       },
@@ -392,7 +378,7 @@ Si tu ne trouves pas de news des dernières 24h, cherche celles des 48h-72h dern
           generatedPosts = jsonMatch ? JSON.parse(jsonMatch[0]).posts || [] : [];
         }
 
-        // 9. Assign schedules based on config hours
+        // 10. Assign schedules
         const postingHours = config.posting_hours || [9, 12, 17];
         const photoUrls = photos?.map((p: any) => p.image_url) || [];
         const isAutoMode = config.approval_mode === "auto";
@@ -410,7 +396,7 @@ Si tu ne trouves pas de news des dernières 24h, cherche celles des 48h-72h dern
             content: p.content,
             topic: p.topic,
             virality_score: Math.min(100, Math.max(0, Math.round(p.virality_score))),
-            source_analysis_id: latestAnalysis.id,
+            source_analysis_id: latestAnalysis?.id || null,
             status: isAutoMode ? "scheduled" : "draft",
             user_id: userId,
             image_url: usePhoto ? photoUrls[Math.floor(Math.random() * photoUrls.length)] : null,
