@@ -437,9 +437,33 @@ Si tu ne trouves pas de news des dernières 24h, cherche celles des 48h-72h dern
           }
         }
 
-        // Mark ideas as used
+        // Mark ideas as used + auto-create DM rules for ideas with resources
         if (ideas?.length) {
           await supabase.from("content_ideas").update({ used: true }).in("id", ideas.map((i: any) => i.id));
+
+          // Auto-create DM rules for ideas that have resource_url
+          if (ideasWithResources.length > 0 && saved?.length) {
+            for (const idea of ideasWithResources) {
+              // Find the post generated from this idea (match by content type or order)
+              const matchingPost = saved.find((p: any) =>
+                p.content?.toLowerCase().includes("guide") ||
+                p.content?.toLowerCase().includes(idea.resource_url?.split("/").pop()?.toLowerCase() || "")
+              ) || saved[0];
+
+              if (matchingPost) {
+                const keyword = "GUIDE";
+                await supabase.from("post_dm_rules").insert({
+                  post_id: matchingPost.id,
+                  user_id: userId,
+                  trigger_keyword: keyword.toLowerCase(),
+                  dm_message: `Bonjour ! Voici la ressource promise : ${idea.resource_url}\n\nN'hésite pas si tu as des questions !`,
+                  resource_url: idea.resource_url,
+                  is_active: true,
+                });
+                console.log(`Auto DM rule created for post ${matchingPost.id} with resource ${idea.resource_url}`);
+              }
+            }
+          }
         }
 
         // Mark trends as used
