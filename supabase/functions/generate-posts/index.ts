@@ -123,6 +123,22 @@ serve(async (req) => {
     // 5. Virality analysis
     userPrompt += `ANALYSE DE VIRALITÉ:\n${JSON.stringify(factors, null, 2)}\n\n`;
 
+    // 5b. Trends (if provided from autopilot or manual)
+    if (externalTrends) {
+      userPrompt += `📊 TENDANCES DU JOUR (intègre-les naturellement dans les posts) :\n${externalTrends}\n\n`;
+    }
+
+    // 5c. Recent posts for continuity
+    if (recentPosts && recentPosts.length > 0) {
+      userPrompt += `📝 DERNIERS POSTS (assure une CONTINUITÉ LOGIQUE, ne répète pas les mêmes sujets) :\n`;
+      recentPosts.slice(0, 10).forEach((p: any, i: number) => {
+        const perf = p.post_performance ? ` — Perf: ${JSON.stringify(p.post_performance)}` : "";
+        userPrompt += `${i + 1}. [${p.topic}] ${(p.content || "").slice(0, 200)}...${perf}\n`;
+      });
+      userPrompt += `\n`;
+    }
+
+
     // 6. Calendar slots if provided
     const effectiveCount = calendar ? calendar.length : count;
     if (calendar && calendar.length > 0) {
