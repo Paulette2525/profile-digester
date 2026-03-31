@@ -52,7 +52,7 @@ serve(async (req) => {
     let sentCount = 0;
     let errorCount = 0;
 
-    for (const msg of (messages || [])) {
+    for (const msg of (messages || []).slice(0, daily_limit)) {
       try {
         // Send message via Unipile
         const sendRes = await fetch(
