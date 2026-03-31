@@ -392,12 +392,26 @@ Si tu ne trouves pas de news des dernières 24h, cherche celles des 48h-72h dern
         const photoUrls = photos?.map((p: any) => p.image_url) || [];
         const isAutoMode = config.approval_mode === "auto";
 
+        const now = new Date();
+        const currentHour = now.getHours();
+        // Filter hours that haven't passed yet today
+        const todayAvailableHours = postingHours.filter((h: number) => h > currentHour);
+        
         const toInsert = generatedPosts.map((p: any, idx: number) => {
-          const hour = postingHours[idx % postingHours.length];
-          const daysToAdd = Math.floor(idx / postingHours.length) + 1;
-          const scheduledDate = new Date();
-          scheduledDate.setDate(scheduledDate.getDate() + daysToAdd);
-          scheduledDate.setHours(hour, 0, 0, 0);
+          let scheduledDate: Date;
+          if (idx < todayAvailableHours.length) {
+            // Schedule today at available hours
+            scheduledDate = new Date(now);
+            scheduledDate.setHours(todayAvailableHours[idx], 0, 0, 0);
+          } else {
+            // Schedule on future days
+            const remaining = idx - todayAvailableHours.length;
+            const dayOffset = Math.floor(remaining / postingHours.length) + 1;
+            const hourIdx = remaining % postingHours.length;
+            scheduledDate = new Date(now);
+            scheduledDate.setDate(scheduledDate.getDate() + dayOffset);
+            scheduledDate.setHours(postingHours[hourIdx], 0, 0, 0);
+          }
 
           const usePhoto = p.use_personal_photo && photoUrls.length > 0;
 

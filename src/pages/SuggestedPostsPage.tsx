@@ -29,12 +29,14 @@ export default function SuggestedPostsPage() {
   const [scheduleInputs, setScheduleInputs] = useState<Record<string, string>>({});
 
   const { data: posts, refetch } = useQuery({
-    queryKey: ["suggested-posts"],
+    queryKey: ["suggested-posts", user?.id],
     staleTime: 1000 * 60 * 5,
+    enabled: !!user,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("suggested_posts")
         .select("*")
+        .eq("user_id", user!.id)
         .order("created_at", { ascending: false })
         .limit(100);
       if (error) throw error;

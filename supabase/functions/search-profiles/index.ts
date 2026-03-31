@@ -44,7 +44,7 @@ serve(async (req) => {
 
     // Use the correct Unipile LinkedIn search endpoint
     const searchResponse = await fetch(
-      `https://${UNIPILE_DSN}/api/v1/linkedin/search?account_id=${encodeURIComponent(accountId)}&limit=10`,
+      `https://${UNIPILE_DSN}/api/v1/linkedin/search?account_id=${encodeURIComponent(accountId)}&limit=${searchLimit}`,
       {
         method: "POST",
         headers: {
