@@ -64,11 +64,13 @@ export default function IdeasPage() {
         idea_text: text.trim(),
         content_type: type,
         image_url: imageUrl,
+        resource_url: resourceUrl.trim() || null,
       } as any);
       if (error) throw error;
       setText("");
       setType("autre");
       setImageFile(null);
+      setResourceUrl("");
       qc.invalidateQueries({ queryKey: ["content-ideas"] });
       toast({ title: "Idée enregistrée ✨" });
     } catch (e: any) {
