@@ -228,6 +228,9 @@ Si tu ne trouves pas de news des dernières 24h, cherche celles des 48h-72h dern
         const { data: photos } = await supabase.from("user_photos").select("*").eq("user_id", userId);
         const { data: ideas } = await supabase.from("content_ideas").select("*").eq("user_id", userId).eq("used", false).limit(config.posts_per_day);
 
+        // Check for ideas with resource URLs (for auto DM rules)
+        const ideasWithResources = (ideas || []).filter((i: any) => i.resource_url);
+
         // 8. Build the enhanced prompt
         let systemMessage = `Tu es un copywriter LinkedIn expert spécialisé dans la rédaction de posts HUMAINS, authentiques et engageants. Tu n'écris JAMAIS de posts vendeurs, corporate ou artificiels.`;
         if (writingInstructions) {
