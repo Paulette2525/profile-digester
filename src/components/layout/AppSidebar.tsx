@@ -24,6 +24,7 @@ const workflowItems = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
   { to: "/autopilote", label: "Autopilote", icon: Rocket },
   { to: "/posts-suggeres", label: "Publications", icon: PenLine },
+  { to: "/calendrier", label: "Calendrier", icon: CalendarDays },
   { to: "/analyser", label: "Performance", icon: BarChart3 },
 ];
 
