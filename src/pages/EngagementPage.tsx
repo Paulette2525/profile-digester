@@ -48,10 +48,11 @@ export default function EngagementPage() {
 
   // Fetch logs
   const { data: logs, isLoading: logsLoading } = useQuery({
-    queryKey: ["auto-engagement-logs"],
+    queryKey: ["auto-engagement-logs", user?.id],
     staleTime: 1000 * 60 * 5,
+    enabled: !!user,
     queryFn: async () => {
-      const { data, error } = await supabase.from("auto_engagement_logs").select("*").order("created_at", { ascending: false }).limit(50);
+      const { data, error } = await supabase.from("auto_engagement_logs").select("*").eq("user_id", user!.id).order("created_at", { ascending: false }).limit(50);
       if (error) throw error;
       return data || [];
     },
