@@ -185,6 +185,7 @@ Si tu ne trouves pas de news des dernières 24h, cherche celles des 48h-72h dern
         const { data: photos } = await supabase.from("user_photos").select("*").eq("user_id", userId);
         const { data: ideas } = await supabase.from("content_ideas").select("*").eq("user_id", userId).eq("used", false).limit(config.posts_per_day);
 
+
         // 7. Build the enhanced prompt
         let systemMessage = `Tu es un copywriter LinkedIn expert spécialisé dans la rédaction de posts HUMAINS, authentiques et engageants. Tu n'écris JAMAIS de posts vendeurs, corporate ou artificiels.`;
         if (writingInstructions) {
@@ -259,7 +260,7 @@ Si tu ne trouves pas de news des dernières 24h, cherche celles des 48h-72h dern
 
         // Ideas
         if (ideas?.length) {
-          userPrompt += `IDÉES À INTÉGRER:\n${ideas.map((i: any, idx: number) => `${idx + 1}. ${i.idea_text}`).join("\n")}\n\n`;
+          userPrompt += `IDÉES DE L'UTILISATEUR À INTÉGRER OBLIGATOIREMENT :\n${ideas.map((i: any, idx: number) => `${idx + 1}. [${i.content_type || "autre"}] ${i.idea_text}${i.image_url ? " (visuel fourni)" : ""}`).join("\n")}\n\n`;
         }
 
         // Photos

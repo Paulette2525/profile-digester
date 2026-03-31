@@ -180,6 +180,7 @@ export type Database = {
       }
       content_ideas: {
         Row: {
+          content_type: string | null
           created_at: string
           id: string
           idea_text: string
@@ -188,6 +189,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          content_type?: string | null
           created_at?: string
           id?: string
           idea_text: string
@@ -196,6 +198,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          content_type?: string | null
           created_at?: string
           id?: string
           idea_text?: string

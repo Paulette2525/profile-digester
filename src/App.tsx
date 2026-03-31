@@ -21,6 +21,8 @@ const MemoirePage = lazy(() => import("./pages/MemoirePage"));
 const AutopilotPage = lazy(() => import("./pages/AutopilotPage"));
 const AuthPage = lazy(() => import("./pages/AuthPage"));
 const ResetPasswordPage = lazy(() => import("./pages/ResetPasswordPage"));
+const CalendarPage = lazy(() => import("./pages/CalendarPage"));
+const IdeasPage = lazy(() => import("./pages/IdeasPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient({
@@ -74,6 +76,8 @@ const App = () => (
               <Route path="/memoire" element={<ProtectedRoute><MemoirePage /></ProtectedRoute>} />
               <Route path="/autopilote" element={<ProtectedRoute><AutopilotPage /></ProtectedRoute>} />
               <Route path="/add-profile" element={<ProtectedRoute><AddProfile /></ProtectedRoute>} />
+              <Route path="/calendrier" element={<ProtectedRoute><CalendarPage /></ProtectedRoute>} />
+              <Route path="/idees" element={<ProtectedRoute><IdeasPage /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>

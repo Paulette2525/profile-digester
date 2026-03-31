@@ -1,6 +1,6 @@
 import { useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { LayoutDashboard, Zap, Lightbulb, PenLine, Calendar, BarChart3, UserPlus, Settings, Linkedin, MessageSquareHeart, Brain, LogOut, Rocket } from "lucide-react";
+import { LayoutDashboard, Zap, Lightbulb, PenLine, Calendar, BarChart3, UserPlus, Settings, Linkedin, MessageSquareHeart, Brain, LogOut, Rocket, CalendarDays } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NavLink } from "@/components/NavLink";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,6 +24,7 @@ const workflowItems = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
   { to: "/autopilote", label: "Autopilote", icon: Rocket },
   { to: "/posts-suggeres", label: "Publications", icon: PenLine },
+  { to: "/calendrier", label: "Calendrier", icon: CalendarDays },
   { to: "/analyser", label: "Performance", icon: BarChart3 },
 ];
 
@@ -33,6 +34,7 @@ const automationItems = [
 
 const managementItems = [
   { to: "/memoire", label: "Mémoire", icon: Brain },
+  { to: "/idees", label: "Boîte à idées", icon: Lightbulb },
   { to: "/add-profile", label: "Profils", icon: UserPlus },
   { to: "/settings", label: "Configuration", icon: Settings },
 ];
