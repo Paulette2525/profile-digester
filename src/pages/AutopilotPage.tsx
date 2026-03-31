@@ -11,8 +11,9 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "@/hooks/use-toast";
-import { Loader2, Zap, Clock, Calendar, Eye, Rocket, TrendingUp, Brain, Play } from "lucide-react";
+import { Loader2, Zap, Clock, Calendar, Eye, Rocket, TrendingUp, Brain, Play, ImageIcon } from "lucide-react";
 import { ContentMixCard } from "@/components/autopilot/ContentMixCard";
+import { DailyPlanCard } from "@/components/autopilot/DailyPlanCard";
 
 const DAYS = [
   { key: "monday", label: "Lun" },
@@ -111,6 +112,8 @@ export default function AutopilotPage() {
     approval_mode: "review",
     last_run_at: null,
     content_mix: { news: 30, tutorial: 25, viral: 25, storytelling: 20 },
+    daily_content_plan: {},
+    auto_visuals: false,
   };
 
   const toggleDay = (day: string) => {
@@ -301,6 +304,37 @@ export default function AutopilotPage() {
           contentMix={(currentConfig.content_mix || { news: 30, tutorial: 25, viral: 25, storytelling: 20 }) as { news: number; tutorial: number; viral: number; storytelling: number }}
           onSave={(content_mix) => saveMutation.mutate({ content_mix })}
         />
+
+        {/* Daily plan */}
+        <DailyPlanCard
+          dailyPlan={(currentConfig.daily_content_plan || {}) as Record<string, string>}
+          activeDays={currentConfig.active_days || []}
+          onSave={(daily_content_plan) => saveMutation.mutate({ daily_content_plan })}
+        />
+
+        {/* Auto visuals */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <ImageIcon className="h-4 w-4" /> Visuels automatiques
+            </CardTitle>
+            <CardDescription>Générer un visuel IA pour chaque post créé par l'Autopilote</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-3">
+              <Switch
+                checked={currentConfig.auto_visuals || false}
+                onCheckedChange={(auto_visuals) => saveMutation.mutate({ auto_visuals })}
+              />
+              <Label>{currentConfig.auto_visuals ? "Visuels IA activés" : "Visuels IA désactivés"}</Label>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              {currentConfig.auto_visuals
+                ? "Un visuel sera généré automatiquement pour chaque post (thème bleu de votre marque)"
+                : "Vous pourrez générer les visuels manuellement depuis la page Publications"}
+            </p>
+          </CardContent>
+        </Card>
 
         {/* Industries to watch */}
         <Card>

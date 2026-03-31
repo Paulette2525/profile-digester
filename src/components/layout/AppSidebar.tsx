@@ -22,16 +22,13 @@ import {
 
 const workflowItems = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/traitement", label: "Traitement", icon: Zap },
-  { to: "/strategie", label: "Stratégie", icon: Lightbulb },
-  { to: "/posts-suggeres", label: "Posts Suggérés", icon: PenLine },
-  { to: "/planifier", label: "Planifier", icon: Calendar },
-  { to: "/analyser", label: "Analyser", icon: BarChart3 },
+  { to: "/autopilote", label: "Autopilote", icon: Rocket },
+  { to: "/posts-suggeres", label: "Publications", icon: PenLine },
+  { to: "/analyser", label: "Performance", icon: BarChart3 },
 ];
 
 const automationItems = [
   { to: "/engagement", label: "Engagement", icon: MessageSquareHeart },
-  { to: "/autopilote", label: "Autopilote", icon: Rocket },
 ];
 
 const managementItems = [

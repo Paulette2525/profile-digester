@@ -267,31 +267,43 @@ Si tu ne trouves pas de news des dernières 24h, cherche celles des 48h-72h dern
           userPrompt += `L'auteur a ${photos.length} photo(s). Suggère "use_personal_photo": true quand pertinent.\n\n`;
         }
 
-        // Compute content mix distribution
+        // Compute content mix distribution - check daily plan first
+        const dayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+        const todayName = dayNames[todayDay];
+        const dailyPlan = config.daily_content_plan || {};
+        const forcedType = dailyPlan[todayName];
+        
         const contentMix = config.content_mix || { news: 30, tutorial: 25, viral: 25, storytelling: 20 };
         const totalPosts = config.posts_per_day;
-        const mixEntries = Object.entries(contentMix as Record<string, number>).filter(([_, v]) => v > 0);
-        const totalWeight = mixEntries.reduce((s, [_, v]) => s + v, 0);
-        
-        // Distribute posts by type
-        let remaining = totalPosts;
-        const postSlots: { type: string; instructions: string }[] = [];
         const typeInstructions: Record<string, string> = {
           news: `Type: NEWS & VEILLE — Écris un post basé sur une ACTUALITÉ CONCRÈTE des tendances ci-dessus. Inclus le fait précis (qui, quoi, quand), pourquoi c'est important, et comment l'utiliser concrètement. Ton informatif et expert.`,
           tutorial: `Type: TUTORIEL — Écris un tutoriel step-by-step montrant comment utiliser un outil, une technique ou une méthode. Inclus des étapes numérotées, des exemples concrets et un résultat attendu. Format LONG (20-40 lignes). Ton pédagogue et pratique.`,
           viral: `Type: VIRAL — Écris un post avec un hook ultra-percutant en première ligne, une opinion tranchée ou un constat surprenant. Format court ou moyen, optimisé pour l'engagement et les réactions. Utilise le storytelling, la controverse constructive ou un fait choquant.`,
           storytelling: `Type: STORYTELLING — Raconte une histoire personnelle de l'auteur basée sur son parcours, ses échecs, ses réussites ou une anecdote professionnelle marquante. Ton authentique et émotionnel, avec une leçon concrète à la fin. Format LONG (20-40 lignes).`,
         };
-
-        mixEntries.forEach(([type, weight], idx) => {
-          const count = idx === mixEntries.length - 1
-            ? remaining
-            : Math.max(0, Math.round((weight / totalWeight) * totalPosts));
-          remaining -= count;
-          for (let i = 0; i < count; i++) {
-            postSlots.push({ type, instructions: typeInstructions[type] || typeInstructions.news });
+        
+        const postSlots: { type: string; instructions: string }[] = [];
+        
+        if (forcedType && forcedType !== "auto" && typeInstructions[forcedType]) {
+          // All posts today are of the forced type
+          for (let i = 0; i < totalPosts; i++) {
+            postSlots.push({ type: forcedType, instructions: typeInstructions[forcedType] });
           }
-        });
+        } else {
+          // Use percentage-based mix
+          const mixEntries = Object.entries(contentMix as Record<string, number>).filter(([_, v]) => v > 0);
+          const totalWeight = mixEntries.reduce((s, [_, v]) => s + v, 0);
+          let remaining = totalPosts;
+          mixEntries.forEach(([type, weight], idx) => {
+            const count = idx === mixEntries.length - 1
+              ? remaining
+              : Math.max(0, Math.round((weight / totalWeight) * totalPosts));
+            remaining -= count;
+            for (let i = 0; i < count; i++) {
+              postSlots.push({ type, instructions: typeInstructions[type] || typeInstructions.news });
+            }
+          });
+        }
 
         // If no slots, default to news
         if (postSlots.length === 0) {
@@ -407,6 +419,27 @@ Si tu ne trouves pas de news des dernières 24h, cherche celles des 48h-72h dern
 
         const { data: saved, error: sErr } = await supabase.from("suggested_posts").insert(toInsert).select("*");
         if (sErr) throw sErr;
+
+        // Generate visuals if auto_visuals is enabled
+        if (config.auto_visuals && saved?.length) {
+          const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+          const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+          for (const post of saved) {
+            try {
+              await fetchWithRetry(`${SUPABASE_URL}/functions/v1/generate-visual`, {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ post_id: post.id }),
+              });
+              console.log(`Visual generated for post ${post.id}`);
+            } catch (vizErr) {
+              console.error(`Visual generation failed for post ${post.id}:`, vizErr);
+            }
+          }
+        }
 
         // Mark ideas as used
         if (ideas?.length) {
