@@ -185,6 +185,7 @@ export type Database = {
           id: string
           idea_text: string
           image_url: string | null
+          resource_url: string | null
           used: boolean
           user_id: string | null
         }
@@ -194,6 +195,7 @@ export type Database = {
           id?: string
           idea_text: string
           image_url?: string | null
+          resource_url?: string | null
           used?: boolean
           user_id?: string | null
         }
@@ -203,6 +205,7 @@ export type Database = {
           id?: string
           idea_text?: string
           image_url?: string | null
+          resource_url?: string | null
           used?: boolean
           user_id?: string | null
         }
@@ -408,6 +411,101 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      prospection_campaigns: {
+        Row: {
+          accepted_count: number
+          created_at: string
+          id: string
+          message_template: string
+          name: string
+          reply_count: number
+          sent_count: number
+          status: string
+          total_prospects: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          accepted_count?: number
+          created_at?: string
+          id?: string
+          message_template: string
+          name: string
+          reply_count?: number
+          sent_count?: number
+          status?: string
+          total_prospects?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          accepted_count?: number
+          created_at?: string
+          id?: string
+          message_template?: string
+          name?: string
+          reply_count?: number
+          sent_count?: number
+          status?: string
+          total_prospects?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      prospection_messages: {
+        Row: {
+          campaign_id: string
+          created_at: string
+          id: string
+          message_sent: string | null
+          prospect_avatar_url: string | null
+          prospect_headline: string | null
+          prospect_linkedin_url: string | null
+          prospect_name: string | null
+          replied_at: string | null
+          sent_at: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          campaign_id: string
+          created_at?: string
+          id?: string
+          message_sent?: string | null
+          prospect_avatar_url?: string | null
+          prospect_headline?: string | null
+          prospect_linkedin_url?: string | null
+          prospect_name?: string | null
+          replied_at?: string | null
+          sent_at?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          campaign_id?: string
+          created_at?: string
+          id?: string
+          message_sent?: string | null
+          prospect_avatar_url?: string | null
+          prospect_headline?: string | null
+          prospect_linkedin_url?: string | null
+          prospect_name?: string | null
+          replied_at?: string | null
+          sent_at?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prospection_messages_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "prospection_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       suggested_posts: {
         Row: {

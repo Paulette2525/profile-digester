@@ -29,6 +29,7 @@ export default function IdeasPage() {
   const [text, setText] = useState("");
   const [type, setType] = useState("autre");
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [resourceUrl, setResourceUrl] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const { data: ideas = [], isLoading } = useQuery({
@@ -63,11 +64,13 @@ export default function IdeasPage() {
         idea_text: text.trim(),
         content_type: type,
         image_url: imageUrl,
+        resource_url: resourceUrl.trim() || null,
       } as any);
       if (error) throw error;
       setText("");
       setType("autre");
       setImageFile(null);
+      setResourceUrl("");
       qc.invalidateQueries({ queryKey: ["content-ideas"] });
       toast({ title: "Idée enregistrée ✨" });
     } catch (e: any) {
@@ -133,6 +136,17 @@ export default function IdeasPage() {
                   />
                   {imageFile && <ImageIcon className="h-4 w-4 text-primary shrink-0" />}
                 </div>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Lien / Ressource à partager (optionnel)</Label>
+                <Input
+                  value={resourceUrl}
+                  onChange={(e) => setResourceUrl(e.target.value)}
+                  placeholder="https://... (lien guide, PDF, outil…)"
+                />
+                <p className="text-[10px] text-muted-foreground">Si renseigné, une règle DM automatique sera créée pour distribuer ce lien</p>
               </div>
             </div>
             <div className="space-y-2">
