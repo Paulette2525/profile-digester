@@ -16,6 +16,7 @@ import { fr } from "date-fns/locale";
 type FilterType = "all" | "draft" | "scheduled" | "published";
 
 export default function SuggestedPostsPage() {
+  const { user } = useAuth();
   const [generatingVisualId, setGeneratingVisualId] = useState<string | null>(null);
   const [batchProgress, setBatchProgress] = useState<{ done: number; total: number } | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
