@@ -1,37 +1,40 @@
 
 
-## Plan : Calendrier editorial + Boite a idees
+## Plan : Rendre Perplexity optionnel et supprimer le blocage virality_analyses
 
-### 1. Page Calendrier (`/calendrier`)
+### Probleme
 
-Nouvelle page affichant une vue calendrier mensuelle de toutes les publications (publiees, planifiees, brouillons). Chaque jour montre les posts avec un code couleur par statut (vert = publie, bleu = planifie, gris = brouillon). Clic sur un post pour voir/editer. Utilise les donnees existantes de `suggested_posts` (champs `scheduled_at`, `published_at`, `status`).
+Le edge function `autopilot-run` echoue completement car :
+1. Il exige `PERPLEXITY_API_KEY` au demarrage — meme si aucun post News n'est prevu
+2. Il exige une `virality_analyses` avec status "done" — sinon il skip l'utilisateur entierement
 
-Position dans la sidebar : entre Publications et Performance.
+### Modifications dans `supabase/functions/autopilot-run/index.ts`
 
-### 2. Page Boite a idees (`/idees`)
+**A. Rendre PERPLEXITY_API_KEY optionnel (lignes 23-25)**
 
-Nouvelle page permettant de sauvegarder des idees de contenu avec :
-- Selection du type (Tuto, Viral, Storytelling, News, Autre)
-- Zone de texte pour decrire l'idee
-- Upload optionnel d'une image (bucket `user-photos`)
-- Liste des idees existantes avec badge de type et bouton supprimer
+Supprimer le `throw` pour PERPLEXITY_API_KEY. Le garder comme variable nullable. Ne l'utiliser que si des posts de type "news" sont dans le mix.
 
-Utilise la table `content_ideas` existante. Ajout d'une colonne `content_type` (text) pour stocker le type choisi.
+**B. Deplacer l'appel Perplexity apres le calcul des postSlots (lignes 76-145)**
 
-Position dans la sidebar : entre Memoire et Profils.
+Actuellement Perplexity est appele avant de savoir si des posts News sont necessaires. Reorganiser :
+1. Calculer d'abord les postSlots (content mix / daily plan)
+2. Verifier si au moins un slot est de type "news"
+3. Si oui ET que PERPLEXITY_API_KEY existe → appeler Perplexity
+4. Sinon → `trends = ""`, pas d'appel
 
-### 3. Integration avec l'Autopilote
+**C. Supprimer le blocage virality_analyses (lignes 179-182)**
 
-Dans `autopilot-run/index.ts`, avant de generer les posts, verifier s'il y a des idees non utilisees dans `content_ideas`. Si oui, les integrer dans le prompt de generation et marquer `used = true` apres utilisation.
+Au lieu de `continue` quand il n'y a pas d'analyse, utiliser un objet vide par defaut. Le champ `source_analysis_id` sera `null` dans les posts inseres.
 
-### Fichiers a creer/modifier
+### Fichier modifie
 
 | Fichier | Action |
 |---------|--------|
-| Migration SQL | Ajouter `content_type` a `content_ideas` |
-| `src/pages/CalendarPage.tsx` | Nouvelle page calendrier |
-| `src/pages/IdeasPage.tsx` | Nouvelle page boite a idees |
-| `src/components/layout/AppSidebar.tsx` | Ajouter les 2 entrees |
-| `src/App.tsx` | Ajouter les 2 routes |
-| `supabase/functions/autopilot-run/index.ts` | Consommer les idees |
+| `supabase/functions/autopilot-run/index.ts` | Perplexity conditionnel, virality_analyses optionnel |
+
+### Resultat
+
+- Posts Tuto, Viral, Storytelling fonctionnent sans Perplexity
+- Posts News utilisent Perplexity seulement quand la cle est disponible
+- L'absence de virality_analyses ne bloque plus la generation
 
