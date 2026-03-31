@@ -1,65 +1,46 @@
 
 
-## Plan : Corriger Engagement, auto-DM depuis les idees, page Prospection
+## Plan : Corriger les 4 problemes (Publications, Prospection, Dates, UX Autopilote)
 
-### 1. Corriger la page Engagement
+### 1. Publications ne s'affichent pas
 
-**Probleme** : La page charge la config avec `maybeSingle()` — si aucune ligne n'existe pour l'utilisateur, `config` est `null` et rien ne fonctionne (toggles inactifs, sauvegarde impossible).
+**Cause** : La requete dans `SuggestedPostsPage.tsx` (ligne 33-37) ne filtre pas par `user_id`. Les posts sont proteges par RLS mais la requete manque le filtre explicite, ce qui peut causer des resultats vides si le token n'est pas bien transmis.
 
-**Solution** : Ajouter un `upsert` automatique a l'ouverture. Si aucune config n'existe, en creer une avec les valeurs par defaut. Aussi filtrer par `user_id` (actuellement la requete ne filtre pas par utilisateur).
+**Fix** : Ajouter `.eq("user_id", user.id)` a la requete et utiliser `useAuth()` pour obtenir le user.
 
-| Fichier | Action |
-|---------|--------|
-| `src/pages/EngagementPage.tsx` | Ajouter filtre `user_id`, upsert auto si config absente, corriger les queries DM rules pour filtrer par user |
+### 2. Impossible de scrapper plus de 100 profils
 
-### 2. Auto-creation de regles DM depuis la Boite a idees
+**Cause** : Le edge function `search-profiles` (ligne 45) hardcode `limit=10` dans l'URL Unipile, ignorant completement le parametre `limit` envoye par le frontend.
 
-Quand l'autopilote genere un post a partir d'une idee qui contient une `image_url` ou un lien dans le texte :
+**Fix** :
+- Dans `search-profiles/index.ts` : lire le `limit` du body et le passer a l'API Unipile
+- Dans `ProspectionPage.tsx` : ajouter les options 200, 500, 1000 dans le selecteur
 
-**Dans `autopilot-run/index.ts`** :
-- Apres insertion du post genere depuis une idee, detecter si l'idee contient un lien (URL dans `idea_text` ou `image_url` comme ressource)
-- Si oui, creer automatiquement une entree dans `post_dm_rules` avec :
-  - `trigger_keyword` : mot-cle extrait du contenu (ex: "guide", "lien", "ressource") ou un CTA genere
-  - `dm_message` : message automatique incluant le lien
-  - `resource_url` : le lien detecte
-- Ajouter un CTA dans le post genere (ex: "Commente GUIDE pour recevoir le lien")
+### 3. Dates suggerees incorrectes
 
-**Dans `IdeasPage.tsx`** :
-- Ajouter un champ optionnel "Lien/Ressource a partager" (separe de l'image) pour faciliter la saisie
+**Cause** : Dans `autopilot-run/index.ts` (lignes 396-400), la logique calcule `daysToAdd = Math.floor(idx / postingHours.length) + 1`, ce qui commence toujours a **demain**. Si on genere 2 posts avec 3 heures configurees, les 2 posts tombent tous sur demain au lieu d'aujourd'hui.
 
-**Migration DB** : Ajouter colonne `resource_url` a `content_ideas`.
+**Fix** : Les posts doivent etre planifies a partir d'**aujourd'hui** si les heures n'ont pas encore passe, sinon demain. Utiliser `daysToAdd = 0` pour commencer et incrementer quand les heures du jour sont epuisees.
 
-### 3. Page Prospection (`/prospection`)
+### 4. Page Autopilote trop complexe
 
-Nouvelle page accessible depuis la sidebar (sous Engagement) avec :
+**Probleme** : 9 cartes empilees verticalement, trop de scroll, difficile de trouver les reglages importants.
 
-**Section haute — Lancement de campagne** :
-- Champ de recherche pour trouver des profils LinkedIn (via edge function `search-profiles` existant)
-- Filtres : mots-cles, industrie
-- Selection des profils a prospecter
-- Zone de message personnalise avec variables (`{name}`, `{headline}`)
-- Bouton "Lancer la prospection"
+**Restructuration** :
+- **En-tete** : Toggle ON/OFF + bouton Executer + derniere execution (inchange)
+- **Section 1 — Essentiel** (grille 2 colonnes) : Frequence + Mode d'approbation (existant)
+- **Section 2 — Planning** (Tabs ou Accordion) : Regrouper "Jours actifs", "Heures", "Planning hebdo" dans un seul composant avec des onglets
+- **Section 3 — Contenu** (Accordion) : Regrouper "Mix de contenu", "Visuels auto", "Sujets a surveiller" dans un accordion repliable
+- **Section 4 — Tendances** : Tendances recentes (inchange, en bas)
+- Supprimer le bloc "Comment fonctionne l'Autopilote" (redondant)
 
-**Section basse — Statistiques** :
-- Nombre total de prospects contactes
-- Taux de reponse
-- Taux de connexion acceptee
-- Historique des messages envoyes avec statut
-
-**Migration DB** : Creer table `prospection_campaigns` et `prospection_messages` pour stocker l'historique.
-
-**Edge function** : `prospect-outreach/index.ts` — envoie des messages/invitations via Unipile.
-
-### Fichiers a creer/modifier
+### Fichiers a modifier
 
 | Fichier | Action |
 |---------|--------|
-| Migration SQL | `resource_url` sur `content_ideas`, tables `prospection_campaigns` + `prospection_messages` |
-| `src/pages/EngagementPage.tsx` | Fix config upsert + filtre user_id |
-| `src/pages/IdeasPage.tsx` | Ajouter champ resource_url |
-| `src/pages/ProspectionPage.tsx` | Nouvelle page prospection |
-| `src/components/layout/AppSidebar.tsx` | Ajouter entree Prospection |
-| `src/App.tsx` | Ajouter route `/prospection` |
-| `supabase/functions/autopilot-run/index.ts` | Auto-creer DM rules depuis idees avec liens |
-| `supabase/functions/prospect-outreach/index.ts` | Envoi de messages de prospection via Unipile |
+| `src/pages/SuggestedPostsPage.tsx` | Ajouter filtre `user_id` |
+| `supabase/functions/search-profiles/index.ts` | Passer le `limit` du body a Unipile |
+| `src/pages/ProspectionPage.tsx` | Ajouter options 200/500/1000 |
+| `supabase/functions/autopilot-run/index.ts` | Fixer logique de dates (partir d'aujourd'hui) |
+| `src/pages/AutopilotPage.tsx` | Restructurer en sections avec Tabs + Accordion |
 
