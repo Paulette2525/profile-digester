@@ -296,6 +296,12 @@ export default function AutopilotPage() {
           </CardContent>
         </Card>
 
+        {/* Content mix */}
+        <ContentMixCard
+          contentMix={currentConfig.content_mix || { news: 30, tutorial: 25, viral: 25, storytelling: 20 }}
+          onSave={(content_mix) => saveMutation.mutate({ content_mix })}
+        />
+
         {/* Industries to watch */}
         <Card>
           <CardHeader className="pb-3">
