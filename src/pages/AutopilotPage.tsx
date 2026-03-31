@@ -9,8 +9,9 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { toast } from "@/hooks/use-toast";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Loader2, Zap, Clock, Calendar, Eye, Rocket, TrendingUp, Brain, Play, ImageIcon } from "lucide-react";
 import { ContentMixCard } from "@/components/autopilot/ContentMixCard";
 import { DailyPlanCard } from "@/components/autopilot/DailyPlanCard";
@@ -32,7 +33,6 @@ export default function AutopilotPage() {
   const queryClient = useQueryClient();
   const [newIndustry, setNewIndustry] = useState("");
 
-  // Load config
   const { data: config, isLoading } = useQuery({
     queryKey: ["autopilot-config"],
     queryFn: async () => {
@@ -47,7 +47,6 @@ export default function AutopilotPage() {
     enabled: !!user,
   });
 
-  // Load recent trends
   const { data: trends } = useQuery({
     queryKey: ["trend-insights"],
     queryFn: async () => {
@@ -63,7 +62,6 @@ export default function AutopilotPage() {
     enabled: !!user,
   });
 
-  // Upsert config
   const saveMutation = useMutation({
     mutationFn: async (updates: Record<string, any>) => {
       if (config) {
@@ -87,7 +85,6 @@ export default function AutopilotPage() {
     },
   });
 
-  // Manual run
   const [running, setRunning] = useState(false);
   const runNow = async () => {
     setRunning(true);
@@ -159,49 +156,44 @@ export default function AutopilotPage() {
   return (
     <AppLayout>
       <div className="space-y-6 max-w-4xl mx-auto">
+        {/* Header */}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <Rocket className="h-6 w-6 text-primary" />
               Mode Autopilote
             </h1>
-            <p className="text-muted-foreground mt-1">
-              Génération et planification automatique de vos publications LinkedIn
-            </p>
+            {currentConfig.last_run_at && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Dernière exécution : {new Date(currentConfig.last_run_at).toLocaleString("fr-FR")}
+              </p>
+            )}
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <Button onClick={runNow} disabled={running} variant="outline" size="sm">
-              {running ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Play className="h-4 w-4 mr-2" />}
-              Exécuter maintenant
+              {running ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Play className="h-4 w-4 mr-1" />}
+              Exécuter
             </Button>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg border bg-card">
               <Switch
                 checked={currentConfig.enabled}
                 onCheckedChange={(enabled) => saveMutation.mutate({ enabled })}
               />
-              <Label className="font-medium">
+              <Label className="font-medium text-sm">
                 {currentConfig.enabled ? "Actif" : "Inactif"}
               </Label>
             </div>
           </div>
         </div>
 
-        {currentConfig.last_run_at && (
-          <p className="text-xs text-muted-foreground">
-            Dernière exécution : {new Date(currentConfig.last_run_at).toLocaleString("fr-FR")}
-          </p>
-        )}
-
-        <div className="grid gap-6 md:grid-cols-2">
-          {/* Frequency */}
+        {/* Section 1: Essentiel */}
+        <div className="grid gap-4 md:grid-cols-2">
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Zap className="h-4 w-4" /> Fréquence
-              </CardTitle>
-              <CardDescription>Nombre de posts par jour</CardDescription>
-            </CardHeader>
-            <CardContent>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Zap className="h-4 w-4 text-primary" />
+                <span className="font-medium text-sm">Fréquence</span>
+              </div>
               <div className="flex items-center gap-3">
                 <Input
                   type="number"
@@ -216,170 +208,181 @@ export default function AutopilotPage() {
             </CardContent>
           </Card>
 
-          {/* Approval mode */}
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Eye className="h-4 w-4" /> Mode d'approbation
-              </CardTitle>
-              <CardDescription>Comment les posts sont traités</CardDescription>
-            </CardHeader>
-            <CardContent>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Eye className="h-4 w-4 text-primary" />
+                <span className="font-medium text-sm">Approbation</span>
+              </div>
               <div className="flex gap-2">
                 <Button
                   variant={currentConfig.approval_mode === "review" ? "default" : "outline"}
                   size="sm"
                   onClick={() => saveMutation.mutate({ approval_mode: "review" })}
                 >
-                  Révision manuelle
+                  Révision
                 </Button>
                 <Button
                   variant={currentConfig.approval_mode === "auto" ? "default" : "outline"}
                   size="sm"
                   onClick={() => saveMutation.mutate({ approval_mode: "auto" })}
                 >
-                  Publication auto
+                  Auto
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground mt-2">
-                {currentConfig.approval_mode === "review"
-                  ? "Les posts sont créés en brouillon pour votre validation"
-                  : "Les posts sont directement planifiés et publiés automatiquement"}
+                {currentConfig.approval_mode === "review" ? "Brouillons pour validation" : "Publication automatique"}
               </p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Active days */}
+        {/* Section 2: Planning (Tabs) */}
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Calendar className="h-4 w-4" /> Jours actifs
-            </CardTitle>
-            <CardDescription>L'autopilote ne génère des posts que ces jours-là</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex gap-2 flex-wrap">
-              {DAYS.map((d) => (
-                <Button
-                  key={d.key}
-                  variant={(currentConfig.active_days || []).includes(d.key) ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => toggleDay(d.key)}
-                >
-                  {d.label}
-                </Button>
-              ))}
-            </div>
+          <CardContent className="p-4">
+            <Tabs defaultValue="days">
+              <TabsList className="w-full">
+                <TabsTrigger value="days" className="flex-1">
+                  <Calendar className="h-3.5 w-3.5 mr-1" /> Jours
+                </TabsTrigger>
+                <TabsTrigger value="hours" className="flex-1">
+                  <Clock className="h-3.5 w-3.5 mr-1" /> Heures
+                </TabsTrigger>
+                <TabsTrigger value="weekly" className="flex-1">
+                  <Zap className="h-3.5 w-3.5 mr-1" /> Hebdo
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="days" className="mt-4">
+                <p className="text-sm text-muted-foreground mb-3">Jours de publication actifs</p>
+                <div className="flex gap-2 flex-wrap">
+                  {DAYS.map((d) => (
+                    <Button
+                      key={d.key}
+                      variant={(currentConfig.active_days || []).includes(d.key) ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => toggleDay(d.key)}
+                    >
+                      {d.label}
+                    </Button>
+                  ))}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="hours" className="mt-4">
+                <p className="text-sm text-muted-foreground mb-3">Heures de publication</p>
+                <div className="flex gap-2 flex-wrap">
+                  {HOURS.map((h) => (
+                    <Button
+                      key={h}
+                      variant={(currentConfig.posting_hours || []).includes(h) ? "default" : "outline"}
+                      size="sm"
+                      className="w-12"
+                      onClick={() => toggleHour(h)}
+                    >
+                      {h}h
+                    </Button>
+                  ))}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="weekly" className="mt-4">
+                <DailyPlanCard
+                  dailyPlan={(currentConfig.daily_content_plan || {}) as Record<string, string>}
+                  activeDays={currentConfig.active_days || []}
+                  onSave={(daily_content_plan) => saveMutation.mutate({ daily_content_plan })}
+                />
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
 
-        {/* Posting hours */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Clock className="h-4 w-4" /> Heures de publication
-            </CardTitle>
-            <CardDescription>Les posts seront planifiés à ces heures</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex gap-2 flex-wrap">
-              {HOURS.map((h) => (
-                <Button
-                  key={h}
-                  variant={(currentConfig.posting_hours || []).includes(h) ? "default" : "outline"}
-                  size="sm"
-                  className="w-12"
-                  onClick={() => toggleHour(h)}
-                >
-                  {h}h
-                </Button>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Content mix */}
-        <ContentMixCard
-          contentMix={(currentConfig.content_mix || { news: 30, tutorial: 25, viral: 25, storytelling: 20 }) as { news: number; tutorial: number; viral: number; storytelling: number }}
-          onSave={(content_mix) => saveMutation.mutate({ content_mix })}
-        />
-
-        {/* Daily plan */}
-        <DailyPlanCard
-          dailyPlan={(currentConfig.daily_content_plan || {}) as Record<string, string>}
-          activeDays={currentConfig.active_days || []}
-          onSave={(daily_content_plan) => saveMutation.mutate({ daily_content_plan })}
-        />
-
-        {/* Auto visuals */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <ImageIcon className="h-4 w-4" /> Visuels automatiques
-            </CardTitle>
-            <CardDescription>Générer un visuel IA pour chaque post créé par l'Autopilote</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-3">
-              <Switch
-                checked={currentConfig.auto_visuals || false}
-                onCheckedChange={(auto_visuals) => saveMutation.mutate({ auto_visuals })}
+        {/* Section 3: Contenu (Accordion) */}
+        <Accordion type="multiple" defaultValue={["mix"]} className="space-y-2">
+          <AccordionItem value="mix" className="border rounded-lg px-4">
+            <AccordionTrigger className="hover:no-underline">
+              <span className="flex items-center gap-2 text-sm font-medium">
+                <Zap className="h-4 w-4 text-primary" /> Mix de contenu
+              </span>
+            </AccordionTrigger>
+            <AccordionContent>
+              <ContentMixCard
+                contentMix={(currentConfig.content_mix || { news: 30, tutorial: 25, viral: 25, storytelling: 20 }) as { news: number; tutorial: number; viral: number; storytelling: number }}
+                onSave={(content_mix) => saveMutation.mutate({ content_mix })}
               />
-              <Label>{currentConfig.auto_visuals ? "Visuels IA activés" : "Visuels IA désactivés"}</Label>
-            </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              {currentConfig.auto_visuals
-                ? "Un visuel sera généré automatiquement pour chaque post (thème bleu de votre marque)"
-                : "Vous pourrez générer les visuels manuellement depuis la page Publications"}
-            </p>
-          </CardContent>
-        </Card>
+            </AccordionContent>
+          </AccordionItem>
 
-        {/* Industries to watch */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <TrendingUp className="h-4 w-4" /> Sujets à surveiller
-            </CardTitle>
-            <CardDescription>L'IA surveillera les tendances dans ces domaines</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex gap-2">
-              <Input
-                value={newIndustry}
-                onChange={(e) => setNewIndustry(e.target.value)}
-                placeholder="Ex: Intelligence Artificielle, SaaS, Leadership..."
-                onKeyDown={(e) => e.key === "Enter" && addIndustry()}
-              />
-              <Button onClick={addIndustry} size="sm">Ajouter</Button>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {(currentConfig.industries_to_watch || []).map((ind: string, idx: number) => (
-                <Badge
-                  key={idx}
-                  variant="secondary"
-                  className="cursor-pointer hover:bg-destructive hover:text-destructive-foreground"
-                  onClick={() => removeIndustry(idx)}
-                >
-                  {ind} ✕
+          <AccordionItem value="visuals" className="border rounded-lg px-4">
+            <AccordionTrigger className="hover:no-underline">
+              <span className="flex items-center gap-2 text-sm font-medium">
+                <ImageIcon className="h-4 w-4 text-primary" /> Visuels automatiques
+                <Badge variant={currentConfig.auto_visuals ? "default" : "secondary"} className="ml-2 text-xs">
+                  {currentConfig.auto_visuals ? "ON" : "OFF"}
                 </Badge>
-              ))}
-              {(currentConfig.industries_to_watch || []).length === 0 && (
-                <p className="text-sm text-muted-foreground">Aucun sujet configuré — l'IA utilisera votre industrie depuis la Mémoire</p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+              </span>
+            </AccordionTrigger>
+            <AccordionContent>
+              <div className="flex items-center gap-3 py-2">
+                <Switch
+                  checked={currentConfig.auto_visuals || false}
+                  onCheckedChange={(auto_visuals) => saveMutation.mutate({ auto_visuals })}
+                />
+                <Label>{currentConfig.auto_visuals ? "Visuels IA activés" : "Visuels IA désactivés"}</Label>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {currentConfig.auto_visuals
+                  ? "Un visuel sera généré automatiquement pour chaque post (thème bleu)"
+                  : "Vous pourrez générer les visuels manuellement depuis Publications"}
+              </p>
+            </AccordionContent>
+          </AccordionItem>
 
-        {/* Recent trends */}
+          <AccordionItem value="topics" className="border rounded-lg px-4">
+            <AccordionTrigger className="hover:no-underline">
+              <span className="flex items-center gap-2 text-sm font-medium">
+                <TrendingUp className="h-4 w-4 text-primary" /> Sujets à surveiller
+                {(currentConfig.industries_to_watch || []).length > 0 && (
+                  <Badge variant="secondary" className="ml-2 text-xs">{(currentConfig.industries_to_watch || []).length}</Badge>
+                )}
+              </span>
+            </AccordionTrigger>
+            <AccordionContent className="space-y-3">
+              <div className="flex gap-2">
+                <Input
+                  value={newIndustry}
+                  onChange={(e) => setNewIndustry(e.target.value)}
+                  placeholder="Ex: IA, SaaS, Leadership..."
+                  onKeyDown={(e) => e.key === "Enter" && addIndustry()}
+                />
+                <Button onClick={addIndustry} size="sm">Ajouter</Button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {(currentConfig.industries_to_watch || []).map((ind: string, idx: number) => (
+                  <Badge
+                    key={idx}
+                    variant="secondary"
+                    className="cursor-pointer hover:bg-destructive hover:text-destructive-foreground"
+                    onClick={() => removeIndustry(idx)}
+                  >
+                    {ind} ✕
+                  </Badge>
+                ))}
+                {(currentConfig.industries_to_watch || []).length === 0 && (
+                  <p className="text-sm text-muted-foreground">Aucun sujet — l'IA utilisera votre industrie depuis la Mémoire</p>
+                )}
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
+
+        {/* Section 4: Tendances */}
         {trends && trends.length > 0 && (
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
-                <Brain className="h-4 w-4" /> Tendances récentes détectées
+                <Brain className="h-4 w-4" /> Tendances récentes
               </CardTitle>
-              <CardDescription>Sujets identifiés par la veille Perplexity</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
@@ -400,19 +403,6 @@ export default function AutopilotPage() {
             </CardContent>
           </Card>
         )}
-
-        <Separator />
-
-        <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground space-y-2">
-          <p className="font-medium text-foreground">Comment fonctionne l'Autopilote ?</p>
-          <ol className="list-decimal list-inside space-y-1">
-            <li>Chaque jour à 6h UTC, l'IA recherche les tendances dans vos domaines via Perplexity</li>
-            <li>Elle charge votre Mémoire, vos profils suivis et vos posts performants</li>
-            <li>Elle génère le nombre de posts configuré en respectant vos instructions de rédaction</li>
-            <li>Les posts sont planifiés aux heures choisies</li>
-            <li>Le cron de publication existant publie les posts à l'heure prévue</li>
-          </ol>
-        </div>
       </div>
     </AppLayout>
   );

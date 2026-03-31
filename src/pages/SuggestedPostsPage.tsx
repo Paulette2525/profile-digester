@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { PenLine, Loader2, Copy, Calendar, Check, Sparkles, ImageIcon, RefreshCw, ChevronDown, Images, Trash2, Send, CalendarCheck, Clock } from "lucide-react";
 import { toast } from "sonner";
@@ -15,6 +16,7 @@ import { fr } from "date-fns/locale";
 type FilterType = "all" | "draft" | "scheduled" | "published";
 
 export default function SuggestedPostsPage() {
+  const { user } = useAuth();
   const [generatingVisualId, setGeneratingVisualId] = useState<string | null>(null);
   const [batchProgress, setBatchProgress] = useState<{ done: number; total: number } | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -27,12 +29,14 @@ export default function SuggestedPostsPage() {
   const [scheduleInputs, setScheduleInputs] = useState<Record<string, string>>({});
 
   const { data: posts, refetch } = useQuery({
-    queryKey: ["suggested-posts"],
+    queryKey: ["suggested-posts", user?.id],
     staleTime: 1000 * 60 * 5,
+    enabled: !!user,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("suggested_posts")
         .select("*")
+        .eq("user_id", user!.id)
         .order("created_at", { ascending: false })
         .limit(100);
       if (error) throw error;

@@ -30,7 +30,9 @@ serve(async (req) => {
       throw new Error("UNIPILE_API_KEY or UNIPILE_DSN not configured");
     }
 
-    const { query } = await req.json();
+    const body = await req.json();
+    const { query, limit: requestedLimit } = body;
+    const searchLimit = Math.min(Math.max(Number(requestedLimit) || 10, 1), 1000);
     if (!query || typeof query !== "string") {
       return new Response(
         JSON.stringify({ error: "Missing 'query' parameter" }),
@@ -42,7 +44,7 @@ serve(async (req) => {
 
     // Use the correct Unipile LinkedIn search endpoint
     const searchResponse = await fetch(
-      `https://${UNIPILE_DSN}/api/v1/linkedin/search?account_id=${encodeURIComponent(accountId)}&limit=10`,
+      `https://${UNIPILE_DSN}/api/v1/linkedin/search?account_id=${encodeURIComponent(accountId)}&limit=${searchLimit}`,
       {
         method: "POST",
         headers: {

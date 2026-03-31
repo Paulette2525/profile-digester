@@ -230,6 +230,9 @@ export default function ProspectionPage() {
                   <SelectItem value="25">25 profils</SelectItem>
                   <SelectItem value="50">50 profils</SelectItem>
                   <SelectItem value="100">100 profils</SelectItem>
+                  <SelectItem value="200">200 profils</SelectItem>
+                  <SelectItem value="500">500 profils</SelectItem>
+                  <SelectItem value="1000">1000 profils</SelectItem>
                 </SelectContent>
               </Select>
               <Button onClick={handleSearch} disabled={searching || !searchQuery.trim()}>
