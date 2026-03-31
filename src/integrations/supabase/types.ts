@@ -127,6 +127,48 @@ export type Database = {
           },
         ]
       }
+      autopilot_config: {
+        Row: {
+          active_days: string[]
+          approval_mode: string
+          created_at: string
+          enabled: boolean
+          id: string
+          industries_to_watch: string[]
+          last_run_at: string | null
+          posting_hours: number[]
+          posts_per_day: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          active_days?: string[]
+          approval_mode?: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          industries_to_watch?: string[]
+          last_run_at?: string | null
+          posting_hours?: number[]
+          posts_per_day?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          active_days?: string[]
+          approval_mode?: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          industries_to_watch?: string[]
+          last_run_at?: string | null
+          posting_hours?: number[]
+          posts_per_day?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       content_ideas: {
         Row: {
           created_at: string
@@ -450,6 +492,36 @@ export type Database = {
           unipile_account_id?: string | null
           updated_at?: string
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      trend_insights: {
+        Row: {
+          created_at: string
+          id: string
+          source: string | null
+          summary: string | null
+          topic: string
+          used: boolean
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          source?: string | null
+          summary?: string | null
+          topic: string
+          used?: boolean
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          source?: string | null
+          summary?: string | null
+          topic?: string
+          used?: boolean
+          user_id?: string
         }
         Relationships: []
       }

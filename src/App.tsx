@@ -18,6 +18,7 @@ const PlanifierPage = lazy(() => import("./pages/PlanifierPage"));
 const AnalyserPage = lazy(() => import("./pages/AnalyserPage"));
 const EngagementPage = lazy(() => import("./pages/EngagementPage"));
 const MemoirePage = lazy(() => import("./pages/MemoirePage"));
+const AutopilotPage = lazy(() => import("./pages/AutopilotPage"));
 const AuthPage = lazy(() => import("./pages/AuthPage"));
 const ResetPasswordPage = lazy(() => import("./pages/ResetPasswordPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -71,6 +72,7 @@ const App = () => (
               <Route path="/analyser" element={<ProtectedRoute><AnalyserPage /></ProtectedRoute>} />
               <Route path="/engagement" element={<ProtectedRoute><EngagementPage /></ProtectedRoute>} />
               <Route path="/memoire" element={<ProtectedRoute><MemoirePage /></ProtectedRoute>} />
+              <Route path="/autopilote" element={<ProtectedRoute><AutopilotPage /></ProtectedRoute>} />
               <Route path="/add-profile" element={<ProtectedRoute><AddProfile /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />

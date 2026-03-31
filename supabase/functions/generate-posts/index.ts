@@ -30,7 +30,7 @@ serve(async (req) => {
     if (!user) throw new Error("Not authenticated");
     const userId = user.id;
 
-    const { analysis_id, count = 5, topic, calendar } = await req.json();
+    const { analysis_id, count = 5, topic, calendar, trends: externalTrends } = await req.json();
     if (!analysis_id) throw new Error("Missing analysis_id");
 
     const { data: analysis, error: aErr } = await supabase.from("virality_analyses").select("*").eq("id", analysis_id).single();
@@ -46,6 +46,9 @@ serve(async (req) => {
     // Fetch scraped profiles for inspiration
     const { data: trackedProfiles } = await supabase.from("tracked_profiles").select("name, headline, analysis_summary").eq("user_id", userId).limit(5);
     const { data: topLinkedinPosts } = await supabase.from("linkedin_posts").select("content, likes_count, comments_count, impressions_count").eq("user_id", userId).order("likes_count", { ascending: false }).limit(10);
+
+    // Load recent posts for continuity
+    const { data: recentPosts } = await supabase.from("suggested_posts").select("content, topic, status, post_performance").eq("user_id", userId).order("created_at", { ascending: false }).limit(10);
 
     const m = memory as any;
     const writingInstructions = m?.writing_instructions || "";
@@ -119,6 +122,22 @@ serve(async (req) => {
 
     // 5. Virality analysis
     userPrompt += `ANALYSE DE VIRALITÉ:\n${JSON.stringify(factors, null, 2)}\n\n`;
+
+    // 5b. Trends (if provided from autopilot or manual)
+    if (externalTrends) {
+      userPrompt += `📊 TENDANCES DU JOUR (intègre-les naturellement dans les posts) :\n${externalTrends}\n\n`;
+    }
+
+    // 5c. Recent posts for continuity
+    if (recentPosts && recentPosts.length > 0) {
+      userPrompt += `📝 DERNIERS POSTS (assure une CONTINUITÉ LOGIQUE, ne répète pas les mêmes sujets) :\n`;
+      recentPosts.slice(0, 10).forEach((p: any, i: number) => {
+        const perf = p.post_performance ? ` — Perf: ${JSON.stringify(p.post_performance)}` : "";
+        userPrompt += `${i + 1}. [${p.topic}] ${(p.content || "").slice(0, 200)}...${perf}\n`;
+      });
+      userPrompt += `\n`;
+    }
+
 
     // 6. Calendar slots if provided
     const effectiveCount = calendar ? calendar.length : count;
