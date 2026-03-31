@@ -291,7 +291,6 @@ export default function AutopilotPage() {
                   dailyPlan={(currentConfig.daily_content_plan || {}) as Record<string, string>}
                   activeDays={currentConfig.active_days || []}
                   onSave={(daily_content_plan) => saveMutation.mutate({ daily_content_plan })}
-                  embedded
                 />
               </TabsContent>
             </Tabs>
