@@ -301,7 +301,7 @@ Si tu ne trouves pas de news des dernières 24h, cherche celles des 48h-72h dern
         }
 
         if (ideas?.length) {
-          userPrompt += `IDÉES DE L'UTILISATEUR À INTÉGRER OBLIGATOIREMENT :\n${ideas.map((i: any, idx: number) => `${idx + 1}. [${i.content_type || "autre"}] ${i.idea_text}${i.image_url ? " (visuel fourni)" : ""}`).join("\n")}\n\n`;
+          userPrompt += `IDÉES DE L'UTILISATEUR À INTÉGRER OBLIGATOIREMENT :\n${ideas.map((i: any, idx: number) => `${idx + 1}. [${i.content_type || "autre"}] ${i.idea_text}${i.image_url ? " (visuel fourni)" : ""}${i.resource_url ? ` (LIEN À PARTAGER: ${i.resource_url} — ajoute un CTA du type "Commente GUIDE pour recevoir le lien")` : ""}`).join("\n")}\n\n`;
         }
 
         if (photos?.length) {
