@@ -89,7 +89,7 @@ serve(async (req) => {
         }
 
         // Rate limiting: wait between messages
-        await new Promise((r) => setTimeout(r, 3000));
+        await new Promise((r) => setTimeout(r, delay_seconds * 1000));
       } catch (e) {
         console.error(`Error sending to ${msg.prospect_name}:`, e);
         await supabase
