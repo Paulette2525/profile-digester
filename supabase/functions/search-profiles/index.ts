@@ -32,7 +32,7 @@ serve(async (req) => {
 
     const body = await req.json();
     const { query, limit: requestedLimit } = body;
-    const searchLimit = Math.min(Math.max(Number(requestedLimit) || 10, 1), 1000);
+    const totalLimit = Math.max(Number(requestedLimit) || 10, 1);
     if (!query || typeof query !== "string") {
       return new Response(
         JSON.stringify({ error: "Missing 'query' parameter" }),
@@ -42,10 +42,17 @@ serve(async (req) => {
 
     const accountId = await getLinkedInAccountId(UNIPILE_DSN, UNIPILE_API_KEY);
 
-    // Use the correct Unipile LinkedIn search endpoint
-    const searchResponse = await fetch(
-      `https://${UNIPILE_DSN}/api/v1/linkedin/search?account_id=${encodeURIComponent(accountId)}&limit=${searchLimit}`,
-      {
+    const allResults: any[] = [];
+    let cursor: string | null = null;
+    const PAGE_SIZE = Math.min(totalLimit, 50);
+
+    while (allResults.length < totalLimit) {
+      const url = new URL(`https://${UNIPILE_DSN}/api/v1/linkedin/search`);
+      url.searchParams.set("account_id", accountId);
+      url.searchParams.set("limit", String(PAGE_SIZE));
+      if (cursor) url.searchParams.set("cursor", cursor);
+
+      const searchResponse = await fetch(url.toString(), {
         method: "POST",
         headers: {
           "X-API-KEY": UNIPILE_API_KEY,
@@ -57,19 +64,23 @@ serve(async (req) => {
           category: "people",
           keywords: query,
         }),
-      }
-    );
+      });
 
-    if (!searchResponse.ok) {
-      const errorText = await searchResponse.text();
-      console.error("Unipile search error:", errorText);
-      throw new Error(`Unipile search failed: ${searchResponse.status} ${searchResponse.statusText}`);
+      if (!searchResponse.ok) {
+        const errorText = await searchResponse.text();
+        console.error("Unipile search error:", errorText);
+        throw new Error(`Unipile search failed: ${searchResponse.status} ${searchResponse.statusText}`);
+      }
+
+      const data = await searchResponse.json();
+      const items = data.items || data.data || [];
+      allResults.push(...items);
+
+      cursor = data.cursor || data.next_cursor || null;
+      if (!cursor || items.length < PAGE_SIZE) break;
     }
 
-    const data = await searchResponse.json();
-    const items = data.items || data.data || [];
-
-    const results = items.map((user: any) => ({
+    const results = allResults.slice(0, totalLimit).map((user: any) => ({
       id: user.id || user.provider_id || "",
       name: user.name || `${user.first_name || ""} ${user.last_name || ""}`.trim(),
       headline: user.headline || user.title || "",
