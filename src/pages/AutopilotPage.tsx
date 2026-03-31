@@ -309,7 +309,6 @@ export default function AutopilotPage() {
               <ContentMixCard
                 contentMix={(currentConfig.content_mix || { news: 30, tutorial: 25, viral: 25, storytelling: 20 }) as { news: number; tutorial: number; viral: number; storytelling: number }}
                 onSave={(content_mix) => saveMutation.mutate({ content_mix })}
-                embedded
               />
             </AccordionContent>
           </AccordionItem>
