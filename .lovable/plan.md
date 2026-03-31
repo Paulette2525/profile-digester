@@ -1,58 +1,94 @@
 
 
-## Plan : Ajouter les types de contenu (Tuto, Viral, Storytelling) a l'Autopilote
+## Plan : Restructurer la plateforme autour de l'Autopilote + Visuels automatiques
 
-### Objectif
+### Constat
 
-Transformer l'Autopilote en hub central de creation de contenu avec 4 types configurables : News/Veille (existant), Tuto, Viral, Storytelling. L'utilisateur choisit la repartition par semaine directement depuis la page Autopilote.
+L'Autopilote rend 4 pages redondantes : **Traitement** (analyse viralite manuelle), **Strategie** (generee manuellement), **Posts Suggeres** (generation manuelle), **Planifier** (planification manuelle). Seule **Analyser** reste utile pour le suivi de performance post-publication.
+
+### Architecture cible
+
+```text
+SIDEBAR SIMPLIFIEE :
+  ── Dashboard
+  ── Autopilote (hub central — config + execution)
+  ── Publications (ex Posts Suggeres — tous les posts generes, edition, visuels)
+  ── Performance (ex Analyser — stats post-publication)
+  ── Engagement (inchange)
+  ── Memoire (inchange)
+  ── Profils (inchange)
+  ── Configuration (inchange)
+```
+
+Pages **supprimees** du menu : Traitement, Strategie, Planifier (le code reste pour ne rien casser, mais inaccessibles depuis la sidebar).
 
 ### Modifications
 
-**1. Migration DB** — Ajouter une colonne `content_mix` (jsonb) a `autopilot_config`
+**1. Sidebar** — Reduire de 12 a 8 entrees
 
-```json
-{
-  "news": 30,
-  "tutorial": 25,
-  "viral": 25,
-  "storytelling": 20
-}
+Retirer `Traitement`, `Strategie`, `Planifier` du menu. Renommer `Posts Suggeres` → `Publications`, `Analyser` → `Performance`. Deplacer `Autopilote` en premiere position du groupe Workflow apres Dashboard.
+
+**2. AutopilotPage — Planification par jour**
+
+Ajouter une nouvelle carte "Planning hebdomadaire" permettant de definir le type de contenu dominant par jour :
+- Chaque jour actif affiche un select avec les types (News, Tuto, Viral, Storytelling, Auto)
+- "Auto" = laisser le content_mix decider
+- Stocke dans un nouveau champ `daily_content_plan` (jsonb) dans `autopilot_config`
+
+**3. AutopilotPage — Generation de visuels automatiques**
+
+Ajouter un toggle "Generer un visuel pour chaque post" dans la config. Quand actif, l'edge function `autopilot-run` appelle `generate-visual` apres chaque post genere. Le toggle s'appuie sur un nouveau champ `auto_visuals` (boolean) dans `autopilot_config`.
+
+**4. Migration DB** — 2 colonnes dans `autopilot_config`
+
+```sql
+ALTER TABLE public.autopilot_config 
+  ADD COLUMN daily_content_plan jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ADD COLUMN auto_visuals boolean NOT NULL DEFAULT false;
 ```
 
-Chaque valeur = pourcentage du total de posts. La somme fait 100%.
+`daily_content_plan` format : `{"monday": "news", "tuesday": "tutorial", "wednesday": "auto", ...}`
 
-**2. AutopilotPage.tsx** — Nouvelle carte "Types de contenu"
+**5. autopilot-run/index.ts** — Utiliser le plan journalier
 
-Affiche 4 types avec sliders ou boutons +/- pour ajuster le pourcentage de chaque type :
-- **News & Veille** (icone Newspaper) — Actualites, analyses, comparatifs (Perplexity)
-- **Tuto** (icone GraduationCap) — Guides step-by-step, comment faire X avec Y
-- **Viral** (icone Flame) — Hooks percutants, opinions tranchees, formats engageants
-- **Storytelling** (icone BookOpen) — Histoire personnelle, parcours, lecons apprises
+Avant de calculer le mix, verifier si le jour actuel a un type force dans `daily_content_plan`. Si oui, tous les posts du jour sont de ce type. Sinon, utiliser le content_mix en pourcentage (logique actuelle).
 
-Chaque type a une description courte et un pourcentage ajustable. La somme est maintenue a 100%.
+Apres generation, si `auto_visuals` est actif, appeler `generate-visual` pour chaque post cree.
 
-**3. autopilot-run/index.ts** — Generation par type
+**6. MemoirePage — Banque d'images personnelles**
 
-Au lieu de generer N posts tous du meme type :
-- Lire `content_mix` depuis la config
-- Calculer combien de posts par type (ex: 3 posts/jour, 30% news = 1 news, 25% tuto = 1 tuto, etc.)
-- Pour chaque type, injecter des instructions specifiques dans le prompt :
-  - **News** : utilise les tendances Perplexity (logique actuelle)
-  - **Tuto** : "Ecris un tutoriel step-by-step montrant comment utiliser un outil/technique. Inclus des etapes numerotees, des exemples concrets et un resultat attendu."
-  - **Viral** : "Ecris un post avec un hook ultra-percutant, une opinion tranchee ou un constat surprenant. Format court ou moyen, optimise pour l'engagement et les reactions."
-  - **Storytelling** : "Raconte une histoire personnelle de l'auteur basee sur son parcours, ses echecs, ses reussites. Ton authentique et emotionnel, avec une lecon concrete a la fin."
+Ajouter une section "Mes visuels" dans la page Memoire permettant d'uploader des images dans le bucket `user-photos`. Ces images seront disponibles comme visuels par defaut pour les posts quand la generation IA n'est pas activee.
 
-Le champ `post_type` dans le schema est mis a jour pour inclure `viral` et `storytelling`.
+**7. Publications page (ex SuggestedPostsPage)** — Hub de gestion
+
+Renommer et ajouter :
+- Bouton "Planifier tout" (logique existante de PlanifierPage fusionnee ici)
+- Affichage du statut (brouillon / planifie / publie) avec filtres
+- Edition inline du contenu et du visuel
 
 ### Fichiers a modifier
 
 | Fichier | Action |
 |---------|--------|
-| Migration SQL | Ajouter colonne `content_mix` jsonb |
-| `src/pages/AutopilotPage.tsx` | Nouvelle carte avec sliders pour le mix de contenu |
-| `supabase/functions/autopilot-run/index.ts` | Repartir la generation par type avec prompts specifiques |
+| Migration SQL | Ajouter `daily_content_plan` et `auto_visuals` |
+| `src/components/layout/AppSidebar.tsx` | Reorganiser les menus |
+| `src/App.tsx` | Garder les routes mais supprimer celles inutiles des imports |
+| `src/pages/AutopilotPage.tsx` | Ajouter planning journalier + toggle visuels |
+| `src/pages/SuggestedPostsPage.tsx` | Fusionner logique Planifier, renommer |
+| `src/pages/MemoirePage.tsx` | Ajouter section upload d'images |
+| `supabase/functions/autopilot-run/index.ts` | Integrer daily plan + appel generate-visual |
 
-### Resultat
+### Section technique : Visuels automatiques
 
-L'utilisateur configure depuis une seule page : "Cette semaine, 30% news, 25% tutos, 25% viral, 20% storytelling" et l'Autopilote genere automatiquement le bon mix chaque jour.
+Le edge function `generate-visual` existe deja et genere un PNG via Gemini 3.1 Flash Image. L'autopilot-run appelera :
+
+```typescript
+if (config.auto_visuals) {
+  for (const postId of generatedPostIds) {
+    await supabase.functions.invoke("generate-visual", { body: { post_id: postId } });
+  }
+}
+```
+
+Pour les posts News, le prompt de visuel inclura le theme bleu de la marque utilisateur.
 
