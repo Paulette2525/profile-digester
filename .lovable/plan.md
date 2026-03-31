@@ -1,40 +1,65 @@
 
 
-## Plan : Rendre Perplexity optionnel et supprimer le blocage virality_analyses
+## Plan : Corriger Engagement, auto-DM depuis les idees, page Prospection
 
-### Probleme
+### 1. Corriger la page Engagement
 
-Le edge function `autopilot-run` echoue completement car :
-1. Il exige `PERPLEXITY_API_KEY` au demarrage — meme si aucun post News n'est prevu
-2. Il exige une `virality_analyses` avec status "done" — sinon il skip l'utilisateur entierement
+**Probleme** : La page charge la config avec `maybeSingle()` — si aucune ligne n'existe pour l'utilisateur, `config` est `null` et rien ne fonctionne (toggles inactifs, sauvegarde impossible).
 
-### Modifications dans `supabase/functions/autopilot-run/index.ts`
-
-**A. Rendre PERPLEXITY_API_KEY optionnel (lignes 23-25)**
-
-Supprimer le `throw` pour PERPLEXITY_API_KEY. Le garder comme variable nullable. Ne l'utiliser que si des posts de type "news" sont dans le mix.
-
-**B. Deplacer l'appel Perplexity apres le calcul des postSlots (lignes 76-145)**
-
-Actuellement Perplexity est appele avant de savoir si des posts News sont necessaires. Reorganiser :
-1. Calculer d'abord les postSlots (content mix / daily plan)
-2. Verifier si au moins un slot est de type "news"
-3. Si oui ET que PERPLEXITY_API_KEY existe → appeler Perplexity
-4. Sinon → `trends = ""`, pas d'appel
-
-**C. Supprimer le blocage virality_analyses (lignes 179-182)**
-
-Au lieu de `continue` quand il n'y a pas d'analyse, utiliser un objet vide par defaut. Le champ `source_analysis_id` sera `null` dans les posts inseres.
-
-### Fichier modifie
+**Solution** : Ajouter un `upsert` automatique a l'ouverture. Si aucune config n'existe, en creer une avec les valeurs par defaut. Aussi filtrer par `user_id` (actuellement la requete ne filtre pas par utilisateur).
 
 | Fichier | Action |
 |---------|--------|
-| `supabase/functions/autopilot-run/index.ts` | Perplexity conditionnel, virality_analyses optionnel |
+| `src/pages/EngagementPage.tsx` | Ajouter filtre `user_id`, upsert auto si config absente, corriger les queries DM rules pour filtrer par user |
 
-### Resultat
+### 2. Auto-creation de regles DM depuis la Boite a idees
 
-- Posts Tuto, Viral, Storytelling fonctionnent sans Perplexity
-- Posts News utilisent Perplexity seulement quand la cle est disponible
-- L'absence de virality_analyses ne bloque plus la generation
+Quand l'autopilote genere un post a partir d'une idee qui contient une `image_url` ou un lien dans le texte :
+
+**Dans `autopilot-run/index.ts`** :
+- Apres insertion du post genere depuis une idee, detecter si l'idee contient un lien (URL dans `idea_text` ou `image_url` comme ressource)
+- Si oui, creer automatiquement une entree dans `post_dm_rules` avec :
+  - `trigger_keyword` : mot-cle extrait du contenu (ex: "guide", "lien", "ressource") ou un CTA genere
+  - `dm_message` : message automatique incluant le lien
+  - `resource_url` : le lien detecte
+- Ajouter un CTA dans le post genere (ex: "Commente GUIDE pour recevoir le lien")
+
+**Dans `IdeasPage.tsx`** :
+- Ajouter un champ optionnel "Lien/Ressource a partager" (separe de l'image) pour faciliter la saisie
+
+**Migration DB** : Ajouter colonne `resource_url` a `content_ideas`.
+
+### 3. Page Prospection (`/prospection`)
+
+Nouvelle page accessible depuis la sidebar (sous Engagement) avec :
+
+**Section haute — Lancement de campagne** :
+- Champ de recherche pour trouver des profils LinkedIn (via edge function `search-profiles` existant)
+- Filtres : mots-cles, industrie
+- Selection des profils a prospecter
+- Zone de message personnalise avec variables (`{name}`, `{headline}`)
+- Bouton "Lancer la prospection"
+
+**Section basse — Statistiques** :
+- Nombre total de prospects contactes
+- Taux de reponse
+- Taux de connexion acceptee
+- Historique des messages envoyes avec statut
+
+**Migration DB** : Creer table `prospection_campaigns` et `prospection_messages` pour stocker l'historique.
+
+**Edge function** : `prospect-outreach/index.ts` — envoie des messages/invitations via Unipile.
+
+### Fichiers a creer/modifier
+
+| Fichier | Action |
+|---------|--------|
+| Migration SQL | `resource_url` sur `content_ideas`, tables `prospection_campaigns` + `prospection_messages` |
+| `src/pages/EngagementPage.tsx` | Fix config upsert + filtre user_id |
+| `src/pages/IdeasPage.tsx` | Ajouter champ resource_url |
+| `src/pages/ProspectionPage.tsx` | Nouvelle page prospection |
+| `src/components/layout/AppSidebar.tsx` | Ajouter entree Prospection |
+| `src/App.tsx` | Ajouter route `/prospection` |
+| `supabase/functions/autopilot-run/index.ts` | Auto-creer DM rules depuis idees avec liens |
+| `supabase/functions/prospect-outreach/index.ts` | Envoi de messages de prospection via Unipile |
 
