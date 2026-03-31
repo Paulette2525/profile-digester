@@ -24,7 +24,7 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const { campaign_id } = await req.json();
+    const { campaign_id, daily_limit = 50, delay_seconds = 3 } = await req.json();
     if (!campaign_id) {
       return new Response(JSON.stringify({ error: "Missing campaign_id" }), {
         status: 400,
