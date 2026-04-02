@@ -2,7 +2,6 @@ import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { AppLayout } from "@/components/layout/AppLayout";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -138,9 +137,9 @@ const ProfileDetail = () => {
 
   if (!profile) {
     return (
-      <AppLayout>
+      <>
         <div className="text-center py-12 text-muted-foreground">Chargement...</div>
-      </AppLayout>
+      </>
     );
   }
 
@@ -161,7 +160,7 @@ const ProfileDetail = () => {
   );
 
   return (
-    <AppLayout>
+    <>
       <div className="space-y-6">
         <Button variant="ghost" onClick={() => navigate(-1)} className="gap-2">
           <ArrowLeft className="h-4 w-4" /> Retour
@@ -364,7 +363,7 @@ const ProfileDetail = () => {
           </div>
         </div>
       </div>
-    </AppLayout>
+    </>
   );
 };
 

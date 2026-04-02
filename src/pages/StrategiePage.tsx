@@ -4,7 +4,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { EditorialCalendarDialog } from "@/components/strategy/EditorialCalendarDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -242,7 +241,7 @@ export default function StrategiePage() {
   };
 
   return (
-    <AppLayout>
+    <>
       <div className="p-4 md:p-6 space-y-6 max-w-5xl mx-auto">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
@@ -346,6 +345,6 @@ export default function StrategiePage() {
           strategyVariant={activeVariantIndex !== null ? strategyData?.variants?.[activeVariantIndex] : undefined}
         />
       </div>
-    </AppLayout>
+    </>
   );
 }
