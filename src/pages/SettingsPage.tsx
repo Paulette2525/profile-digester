@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -64,7 +63,7 @@ const SettingsPage = () => {
   };
 
   return (
-    <AppLayout>
+    <>
       <div className="max-w-2xl mx-auto space-y-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Configuration</h1>
@@ -156,7 +155,7 @@ const SettingsPage = () => {
           </CardContent>
         </Card>
       </div>
-    </AppLayout>
+    </>
   );
 };
 

@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { BarChart3, TrendingUp, Target, RefreshCw, Loader2, ThumbsUp, MessageCircle, Share2, Eye, ChevronDown, Users, UserPlus, RotateCcw, Percent } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +13,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { toast } from "sonner";
 
 export default function AnalyserPage() {
+  const { user } = useAuth();
   const [isFetching, setIsFetching] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [visiblePosts, setVisiblePosts] = useState(10);
@@ -31,41 +32,46 @@ export default function AnalyserPage() {
 
   // Fetch user memory for goals
   const { data: memory } = useQuery({
-    queryKey: ["user-memory-goals"],
+    queryKey: ["user-memory-goals", user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase.from("user_memory").select("*").limit(1).maybeSingle();
+      const { data, error } = await supabase.from("user_memory").select("target_followers,target_connections,target_engagement_rate,goal_timeline").eq("user_id", user!.id).maybeSingle();
       if (error) return null;
       return data as any;
     },
     staleTime: 10 * 60 * 1000,
+    enabled: !!user,
   });
 
   const { data: publishedPosts, refetch } = useQuery({
-    queryKey: ["published-posts-analysis"],
+    queryKey: ["published-posts-analysis", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("suggested_posts")
-        .select("*")
+        .select("id,content,virality_score,published_at,post_performance,status")
+        .eq("user_id", user!.id)
         .eq("status", "published")
         .order("published_at", { ascending: false });
       if (error) throw error;
       return data;
     },
+    enabled: !!user,
   });
 
   // Stats history for growth chart
   const { data: statsHistory, refetch: refetchHistory } = useQuery({
-    queryKey: ["account-stats-history"],
+    queryKey: ["account-stats-history", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("account_stats_history" as any)
-        .select("*")
+        .select("snapshot_date,followers,connections")
+        .eq("user_id", user!.id)
         .order("snapshot_date", { ascending: true })
         .limit(90);
       if (error) return [];
       return data as any[];
     },
     staleTime: 2 * 60 * 1000,
+    enabled: !!user,
   });
 
   const growthData = (statsHistory || []).map((s: any) => ({
@@ -146,7 +152,7 @@ export default function AnalyserPage() {
   });
 
   return (
-    <AppLayout>
+    <div className="space-y-6">
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
@@ -429,6 +435,6 @@ export default function AnalyserPage() {
           </CardContent>
         </Card>
       </div>
-    </AppLayout>
+    </div>
   );
 }

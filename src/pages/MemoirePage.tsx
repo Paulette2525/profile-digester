@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -367,10 +366,10 @@ export default function MemoirePage() {
     </div>
   );
 
-  if (memoryLoading) return <AppLayout><div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div></AppLayout>;
+  if (memoryLoading) return <><div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div></>;
 
   return (
-    <AppLayout>
+    <>
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
@@ -513,6 +512,6 @@ export default function MemoirePage() {
           </CardContent>
         </Card>
       </div>
-    </AppLayout>
+    </>
   );
 }

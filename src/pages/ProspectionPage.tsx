@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -173,7 +172,7 @@ export default function ProspectionPage() {
   const allSelected = searchResults.length > 0 && selectedProspects.length === searchResults.length;
 
   return (
-    <AppLayout>
+    <>
       <div className="space-y-6 p-6 max-w-5xl mx-auto">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
@@ -436,6 +435,6 @@ export default function ProspectionPage() {
           </Card>
         )}
       </div>
-    </AppLayout>
+    </>
   );
 }

@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -35,7 +34,7 @@ export default function SuggestedPostsPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("suggested_posts")
-        .select("*")
+        .select("id,content,topic,status,virality_score,scheduled_at,published_at,image_url,created_at")
         .eq("user_id", user!.id)
         .order("created_at", { ascending: false })
         .limit(100);
@@ -206,147 +205,144 @@ export default function SuggestedPostsPage() {
   };
 
   return (
-    <AppLayout>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Publications</h1>
-            <p className="text-muted-foreground">Gérez, planifiez et publiez vos posts LinkedIn</p>
-          </div>
-          <div className="flex gap-2 flex-wrap">
-            {draftCount > 0 && (
-              <Button size="sm" onClick={handleScheduleAll} disabled={isSchedulingAll}>
-                {isSchedulingAll ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <CalendarCheck className="h-3.5 w-3.5 mr-1" />}
-                Tout planifier ({draftCount})
-              </Button>
-            )}
-            {posts && posts.length > 0 && (
-              <Button variant="outline" size="sm" onClick={handleBatchVisuals} disabled={!!batchProgress}>
-                {batchProgress ? (
-                  <><Loader2 className="h-3.5 w-3.5 animate-spin" /> {batchProgress.done}/{batchProgress.total}</>
-                ) : (
-                  <><Images className="h-3.5 w-3.5" /> Visuels manquants</>
-                )}
-              </Button>
-            )}
-            {oldDraftCount > 0 && (
-              <Button variant="destructive" size="sm" onClick={handleDeleteOldPosts} disabled={deleting}>
-                {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-                Purger ({oldDraftCount})
-              </Button>
-            )}
-          </div>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Publications</h1>
+          <p className="text-muted-foreground">Gérez, planifiez et publiez vos posts LinkedIn</p>
         </div>
-
-        {/* Filter tabs */}
-        {posts && posts.length > 0 && (
-          <div className="flex gap-2 flex-wrap">
-            <Button variant={filter === "all" ? "default" : "outline"} size="sm" onClick={() => { setFilter("all"); setVisibleCount(10); }}>
-              Tous ({posts.length})
-            </Button>
-            <Button variant={filter === "draft" ? "default" : "outline"} size="sm" onClick={() => { setFilter("draft"); setVisibleCount(10); }}>
-              Brouillons ({draftCount})
-            </Button>
-            <Button variant={filter === "scheduled" ? "default" : "outline"} size="sm" onClick={() => { setFilter("scheduled"); setVisibleCount(10); }}>
-              <Clock className="h-3.5 w-3.5 mr-1" /> Planifiés ({scheduledCount})
-            </Button>
-            <Button variant={filter === "published" ? "default" : "outline"} size="sm" onClick={() => { setFilter("published"); setVisibleCount(10); }}>
-              <Check className="h-3.5 w-3.5 mr-1" /> Publiés ({publishedCount})
-            </Button>
-          </div>
-        )}
-
-        <div className="space-y-4">
-          {filteredPosts?.slice(0, visibleCount).map((post) => (
-            <Card key={post.id} className="overflow-hidden">
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className={statusColors[post.status] || ""}>{statusLabels[post.status] || post.status}</Badge>
-                    {post.topic && <Badge variant="secondary">{post.topic}</Badge>}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {post.scheduled_at && (
-                      <span className="text-xs text-muted-foreground">
-                        {format(new Date(post.scheduled_at), "EEE d MMM 'à' HH'h'", { locale: fr })}
-                      </span>
-                    )}
-                    <Sparkles className="h-3.5 w-3.5 text-primary" />
-                    <span className="text-sm font-bold text-primary">{post.virality_score}/100</span>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {post.image_url && (
-                  <div className="rounded-lg overflow-hidden border">
-                    <img src={post.image_url} alt="Visuel" className="w-full max-h-[400px] object-cover" loading="lazy" />
-                  </div>
-                )}
-                {editingId === post.id ? (
-                  <>
-                    <Textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} className="min-h-[200px]" />
-                    <div className="flex gap-2">
-                      <Button size="sm" onClick={() => handleSaveEdit(post.id)}><Check className="h-3.5 w-3.5" /> Sauvegarder</Button>
-                      <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}>Annuler</Button>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <p className="whitespace-pre-wrap text-sm leading-relaxed">{post.content}</p>
-                    <div className="flex flex-wrap gap-2 pt-2">
-                      <Button size="sm" variant="outline" onClick={() => handleCopy(post.content)}><Copy className="h-3.5 w-3.5" /> Copier</Button>
-                      <Button size="sm" variant="outline" onClick={() => { setEditingId(post.id); setEditContent(post.content); }}><PenLine className="h-3.5 w-3.5" /> Modifier</Button>
-                      <Button size="sm" variant="outline" onClick={() => handleGenerateVisual(post.id)} disabled={generatingVisualId === post.id}>
-                        {generatingVisualId === post.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : post.image_url ? <RefreshCw className="h-3.5 w-3.5" /> : <ImageIcon className="h-3.5 w-3.5" />}
-                        {post.image_url ? "Regénérer" : "Visuel"}
-                      </Button>
-                      {post.status === "draft" && (
-                        <>
-                          <Input
-                            type="datetime-local"
-                            value={scheduleInputs[post.id] || ""}
-                            onChange={(e) => setScheduleInputs(prev => ({ ...prev, [post.id]: e.target.value }))}
-                            className="w-auto h-8 text-xs"
-                          />
-                          <Button size="sm" variant="outline" onClick={() => handleSchedulePost(post.id)}><Calendar className="h-3.5 w-3.5" /> Planifier</Button>
-                        </>
-                      )}
-                      {post.status === "scheduled" && (
-                        <>
-                          <Button size="sm" onClick={() => handlePublishNow(post.id)} disabled={publishingId === post.id}>
-                            {publishingId === post.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-                            Publier
-                          </Button>
-                          <Button size="sm" variant="ghost" onClick={() => handleUnschedule(post.id)}>Annuler</Button>
-                        </>
-                      )}
-                      <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => handleDeletePost(post.id)}>
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          ))}
-
-          {filteredPosts && filteredPosts.length > visibleCount && (
-            <Button variant="ghost" className="w-full" onClick={() => setVisibleCount(v => v + 10)}>
-              <ChevronDown className="h-4 w-4 mr-1" /> Voir plus ({filteredPosts.length - visibleCount} restants)
+        <div className="flex gap-2 flex-wrap">
+          {draftCount > 0 && (
+            <Button size="sm" onClick={handleScheduleAll} disabled={isSchedulingAll}>
+              {isSchedulingAll ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <CalendarCheck className="h-3.5 w-3.5 mr-1" />}
+              Tout planifier ({draftCount})
             </Button>
           )}
-
-          {(!filteredPosts || filteredPosts.length === 0) && (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-                <PenLine className="h-12 w-12 text-muted-foreground/30 mb-4" />
-                <h3 className="text-lg font-semibold">Aucune publication</h3>
-                <p className="text-muted-foreground text-sm mt-1">Activez l'Autopilote pour générer des publications automatiquement</p>
-              </CardContent>
-            </Card>
+          {posts && posts.length > 0 && (
+            <Button variant="outline" size="sm" onClick={handleBatchVisuals} disabled={!!batchProgress}>
+              {batchProgress ? (
+                <><Loader2 className="h-3.5 w-3.5 animate-spin" /> {batchProgress.done}/{batchProgress.total}</>
+              ) : (
+                <><Images className="h-3.5 w-3.5" /> Visuels manquants</>
+              )}
+            </Button>
+          )}
+          {oldDraftCount > 0 && (
+            <Button variant="destructive" size="sm" onClick={handleDeleteOldPosts} disabled={deleting}>
+              {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+              Purger ({oldDraftCount})
+            </Button>
           )}
         </div>
       </div>
-    </AppLayout>
+
+      {posts && posts.length > 0 && (
+        <div className="flex gap-2 flex-wrap">
+          <Button variant={filter === "all" ? "default" : "outline"} size="sm" onClick={() => { setFilter("all"); setVisibleCount(10); }}>
+            Tous ({posts.length})
+          </Button>
+          <Button variant={filter === "draft" ? "default" : "outline"} size="sm" onClick={() => { setFilter("draft"); setVisibleCount(10); }}>
+            Brouillons ({draftCount})
+          </Button>
+          <Button variant={filter === "scheduled" ? "default" : "outline"} size="sm" onClick={() => { setFilter("scheduled"); setVisibleCount(10); }}>
+            <Clock className="h-3.5 w-3.5 mr-1" /> Planifiés ({scheduledCount})
+          </Button>
+          <Button variant={filter === "published" ? "default" : "outline"} size="sm" onClick={() => { setFilter("published"); setVisibleCount(10); }}>
+            <Check className="h-3.5 w-3.5 mr-1" /> Publiés ({publishedCount})
+          </Button>
+        </div>
+      )}
+
+      <div className="space-y-4">
+        {filteredPosts?.slice(0, visibleCount).map((post) => (
+          <Card key={post.id} className="overflow-hidden">
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className={statusColors[post.status] || ""}>{statusLabels[post.status] || post.status}</Badge>
+                  {post.topic && <Badge variant="secondary">{post.topic}</Badge>}
+                </div>
+                <div className="flex items-center gap-2">
+                  {post.scheduled_at && (
+                    <span className="text-xs text-muted-foreground">
+                      {format(new Date(post.scheduled_at), "EEE d MMM 'à' HH'h'", { locale: fr })}
+                    </span>
+                  )}
+                  <Sparkles className="h-3.5 w-3.5 text-primary" />
+                  <span className="text-sm font-bold text-primary">{post.virality_score}/100</span>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {post.image_url && (
+                <div className="rounded-lg overflow-hidden border">
+                  <img src={post.image_url} alt="Visuel" className="w-full max-h-[400px] object-cover" loading="lazy" />
+                </div>
+              )}
+              {editingId === post.id ? (
+                <>
+                  <Textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} className="min-h-[200px]" />
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={() => handleSaveEdit(post.id)}><Check className="h-3.5 w-3.5" /> Sauvegarder</Button>
+                    <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}>Annuler</Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed">{post.content}</p>
+                  <div className="flex flex-wrap gap-2 pt-2">
+                    <Button size="sm" variant="outline" onClick={() => handleCopy(post.content)}><Copy className="h-3.5 w-3.5" /> Copier</Button>
+                    <Button size="sm" variant="outline" onClick={() => { setEditingId(post.id); setEditContent(post.content); }}><PenLine className="h-3.5 w-3.5" /> Modifier</Button>
+                    <Button size="sm" variant="outline" onClick={() => handleGenerateVisual(post.id)} disabled={generatingVisualId === post.id}>
+                      {generatingVisualId === post.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : post.image_url ? <RefreshCw className="h-3.5 w-3.5" /> : <ImageIcon className="h-3.5 w-3.5" />}
+                      {post.image_url ? "Regénérer" : "Visuel"}
+                    </Button>
+                    {post.status === "draft" && (
+                      <>
+                        <Input
+                          type="datetime-local"
+                          value={scheduleInputs[post.id] || ""}
+                          onChange={(e) => setScheduleInputs(prev => ({ ...prev, [post.id]: e.target.value }))}
+                          className="w-auto h-8 text-xs"
+                        />
+                        <Button size="sm" variant="outline" onClick={() => handleSchedulePost(post.id)}><Calendar className="h-3.5 w-3.5" /> Planifier</Button>
+                      </>
+                    )}
+                    {post.status === "scheduled" && (
+                      <>
+                        <Button size="sm" onClick={() => handlePublishNow(post.id)} disabled={publishingId === post.id}>
+                          {publishingId === post.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                          Publier
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => handleUnschedule(post.id)}>Annuler</Button>
+                      </>
+                    )}
+                    <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => handleDeletePost(post.id)}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        ))}
+
+        {filteredPosts && filteredPosts.length > visibleCount && (
+          <Button variant="ghost" className="w-full" onClick={() => setVisibleCount(v => v + 10)}>
+            <ChevronDown className="h-4 w-4 mr-1" /> Voir plus ({filteredPosts.length - visibleCount} restants)
+          </Button>
+        )}
+
+        {(!filteredPosts || filteredPosts.length === 0) && (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+              <PenLine className="h-12 w-12 text-muted-foreground/30 mb-4" />
+              <h3 className="text-lg font-semibold">Aucune publication</h3>
+              <p className="text-muted-foreground text-sm mt-1">Activez l'Autopilote pour générer des publications automatiquement</p>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    </div>
   );
 }
