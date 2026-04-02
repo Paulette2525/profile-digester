@@ -49,16 +49,18 @@ export default function AnalyserPage() {
   });
 
   const { data: publishedPosts, refetch } = useQuery({
-    queryKey: ["published-posts-analysis"],
+    queryKey: ["published-posts-analysis", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("suggested_posts")
-        .select("*")
+        .select("id,content,virality_score,published_at,post_performance,status")
+        .eq("user_id", user!.id)
         .eq("status", "published")
         .order("published_at", { ascending: false });
       if (error) throw error;
       return data;
     },
+    enabled: !!user,
   });
 
   // Stats history for growth chart
