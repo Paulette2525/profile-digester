@@ -22,7 +22,7 @@ const Index = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("tracked_profiles")
-        .select("id,name,avatar_url,headline,linkedin_url,created_at")
+        .select("*")
         .eq("user_id", user!.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
