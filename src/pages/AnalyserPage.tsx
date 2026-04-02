@@ -65,17 +65,19 @@ export default function AnalyserPage() {
 
   // Stats history for growth chart
   const { data: statsHistory, refetch: refetchHistory } = useQuery({
-    queryKey: ["account-stats-history"],
+    queryKey: ["account-stats-history", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("account_stats_history" as any)
-        .select("*")
+        .select("snapshot_date,followers,connections")
+        .eq("user_id", user!.id)
         .order("snapshot_date", { ascending: true })
         .limit(90);
       if (error) return [];
       return data as any[];
     },
     staleTime: 2 * 60 * 1000,
+    enabled: !!user,
   });
 
   const growthData = (statsHistory || []).map((s: any) => ({
