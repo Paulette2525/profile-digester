@@ -6,6 +6,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Loader2 } from "lucide-react";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { ProtectedLayout } from "@/components/layout/ProtectedLayout";
+import ScrollToTop from "@/components/ScrollToTop";
 
 const Index = lazy(() => import("./pages/Index"));
 const ProfileDetail = lazy(() => import("./pages/ProfileDetail"));
@@ -36,17 +38,10 @@ const queryClient = new QueryClient({
 });
 
 const PageLoader = () => (
-  <div className="flex items-center justify-center min-h-screen">
+  <div className="flex items-center justify-center min-h-[60vh]">
     <Loader2 className="h-8 w-8 animate-spin text-primary" />
   </div>
 );
-
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
-  if (loading) return <PageLoader />;
-  if (!user) return <Navigate to="/auth" replace />;
-  return <>{children}</>;
-}
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -62,25 +57,31 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
+          <ScrollToTop />
           <Suspense fallback={<PageLoader />}>
             <Routes>
               <Route path="/auth" element={<PublicRoute><AuthPage /></PublicRoute>} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
-              <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-              <Route path="/profile/:id" element={<ProtectedRoute><ProfileDetail /></ProtectedRoute>} />
-              <Route path="/traitement" element={<ProtectedRoute><TraitementPage /></ProtectedRoute>} />
-              <Route path="/strategie" element={<ProtectedRoute><StrategiePage /></ProtectedRoute>} />
-              <Route path="/posts-suggeres" element={<ProtectedRoute><SuggestedPostsPage /></ProtectedRoute>} />
-              <Route path="/planifier" element={<ProtectedRoute><PlanifierPage /></ProtectedRoute>} />
-              <Route path="/analyser" element={<ProtectedRoute><AnalyserPage /></ProtectedRoute>} />
-              <Route path="/engagement" element={<ProtectedRoute><EngagementPage /></ProtectedRoute>} />
-              <Route path="/memoire" element={<ProtectedRoute><MemoirePage /></ProtectedRoute>} />
-              <Route path="/autopilote" element={<ProtectedRoute><AutopilotPage /></ProtectedRoute>} />
-              <Route path="/add-profile" element={<ProtectedRoute><AddProfile /></ProtectedRoute>} />
-              <Route path="/calendrier" element={<ProtectedRoute><CalendarPage /></ProtectedRoute>} />
-              <Route path="/idees" element={<ProtectedRoute><IdeasPage /></ProtectedRoute>} />
-              <Route path="/prospection" element={<ProtectedRoute><ProspectionPage /></ProtectedRoute>} />
-              <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+
+              {/* All protected routes share a single persistent shell */}
+              <Route element={<ProtectedLayout />}>
+                <Route path="/" element={<Index />} />
+                <Route path="/profile/:id" element={<ProfileDetail />} />
+                <Route path="/traitement" element={<TraitementPage />} />
+                <Route path="/strategie" element={<StrategiePage />} />
+                <Route path="/posts-suggeres" element={<SuggestedPostsPage />} />
+                <Route path="/planifier" element={<PlanifierPage />} />
+                <Route path="/analyser" element={<AnalyserPage />} />
+                <Route path="/engagement" element={<EngagementPage />} />
+                <Route path="/memoire" element={<MemoirePage />} />
+                <Route path="/autopilote" element={<AutopilotPage />} />
+                <Route path="/add-profile" element={<AddProfile />} />
+                <Route path="/calendrier" element={<CalendarPage />} />
+                <Route path="/idees" element={<IdeasPage />} />
+                <Route path="/prospection" element={<ProspectionPage />} />
+                <Route path="/settings" element={<SettingsPage />} />
+              </Route>
+
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>
