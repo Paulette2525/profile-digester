@@ -11,12 +11,6 @@ import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Legend } from "recharts";
 import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { format } from "date-fns";
-import { fr } from "date-fns/locale";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Legend } from "recharts";
-import { toast } from "sonner";
 
 export default function AnalyserPage() {
   const { user } = useAuth();
