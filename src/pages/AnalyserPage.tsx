@@ -441,6 +441,6 @@ export default function AnalyserPage() {
           </CardContent>
         </Card>
       </div>
-    </AppLayout>
+    </div>
   );
 }
