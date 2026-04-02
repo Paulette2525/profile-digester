@@ -19,6 +19,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { toast } from "sonner";
 
 export default function AnalyserPage() {
+  const { user } = useAuth();
   const [isFetching, setIsFetching] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [visiblePosts, setVisiblePosts] = useState(10);
