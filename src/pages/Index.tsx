@@ -36,7 +36,7 @@ const Index = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("linkedin_posts")
-        .select("id,content,likes_count,comments_count,shares_count,posted_at,profile_id,post_url,media_type,tracked_profiles(name,avatar_url)")
+        .select("*, tracked_profiles(*)")
         .eq("user_id", user!.id)
         .order("posted_at", { ascending: false })
         .limit(20);

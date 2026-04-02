@@ -34,7 +34,7 @@ export default function CalendarPage() {
 
   const monthKey = format(currentMonth, "yyyy-MM");
 
-  const { data: posts = [] } = useQuery({
+  const { data: posts = [] } = useQuery<Post[]>({
     queryKey: ["calendar-posts", user?.id, monthKey],
     queryFn: async () => {
       const start = startOfMonth(currentMonth).toISOString();
@@ -48,7 +48,7 @@ export default function CalendarPage() {
       return (data || []) as Post[];
     },
     enabled: !!user,
-    keepPreviousData: true,
+    placeholderData: (prev) => prev,
   });
 
   const days = useMemo(() => {
