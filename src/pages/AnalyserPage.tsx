@@ -38,13 +38,14 @@ export default function AnalyserPage() {
 
   // Fetch user memory for goals
   const { data: memory } = useQuery({
-    queryKey: ["user-memory-goals"],
+    queryKey: ["user-memory-goals", user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase.from("user_memory").select("*").limit(1).maybeSingle();
+      const { data, error } = await supabase.from("user_memory").select("target_followers,target_connections,target_engagement_rate,goal_timeline").eq("user_id", user!.id).maybeSingle();
       if (error) return null;
       return data as any;
     },
     staleTime: 10 * 60 * 1000,
+    enabled: !!user,
   });
 
   const { data: publishedPosts, refetch } = useQuery({
