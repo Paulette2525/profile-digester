@@ -123,17 +123,8 @@ export default function SuggestedPostsPage() {
     else { toast.success("Post modifié !"); setEditingId(null); refetch(); }
   };
 
-  const handleSchedulePost = async (id: string) => {
-    const dateStr = scheduleInputs[id];
-    let scheduledAt: string;
-    if (dateStr) {
-      scheduledAt = new Date(dateStr).toISOString();
-    } else {
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      tomorrow.setHours(9, 0, 0, 0);
-      scheduledAt = tomorrow.toISOString();
-    }
+  const handleSchedulePost = async (id: string, date: Date) => {
+    const scheduledAt = date.toISOString();
     const { error } = await supabase.functions.invoke("schedule-posts", {
       body: { schedule: [{ post_id: id, scheduled_at: scheduledAt }] },
     });
