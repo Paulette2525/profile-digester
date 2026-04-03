@@ -416,6 +416,19 @@ Si tu ne trouves pas de news des dernières 24h, cherche celles des 48h-72h dern
           }
 
           const usePhoto = p.use_personal_photo && photoUrls.length > 0;
+          
+          // For viral/storytelling, prioritize user-uploaded categorized photos
+          const postType = postSlots[idx]?.type || "";
+          let assignedImageUrl: string | null = null;
+          if (postType === "viral" && viralPhotos?.length) {
+            const photo = viralPhotos[idx % viralPhotos.length] as any;
+            assignedImageUrl = photo.image_url;
+          } else if (postType === "storytelling" && storytellingPhotos?.length) {
+            const photo = storytellingPhotos[idx % storytellingPhotos.length] as any;
+            assignedImageUrl = photo.image_url;
+          } else if (usePhoto) {
+            assignedImageUrl = photoUrls[Math.floor(Math.random() * photoUrls.length)];
+          }
 
           return {
             content: p.content,
@@ -424,7 +437,7 @@ Si tu ne trouves pas de news des dernières 24h, cherche celles des 48h-72h dern
             source_analysis_id: latestAnalysis?.id || null,
             status: isAutoMode ? "scheduled" : "draft",
             user_id: userId,
-            image_url: usePhoto ? photoUrls[Math.floor(Math.random() * photoUrls.length)] : null,
+            image_url: assignedImageUrl,
             scheduled_at: scheduledDate.toISOString(),
           };
         });
