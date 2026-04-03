@@ -15,10 +15,21 @@ async function fetchWithRetry(url: string, options: RequestInit, retries = 2): P
   return fetch(url, options);
 }
 
+function inferPostType(post: any): string {
+  const type = post.post_type;
+  if (type) return type;
+  const text = `${post.topic || ""} ${(post.content || "").substring(0, 500)}`.toLowerCase();
+  if (/histoire|parcours|vécu|témoignage|raconte|souvenir|leçon de vie/i.test(text)) return "storytelling";
+  if (/astuce|étape|comment|tuto|guide|méthode|framework/i.test(text)) return "tutorial";
+  if (/actualité|étude|rapport|tendance|chiffre|statistique|news|annonce/i.test(text)) return "news";
+  if (/viral|buzz|incroyable|choquant|surprenant/i.test(text)) return "viral";
+  return "personal_branding";
+}
+
 function buildImagePrompt(post: any): string {
   const contentPreview = (post.content || "").substring(0, 200);
   const topic = post.topic || "professional";
-  const postType = post.post_type || "";
+  const postType = inferPostType(post);
 
   const baseStyle = "Photorealistic, editorial photography style, natural lighting, high resolution, shot on professional camera, no text overlays, no typography, no watermarks, no logos";
 
