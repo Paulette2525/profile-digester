@@ -141,6 +141,7 @@ export default function MemoirePage() {
   });
 
   const [photoDesc, setPhotoDesc] = useState("");
+  const [photoCategory, setPhotoCategory] = useState<string>("general");
   const [uploading, setUploading] = useState(false);
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -156,11 +157,13 @@ export default function MemoirePage() {
       const { error: insertErr } = await supabase.from("user_photos").insert({
         image_url: urlData.publicUrl,
         description: photoDesc || null,
+        photo_category: photoCategory === "general" ? null : photoCategory,
         user_id: user?.id,
       } as any);
       if (insertErr) throw insertErr;
       toast.success("Photo ajoutée !");
       setPhotoDesc("");
+      setPhotoCategory("general");
       queryClient.invalidateQueries({ queryKey: ["user-photos"] });
     } catch (err: any) {
       toast.error(err.message);
