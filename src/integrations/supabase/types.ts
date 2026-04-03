@@ -520,6 +520,7 @@ export type Database = {
           source_analysis_id: string | null
           status: string
           topic: string | null
+          unipile_post_id: string | null
           updated_at: string
           user_id: string | null
           virality_score: number | null
@@ -536,6 +537,7 @@ export type Database = {
           source_analysis_id?: string | null
           status?: string
           topic?: string | null
+          unipile_post_id?: string | null
           updated_at?: string
           user_id?: string | null
           virality_score?: number | null
@@ -552,6 +554,7 @@ export type Database = {
           source_analysis_id?: string | null
           status?: string
           topic?: string | null
+          unipile_post_id?: string | null
           updated_at?: string
           user_id?: string | null
           virality_score?: number | null

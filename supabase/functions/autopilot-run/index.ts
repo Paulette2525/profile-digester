@@ -342,6 +342,14 @@ Si tu ne trouves pas de news des dernières 24h, cherche celles des 48h-72h dern
         userPrompt += `8. NE JAMAIS écrire de carousel ou sondage\n`;
         userPrompt += `9. Assurer un FIL NARRATIF cohérent avec les posts précédents\n`;
         userPrompt += `10. Pour chaque post, suggère une heure entre 7h et 20h\n\n`;
+
+        userPrompt += `🎨 CRÉATIVITÉ MAXIMALE — RÈGLES ABSOLUES :\n`;
+        userPrompt += `- Chaque post DOIT être RADICALEMENT DIFFÉRENT des autres : sujet différent, angle différent, structure différente, ton différent\n`;
+        userPrompt += `- RÉINVENTE-TOI à chaque post : ne réutilise JAMAIS la même structure narrative deux fois\n`;
+        userPrompt += `- Varie les formats : liste, narration, question rhétorique, constat choc, anecdote, thread, lettre ouverte, confession, défi\n`;
+        userPrompt += `- Varie les ouvertures : chiffre choc, question provocante, citation détournée, situation absurde, aveu personnel, contradiction\n`;
+        userPrompt += `- Si 2 posts se ressemblent même légèrement dans la structure ou le ton → C'EST UN ÉCHEC\n\n`;
+
         userPrompt += `📋 ASSIGNATION DES TYPES PAR POST (RESPECTER OBLIGATOIREMENT) :\n${slotDescriptions}\n\n`;
         userPrompt += `Génère exactement ${postSlots.length} posts en respectant le type assigné à chacun.`;
 

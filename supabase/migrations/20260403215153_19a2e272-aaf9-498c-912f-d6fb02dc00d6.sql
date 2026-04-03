@@ -1,0 +1,1 @@
+ALTER TABLE public.suggested_posts ADD COLUMN IF NOT EXISTS unipile_post_id text DEFAULT NULL;
