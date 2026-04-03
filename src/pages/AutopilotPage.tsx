@@ -86,17 +86,50 @@ export default function AutopilotPage() {
   });
 
   const [running, setRunning] = useState(false);
+  const [runProgress, setRunProgress] = useState<{ step: string; percent: number; label: string } | null>(null);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Polling for progress while running
+  useEffect(() => {
+    if (running && config?.id) {
+      pollingRef.current = setInterval(async () => {
+        const { data } = await supabase
+          .from("autopilot_config")
+          .select("run_progress")
+          .eq("id", config.id)
+          .maybeSingle();
+        const progress = data?.run_progress as any;
+        if (progress) {
+          setRunProgress(progress);
+        } else if (runProgress?.percent === 90) {
+          // Progress was cleared = done
+          setRunProgress({ step: "done", percent: 100, label: "Terminé !" });
+        }
+      }, 2000);
+    } else {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
+    return () => { if (pollingRef.current) clearInterval(pollingRef.current); };
+  }, [running, config?.id]);
+
   const runNow = async () => {
     setRunning(true);
+    setRunProgress({ step: "starting", percent: 5, label: "Démarrage..." });
     try {
       const { data, error } = await supabase.functions.invoke("autopilot-run", { body: { force: true } });
       if (error) throw error;
+      setRunProgress({ step: "done", percent: 100, label: "Terminé !" });
       toast({ title: "Autopilote exécuté", description: `${data?.results?.[0]?.postsGenerated || 0} posts générés` });
       queryClient.invalidateQueries({ queryKey: ["trend-insights", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["autopilot-config", user?.id] });
     } catch (err: any) {
       toast({ title: "Erreur", description: String(err), variant: "destructive" });
     } finally {
-      setRunning(false);
+      setTimeout(() => {
+        setRunning(false);
+        setRunProgress(null);
+      }, 2000);
     }
   };
 
