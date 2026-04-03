@@ -482,57 +482,6 @@ export default function MemoirePage() {
           </CardContent>
         </Card>
 
-        {/* Ideas with images */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2"><Lightbulb className="h-4 w-4" /> Idées de publications</CardTitle>
-            <CardDescription>Notez vos idées avec des images optionnelles, elles seront utilisées lors de la génération</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Textarea value={newIdea} onChange={e => setNewIdea(e.target.value)} placeholder="Écrire une idée de publication…" rows={2} />
-              <div className="flex gap-2">
-                <Button onClick={() => addIdea()} disabled={!newIdea.trim() || ideaUploading}><Plus className="h-4 w-4" /> Ajouter</Button>
-                <Label htmlFor="idea-image-upload" className="cursor-pointer">
-                  <Button variant="outline" asChild disabled={!newIdea.trim() || ideaUploading}>
-                    <span><ImageIcon className="h-4 w-4" /> Ajouter avec image</span>
-                  </Button>
-                </Label>
-                <input id="idea-image-upload" type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) addIdea(f); }} />
-              </div>
-            </div>
-            {ideasLoading ? (
-              <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
-            ) : ideas && ideas.length > 0 ? (
-              <div className="space-y-2">
-                {ideas.map(idea => (
-                  <div key={idea.id} className="flex items-start gap-3 rounded-lg border p-3">
-                    {(idea as any).image_url && (
-                      <img src={(idea as any).image_url} alt="" className="w-16 h-16 rounded object-cover shrink-0" />
-                    )}
-                    <p className="flex-1 text-sm">{idea.idea_text}</p>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      {idea.used && <Badge variant="outline" className="text-xs">Utilisée</Badge>}
-                      {!(idea as any).image_url && (
-                        <Label htmlFor={`idea-img-${idea.id}`} className="cursor-pointer">
-                          <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
-                            <span><ImageIcon className="h-3.5 w-3.5 text-muted-foreground" /></span>
-                          </Button>
-                        </Label>
-                      )}
-                      <input id={`idea-img-${idea.id}`} type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) uploadIdeaImage(idea.id, f); }} />
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => deleteIdea(idea.id)}>
-                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground text-center py-4">Aucune idée enregistrée</p>
-            )}
-          </CardContent>
-        </Card>
       </div>
     </>
   );
