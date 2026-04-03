@@ -489,6 +489,8 @@ Si tu ne trouves pas de news des dernières 24h, cherche celles des 48h-72h dern
 
         // Generate visuals if auto_visuals is enabled (skip posts that already have user photos)
         if (config.auto_visuals && saved?.length) {
+          // Progress: generating visuals
+          await updateProgress(config.id, "generating_visuals", 75, "Génération des visuels...");
           const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
           const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
           for (const post of saved) {
