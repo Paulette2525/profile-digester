@@ -445,11 +445,15 @@ Si tu ne trouves pas de news des dernières 24h, cherche celles des 48h-72h dern
         const { data: saved, error: sErr } = await supabase.from("suggested_posts").insert(toInsert).select("*");
         if (sErr) throw sErr;
 
-        // Generate visuals if auto_visuals is enabled
+        // Generate visuals if auto_visuals is enabled (skip posts that already have user photos)
         if (config.auto_visuals && saved?.length) {
           const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
           const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
           for (const post of saved) {
+            if (post.image_url) {
+              console.log(`Post ${post.id} already has a user photo, skipping AI visual`);
+              continue;
+            }
             try {
               await fetchWithRetry(`${SUPABASE_URL}/functions/v1/generate-visual`, {
                 method: "POST",
