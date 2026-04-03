@@ -1,39 +1,38 @@
 
 
-## Plan : Planification amelioree + visuels qui correspondent aux publications
+## Plan : Diversité garantie des types de posts + Page Engagement fonctionnelle
 
-### Probleme 1 : Planification peu pratique
+### Problème 1 : L'Autopilot génère des doublons de type
 
-Le champ `datetime-local` actuel est minuscule (ligne 307-312) et difficile a utiliser. Il faut un systeme de planification plus clair avec un Popover contenant un calendrier + selecteur d'heure.
+**Cause racine** : La logique de distribution des slots (lignes 101-114 de `autopilot-run`) utilise `Math.round` sur les pourcentages du content mix, ce qui produit des doublons. Par exemple, avec 4 posts et un mix 30/25/25/20, on obtient news×1, tutorial×1, viral×1, storytelling×1 — mais si le mix est 50/20/20/10, on peut avoir news×2, tutorial×1, viral×1.
 
-**Fix** : Remplacer l'input `datetime-local` par un bouton "Planifier" qui ouvre un Popover avec :
-- Un calendrier Shadcn (composant deja present)
-- Un selecteur d'heure (dropdown avec creneaux : 8h, 9h, 10h... 20h)
-- Un bouton de confirmation
-- Possibilite de replanifier un post deja scheduled (changer la date/heure)
+**Fix** : Remplacer la logique de distribution par une règle simple : chaque type actif dans le mix (pourcentage > 0) reçoit exactement 1 slot, puis les slots restants sont distribués aux types avec le plus gros pourcentage, sans jamais dépasser 1 de plus que les autres. Si `posts_per_day = 4` et 4 types actifs → 1 de chaque. Si `posts_per_day = 2` et 4 types actifs → prendre les 2 types avec le plus gros pourcentage.
 
-### Probleme 2 : Photos ne correspondent pas aux publications
+De plus, renforcer le prompt IA pour exiger une créativité maximale et des posts radicalement différents les uns des autres.
 
-**Cause racine** : La colonne `post_type` n'existe PAS dans la table `suggested_posts`. Le code `generate-visual` lit `post.post_type` (ligne 105) qui est toujours `undefined` → `""`. Donc TOUS les visuels utilisent le prompt generique, sans adapter le style au type de contenu.
+### Problème 2 : La page Engagement ne fonctionne pas
 
-**Fix en 2 parties** :
+**Cause** : La page Engagement (`EngagementPage.tsx`) est la page d'auto-engagement (likes/DM automatiques). Ce n'est pas la page qui affiche les statistiques de performance des posts. Les stats de performance (likes, commentaires, impressions) sont gérées par `fetch-post-stats` qui écrit dans `post_performance` sur `suggested_posts`. 
 
-1. **Ajouter la colonne `post_type`** a `suggested_posts` (migration SQL) — type `text`, nullable, default null
-2. **Mettre a jour `generate-posts`** pour remplir `post_type` lors de la generation (il connait deja le type via le calendrier editorial)
-3. **Ameliorer `generate-visual`** : si `post_type` est null, deduire le type depuis le `topic` ou le contenu du post (recherche de mots-cles comme "storytelling", "viral", "tuto", "news")
+Le problème est que `fetch-post-stats` n'est probablement jamais appelé automatiquement, et la réconciliation textuelle (match par les 80 premiers caractères) peut échouer si le contenu est légèrement modifié lors de la publication.
 
-### Fichiers a modifier
+**Fix** : 
+1. Stocker le `unipile_post_id` retourné par Unipile lors de la publication dans `publish-scheduled-post` → le sauvegarder dans `suggested_posts` (ajouter la colonne si absente)
+2. Dans `fetch-post-stats`, matcher d'abord par `unipile_post_id` (exact), puis par contenu en fallback
+3. Appeler `fetch-post-stats` automatiquement via le cron existant ou un nouveau cron dédié
+
+### Fichiers à modifier
 
 | Fichier | Action |
 |---------|--------|
-| Migration SQL | Ajouter colonne `post_type` a `suggested_posts` |
-| `supabase/functions/generate-posts/index.ts` | Remplir `post_type` lors de l'insertion |
-| `supabase/functions/generate-visual/index.ts` | Fallback : deduire le type depuis topic/content si `post_type` est null |
-| `src/pages/SuggestedPostsPage.tsx` | Remplacer input datetime par Popover calendrier + heure ; permettre replanification |
+| `supabase/functions/autopilot-run/index.ts` | Nouvelle logique de slots : 1 type unique par slot, prompt créativité renforcé |
+| `supabase/functions/fetch-post-stats/index.ts` | Matcher par `unipile_post_id` d'abord, filtrer par `user_id` |
+| `supabase/functions/publish-scheduled-post/index.ts` | Sauvegarder le `unipile_post_id` retourné dans `suggested_posts` |
+| Migration SQL | Ajouter colonne `unipile_post_id` à `suggested_posts` si absente + cron pour fetch-post-stats |
 
 ### Section technique
 
-- La deduction de type utilisera des regexps simples sur le contenu/topic : si contient "histoire"/"parcours" → storytelling, "astuce"/"etapes"/"comment" → tutorial, "actualite"/"etude" → news, etc.
-- Le Popover de planification utilisera le composant Calendar existant + un Select pour l'heure
-- Les posts deja scheduled auront un bouton "Replanifier" qui reouvre le meme Popover
+- Distribution des slots : trier les types actifs par poids décroissant, assigner round-robin jusqu'à remplir `posts_per_day`, chaque type ne peut apparaître qu'une seule fois tant que tous les types n'ont pas eu leur slot
+- Le prompt IA recevra une instruction explicite : "Chaque post DOIT être radicalement différent — sujet différent, angle différent, structure différente, ton différent"
+- `fetch-post-stats` sera appelé toutes les 30 minutes par un cron `pg_cron` pour synchroniser les stats en continu
 
