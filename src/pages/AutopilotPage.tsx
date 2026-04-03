@@ -216,6 +216,19 @@ export default function AutopilotPage() {
         </div>
       </div>
 
+      {/* Progress Bar */}
+      {runProgress && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-primary">{runProgress.label}</span>
+              <span className="text-sm font-bold text-primary">{runProgress.percent}%</span>
+            </div>
+            <Progress value={runProgress.percent} className="h-3" />
+          </CardContent>
+        </Card>
+      )}
+
       {/* Section 1: Essentiel */}
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
