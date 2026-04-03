@@ -6,7 +6,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
-import { PenLine, Loader2, Copy, Calendar, Check, Sparkles, ImageIcon, RefreshCw, ChevronDown, Images, Trash2, Send, CalendarCheck, Clock } from "lucide-react";
+import { PenLine, Loader2, Copy, Calendar, Check, Sparkles, ImageIcon, RefreshCw, ChevronDown, Images, Trash2, Send, CalendarCheck, Clock, ImagePlus } from "lucide-react";
+import ChangeImageDialog from "@/components/posts/ChangeImageDialog";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
@@ -26,6 +27,7 @@ export default function SuggestedPostsPage() {
   const [publishingId, setPublishingId] = useState<string | null>(null);
   const [isSchedulingAll, setIsSchedulingAll] = useState(false);
   const [scheduleInputs, setScheduleInputs] = useState<Record<string, string>>({});
+  const [changingImagePostId, setChangingImagePostId] = useState<string | null>(null);
 
   const { data: posts, refetch } = useQuery({
     queryKey: ["suggested-posts", user?.id],
@@ -295,7 +297,10 @@ export default function SuggestedPostsPage() {
                     <Button size="sm" variant="outline" onClick={() => { setEditingId(post.id); setEditContent(post.content); }}><PenLine className="h-3.5 w-3.5" /> Modifier</Button>
                     <Button size="sm" variant="outline" onClick={() => handleGenerateVisual(post.id)} disabled={generatingVisualId === post.id}>
                       {generatingVisualId === post.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : post.image_url ? <RefreshCw className="h-3.5 w-3.5" /> : <ImageIcon className="h-3.5 w-3.5" />}
-                      {post.image_url ? "Regénérer" : "Visuel"}
+                      {post.image_url ? "Regénérer" : "Visuel IA"}
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => setChangingImagePostId(post.id)}>
+                      <ImagePlus className="h-3.5 w-3.5" /> Changer
                     </Button>
                     {post.status === "draft" && (
                       <>
@@ -343,6 +348,7 @@ export default function SuggestedPostsPage() {
           </Card>
         )}
       </div>
+      <ChangeImageDialog postId={changingImagePostId} onClose={() => setChangingImagePostId(null)} onChanged={() => refetch()} />
     </div>
   );
 }
