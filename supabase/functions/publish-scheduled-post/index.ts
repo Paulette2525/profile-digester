@@ -150,6 +150,7 @@ serve(async (req) => {
             await supabase.from("suggested_posts").update({
               status: "published",
               published_at: new Date().toISOString(),
+              unipile_post_id: retryData.id || null,
             }).eq("id", post.id);
             results.push({ id: post.id, success: true, linkedin_post_id: retryData.id, note: "published without image" });
             continue;
