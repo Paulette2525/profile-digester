@@ -56,6 +56,11 @@ serve(async (req) => {
 
     const results: any[] = [];
 
+    // Helper to update progress
+    const updateProgress = async (configId: string, step: string, percent: number, label: string) => {
+      await supabase.from("autopilot_config").update({ run_progress: { step, percent, label } }).eq("id", configId);
+    };
+
     for (const config of configs) {
       const userId = config.user_id;
 
@@ -66,6 +71,9 @@ serve(async (req) => {
       }
 
       try {
+        // Progress: loading memory
+        await updateProgress(config.id, "loading_memory", 10, "Chargement de la mémoire...");
+
         // 1. Load Memory
         const { data: memory } = await supabase
           .from("user_memory")
