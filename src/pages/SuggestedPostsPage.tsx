@@ -348,6 +348,7 @@ export default function SuggestedPostsPage() {
           </Card>
         )}
       </div>
+      <ChangeImageDialog postId={changingImagePostId} onClose={() => setChangingImagePostId(null)} onChanged={() => refetch()} />
     </div>
   );
 }
