@@ -1,61 +1,44 @@
 
 
-## Plan : Controle du mix de contenu, visuels realistes, banque d'images personnelles
+## Plan : Upload multiple photos + generation de variantes IA depuis vos photos
 
-### 1. ContentMixCard — Donner un vrai controle
+### 1. Upload multi-photos sur la page Memoire
 
-**Probleme** : Les sliders redistribuent automatiquement les pourcentages entre les autres types quand on bouge un slider, ce qui rend le controle frustrant — on ne peut pas fixer un type a 0% sans que les autres bougent.
+**Actuellement** : L'input file n'accepte qu'une seule photo a la fois (`type="file"` sans `multiple`).
 
-**Fix** : Ajouter un toggle ON/OFF par type de contenu. Quand un type est desactive (OFF), son pourcentage passe a 0% et il est exclu de la redistribution. Seuls les types actifs se partagent les 100%. Cela permet de desactiver completement un type sans le voir revenir.
+**Fix** : Ajouter `multiple` a l'input file. La fonction `handlePhotoUpload` sera refactoree pour iterer sur `e.target.files` et uploader chaque fichier en parallele avec la meme description et categorie. Un compteur de progression montrera "3/5 photos uploadees...".
 
-Fichier : `src/components/autopilot/ContentMixCard.tsx`
+Fichier : `src/pages/MemoirePage.tsx`
 
-### 2. Visuels generes — Qualite realiste et professionnelle
+### 2. Generation de variantes realistes depuis vos photos
 
-**Probleme** : Le prompt actuel dans `generate-visual` demande un "infographic, bold typography, minimalist" — ce qui produit des visuels generiques a l'aspect IA evident.
+**Concept** : Quand l'autopilot genere un visuel pour un post Viral ou Storytelling, au lieu de creer une image de zero, il prendra une de vos photos personnelles et la passera au modele IA en mode **edit** pour generer une variante contextuelle realiste (meme personne, cadrage different, atmosphere adaptee au post).
 
-**Fix** : Recrire le prompt pour demander des visuels photographiques realistes :
-- Remplacer "infographic, bold typography" par "photorealistic, editorial photography style, natural lighting"
-- Utiliser le modele `google/gemini-3-pro-image-preview` (meilleure qualite) au lieu de `gemini-3.1-flash-image-preview`
-- Adapter le prompt selon le type de post :
-  - **News** : photo editoriale professionnelle, style magazine
-  - **Tuto** : mise en scene realiste d'un espace de travail ou ecran
-  - **Viral** : photo emotionnelle et percutante, style photojournalisme
-  - **Storytelling** : photo atmospherique, portraits, moments de vie
-- Supprimer toute mention de texte dans l'image (les textes IA dans les images sont toujours mauvais)
+**Implementation dans `generate-visual/index.ts`** :
+- Avant de generer une image from scratch, verifier s'il existe des photos utilisateur avec `photo_category` = `viral` ou `storytelling` (selon le type du post)
+- Si une photo existe, utiliser le mode **edit-image** de l'AI gateway : envoyer la photo originale + un prompt d'editing contextuel ("Enhance this photo with dramatic cinematic lighting for a powerful LinkedIn post about {topic}")
+- Si aucune photo utilisateur, generer normalement comme avant
+- Le prompt d'editing gardera le style realiste et professionnel
 
-Fichier : `supabase/functions/generate-visual/index.ts`
+**Prompt d'editing selon le type** :
+- **Viral** : "Transform this photo into a powerful, emotionally impactful editorial shot. Add dramatic lighting, cinematic depth of field. Keep the person natural and authentic. Context: {topic}"
+- **Storytelling** : "Enhance this photo with warm golden hour atmosphere, documentary style. Make it feel like a candid life moment. Keep the person natural. Context: {topic}"
 
-### 3. Memoire — Remplacer "Idees de publication" par "Mes visuels pour publications"
+### 3. Modification autopilot-run
 
-**Probleme** : La section "Idees de publications" en bas de Memoire est redondante avec la page `/idees` (Boite a idees) qui fait deja ce travail plus completement.
-
-**Fix** : Supprimer la section "Idees de publications" de MemoirePage et la remplacer par une section **"Mes visuels (Viral & Storytelling)"** :
-- Upload d'images avec description et tag de type (`viral` ou `storytelling`)
-- Ces images seront utilisees en priorite par l'autopilot pour les posts Viral et Storytelling au lieu de generer des visuels IA
-- Ajouter une colonne `photo_category` (text, nullable) a la table `user_photos` pour distinguer les photos generales des photos de publication
-- L'autopilot-run verifiera s'il y a des photos tagees `viral`/`storytelling` avant de lancer la generation visuelle IA pour ces types
-
-### Migration SQL
-
-```sql
-ALTER TABLE public.user_photos ADD COLUMN IF NOT EXISTS photo_category text DEFAULT null;
-```
-
-### Modification autopilot-run
-
-Pour les posts de type `viral` ou `storytelling` :
-1. Chercher d'abord une photo utilisateur avec `photo_category` correspondant
-2. Si trouvee, l'utiliser directement (pas de generation IA)
-3. Sinon, generer le visuel IA comme avant
+Le flux existant dans `autopilot-run` qui assigne des photos utilisateur aux posts viral/storytelling reste inchange. La nouveaute est dans `generate-visual` : quand il est appele pour un post sans image pre-assignee, il cherchera quand meme les photos utilisateur pour les utiliser comme base d'editing IA plutot que de generer from scratch.
 
 ### Fichiers a modifier
 
 | Fichier | Action |
 |---------|--------|
-| `src/components/autopilot/ContentMixCard.tsx` | Ajouter toggle ON/OFF par type |
-| `supabase/functions/generate-visual/index.ts` | Prompt realiste + modele pro |
-| `src/pages/MemoirePage.tsx` | Remplacer section idees par banque visuels viral/storytelling |
-| Migration SQL | Ajouter `photo_category` a `user_photos` |
-| `supabase/functions/autopilot-run/index.ts` | Utiliser photos utilisateur pour viral/storytelling |
+| `src/pages/MemoirePage.tsx` | Input `multiple` + upload en batch |
+| `supabase/functions/generate-visual/index.ts` | Mode edit-image avec photos utilisateur |
+
+### Section technique
+
+- L'upload multiple utilisera `Promise.all` avec un `map` sur `FileList`
+- Le mode edit-image utilise le meme endpoint AI gateway mais avec le champ `image_url` dans le message content (format multipart image + texte)
+- La photo utilisateur est recuperee via son URL publique dans le bucket `user-photos`
+- Si l'editing echoue (ex: modele refuse), fallback sur la generation classique
 
