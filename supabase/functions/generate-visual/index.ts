@@ -52,7 +52,7 @@ function buildImagePrompt(post: any): string {
 function buildEditPrompt(post: any): string {
   const topic = post.topic || "professional";
   const contentPreview = (post.content || "").substring(0, 150);
-  const postType = post.post_type || "";
+  const postType = inferPostType(post);
 
   if (postType === "viral") {
     return `Transform this photo into a powerful, emotionally impactful editorial shot. Add dramatic cinematic lighting, strong depth of field, and professional color grading. Keep the person natural and authentic. Do not add any text or typography. Context: "${topic}" — "${contentPreview}"`;

@@ -289,6 +289,7 @@ serve(async (req) => {
         user_id: userId,
         image_url: ideaImage || (usePhoto ? photoUrls[Math.floor(Math.random() * photoUrls.length)] : null),
         scheduled_at: scheduledAt,
+        post_type: p.post_type || calendarSlot?.type || null,
       };
     });
 
