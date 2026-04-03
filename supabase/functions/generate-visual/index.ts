@@ -28,6 +28,57 @@ function inferPostType(post: any): string {
   return "personal_branding";
 }
 
+// === RANDOM VARIATION POOLS (for edit mode on viral/storytelling) ===
+const environments = [
+  "a sunlit Parisian café terrace with wrought-iron chairs and espresso cups",
+  "a sleek modern rooftop overlooking a city skyline at dusk",
+  "a lush zen garden with stone pathways and bamboo water features",
+  "a creative studio filled with art canvases, warm Edison bulbs, and exposed brick",
+  "a grand old library with leather-bound books and oak reading tables",
+  "a beachside boardwalk at sunrise with golden sand and gentle waves",
+  "a contemporary co-working space with floor-to-ceiling windows and plants",
+  "a mountain lodge with panoramic views of snow-capped peaks",
+  "a vibrant street market with colorful stalls and warm ambient light",
+  "a minimalist Scandinavian apartment with white walls and natural wood",
+];
+
+const lightings = [
+  "golden hour sunlight streaming from the left, creating warm rim lighting and long soft shadows",
+  "dramatic blue hour twilight with deep indigo skies and city lights reflecting",
+  "soft overcast diffused light creating even, gentle illumination without harsh shadows",
+  "high-contrast studio lighting with a single key light creating sculptural shadows",
+  "rainy day with moody atmospheric light filtering through rain-streaked windows",
+  "early morning dawn with pink and orange tones breaking through mist",
+  "candlelit warm glow with intimate, low-key lighting and soft bokeh highlights",
+  "bright midday Mediterranean sun with vivid colors and crisp shadows",
+];
+
+const outfits = [
+  "wearing an elegant tailored navy suit with a crisp white shirt, no tie",
+  "dressed in casual chic: premium black turtleneck and well-fitted jeans",
+  "sporting a sophisticated earth-toned blazer over a simple crew-neck tee",
+  "in relaxed weekend style: linen shirt rolled at the sleeves, natural tones",
+  "wearing a sleek all-black ensemble with a leather jacket and minimalist accessories",
+  "dressed in smart-casual: oxford button-down, chinos, and clean white sneakers",
+  "in creative professional attire: patterned shirt, dark vest, confident accessories",
+  "wearing a warm knit sweater in rich burgundy, comfortable and approachable",
+];
+
+const moods = [
+  "looking confidently at the camera with a genuine, warm smile",
+  "captured mid-gesture while speaking passionately, eyes lit up with conviction",
+  "gazing thoughtfully into the distance, contemplating a big decision",
+  "laughing naturally, caught in an authentic moment of joy",
+  "leaning forward with focused intensity, deeply engaged in conversation",
+  "standing tall with arms crossed, exuding quiet authority and calm confidence",
+  "walking purposefully through the scene, mid-stride, dynamic energy",
+  "sitting relaxed with one hand on chin, intellectual curiosity radiating",
+];
+
+function pick<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
 function buildImagePrompt(post: any): string {
   const contentPreview = (post.content || "").substring(0, 500);
   const topic = post.topic || "professional development";
@@ -100,25 +151,24 @@ function buildEditPrompt(post: any): string {
   const contentPreview = (post.content || "").substring(0, 400);
   const postType = inferPostType(post);
 
+  // Randomize environment, lighting, outfit, mood for EVERY call
+  const env = pick(environments);
+  const light = pick(lightings);
+  const outfit = pick(outfits);
+  const mood = pick(moods);
+
   const baseEditRules = `CRITICAL: Keep the person's face and body completely natural and recognizable — do NOT alter facial features or body proportions. Do NOT add any text, typography, watermarks, or logos. The result must look like a real photograph, not AI-generated.`;
 
-  if (postType === "tutorial") {
-    return `Transform this photo into a professional tutorial cover image. Place the person in a clean, modern workspace environment that relates to "${topic}". Add soft natural window lighting from the left, create a shallow depth of field effect. The background should suggest a professional learning environment (modern office, whiteboard, or screen visible but blurred). Apply warm, inviting color grading. Context: "${contentPreview}". ${baseEditRules}`;
-  }
-
-  if (postType === "news" || postType === "news_analysis") {
-    return `Transform this photo into a striking editorial magazine-style image. Apply dramatic, high-contrast lighting with cool blue tones reminiscent of Bloomberg or The Economist photography. Add depth with strong directional shadows. The mood should feel authoritative and professional, fitting a news story about "${topic}". Context: "${contentPreview}". ${baseEditRules}`;
-  }
-
   if (postType === "viral") {
-    return `Transform this photo into a powerful, emotionally impactful editorial shot worthy of a photojournalism award. Apply dramatic chiaroscuro lighting — strong contrast between light and shadow. Add cinematic color grading with slightly desaturated tones and one warm accent. Create a sense of raw authenticity and emotional intensity that connects to "${topic}". Context: "${contentPreview}". ${baseEditRules}`;
+    return `Transform this photo into a powerful, emotionally impactful editorial shot. Place the person in ${env}. They should be ${mood}, ${outfit}. Apply ${light}. The mood should feel raw, authentic and intensely connected to "${topic}". Cinematic color grading with slightly desaturated tones and one warm accent. Context: "${contentPreview}". ${baseEditRules}`;
   }
 
   if (postType === "storytelling") {
-    return `Transform this photo into an atmospheric, cinematic golden hour shot. Add warm, directional sunlight creating rim lighting and long shadows. Apply film-like color science with rich warm tones and a gentle fade in the shadows. The mood should feel intimate, contemplative, and deeply personal — like capturing a decisive life moment related to "${topic}". Context: "${contentPreview}". ${baseEditRules}`;
+    return `Transform this photo into an atmospheric, cinematic shot that tells a story. Place the person in ${env}. They should be ${mood}, ${outfit}. Apply ${light}. The scene should feel intimate and deeply personal — like capturing a decisive life moment related to "${topic}". Film-like color science with rich tones and a gentle fade in the shadows. Context: "${contentPreview}". ${baseEditRules}`;
   }
 
-  return `Enhance this photo with professional editorial lighting, cinematic color grading, and magazine-quality finish. Keep it natural and authentic. The mood should match the topic: "${topic}". Context: "${contentPreview}". ${baseEditRules}`;
+  // Fallback (shouldn't be called for other types, but just in case)
+  return `Enhance this photo with professional editorial lighting and cinematic color grading. Place the person in ${env}, ${outfit}, ${mood}. Apply ${light}. The mood should match "${topic}". Context: "${contentPreview}". ${baseEditRules}`;
 }
 
 function extractBase64Image(aiData: any): string | null {
@@ -174,9 +224,12 @@ serve(async (req) => {
     const postType = inferPostType(post);
     const userId = post.user_id;
 
-    // Search user photos for ALL post types (not just viral/storytelling)
+    // ONLY search user photos for viral and storytelling types
     let userPhotoUrl: string | null = null;
-    if (userId) {
+    const usePersonalPhoto = postType === "viral" || postType === "storytelling";
+
+    if (usePersonalPhoto && userId) {
+      // First try category-specific photos
       const { data: userPhotos } = await supabase
         .from("user_photos")
         .select("image_url")
@@ -188,26 +241,26 @@ serve(async (req) => {
       if (userPhotos && userPhotos.length > 0) {
         userPhotoUrl = userPhotos[Math.floor(Math.random() * userPhotos.length)].image_url;
       }
-    }
 
-    // Fallback: general photos (no category)
-    if (!userPhotoUrl && userId) {
-      const { data: generalPhotos } = await supabase
-        .from("user_photos")
-        .select("image_url")
-        .eq("user_id", userId)
-        .is("photo_category", null)
-        .order("created_at", { ascending: false })
-        .limit(10);
+      // Fallback: general photos (no category)
+      if (!userPhotoUrl) {
+        const { data: generalPhotos } = await supabase
+          .from("user_photos")
+          .select("image_url")
+          .eq("user_id", userId)
+          .is("photo_category", null)
+          .order("created_at", { ascending: false })
+          .limit(10);
 
-      if (generalPhotos && generalPhotos.length > 0) {
-        userPhotoUrl = generalPhotos[Math.floor(Math.random() * generalPhotos.length)].image_url;
+        if (generalPhotos && generalPhotos.length > 0) {
+          userPhotoUrl = generalPhotos[Math.floor(Math.random() * generalPhotos.length)].image_url;
+        }
       }
     }
 
     let imageBase64: string | null = null;
 
-    // Mode 1: Edit-image using user's photo as base
+    // Mode 1: Edit-image using user's photo — ONLY for viral/storytelling
     if (userPhotoUrl) {
       console.log("Using edit-image mode with user photo for post:", post_id, "type:", postType);
       const editPrompt = buildEditPrompt(post);
@@ -244,7 +297,7 @@ serve(async (req) => {
       }
     }
 
-    // Mode 2: Generate from scratch (fallback)
+    // Mode 2: Generate from scratch (for tutorial, news, personal_branding, or fallback)
     if (!imageBase64) {
       const imagePrompt = buildImagePrompt(post);
       console.log("Generating image from scratch for post:", post_id, "type:", postType);
