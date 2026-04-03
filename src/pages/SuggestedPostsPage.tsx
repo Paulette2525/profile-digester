@@ -27,6 +27,7 @@ export default function SuggestedPostsPage() {
   const [publishingId, setPublishingId] = useState<string | null>(null);
   const [isSchedulingAll, setIsSchedulingAll] = useState(false);
   const [scheduleInputs, setScheduleInputs] = useState<Record<string, string>>({});
+  const [changingImagePostId, setChangingImagePostId] = useState<string | null>(null);
 
   const { data: posts, refetch } = useQuery({
     queryKey: ["suggested-posts", user?.id],
