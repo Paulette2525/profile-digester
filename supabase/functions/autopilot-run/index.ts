@@ -364,6 +364,9 @@ Si tu ne trouves pas de news des dernières 24h, cherche celles des 48h-72h dern
         userPrompt += `📋 ASSIGNATION DES TYPES PAR POST (RESPECTER OBLIGATOIREMENT) :\n${slotDescriptions}\n\n`;
         userPrompt += `Génère exactement ${postSlots.length} posts en respectant le type assigné à chacun.`;
 
+        // Progress: generating posts
+        await updateProgress(config.id, "generating_posts", 50, "Génération IA des posts...");
+
         // 9. Call AI
         const aiRes = await fetchWithRetry("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
