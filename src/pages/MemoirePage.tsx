@@ -184,65 +184,6 @@ export default function MemoirePage() {
     }
   };
 
-  // ---- Ideas ----
-  const { data: ideas, isLoading: ideasLoading } = useQuery({
-    queryKey: ["content-ideas"],
-    staleTime: 1000 * 60 * 10,
-    queryFn: async () => {
-      const { data, error } = await supabase.from("content_ideas").select("*").order("created_at", { ascending: false });
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  const [newIdea, setNewIdea] = useState("");
-  const [ideaUploading, setIdeaUploading] = useState(false);
-
-  const addIdea = async (imageFile?: File) => {
-    if (!newIdea.trim()) return;
-    let imageUrl: string | null = null;
-    if (imageFile) {
-      setIdeaUploading(true);
-      try {
-        const ext = imageFile.name.split(".").pop();
-        const path = `ideas/${crypto.randomUUID()}.${ext}`;
-        const { error: uploadErr } = await supabase.storage.from("user-photos").upload(path, imageFile);
-        if (uploadErr) throw uploadErr;
-        const { data: urlData } = supabase.storage.from("user-photos").getPublicUrl(path);
-        imageUrl = urlData.publicUrl;
-      } catch (err: any) {
-        toast.error("Erreur upload image: " + err.message);
-        setIdeaUploading(false);
-        return;
-      }
-    }
-    const { error } = await supabase.from("content_ideas").insert({ idea_text: newIdea.trim(), image_url: imageUrl, user_id: user?.id } as any);
-    if (error) { toast.error(error.message); setIdeaUploading(false); return; }
-    toast.success("Idée ajoutée !");
-    setNewIdea("");
-    setIdeaUploading(false);
-    queryClient.invalidateQueries({ queryKey: ["content-ideas"] });
-  };
-
-  const uploadIdeaImage = async (ideaId: string, file: File) => {
-    try {
-      const ext = file.name.split(".").pop();
-      const path = `ideas/${crypto.randomUUID()}.${ext}`;
-      const { error: uploadErr } = await supabase.storage.from("user-photos").upload(path, file);
-      if (uploadErr) throw uploadErr;
-      const { data: urlData } = supabase.storage.from("user-photos").getPublicUrl(path);
-      await supabase.from("content_ideas").update({ image_url: urlData.publicUrl } as any).eq("id", ideaId);
-      queryClient.invalidateQueries({ queryKey: ["content-ideas"] });
-      toast.success("Image associée !");
-    } catch (err: any) {
-      toast.error(err.message);
-    }
-  };
-
-  const deleteIdea = async (id: string) => {
-    await supabase.from("content_ideas").delete().eq("id", id);
-    queryClient.invalidateQueries({ queryKey: ["content-ideas"] });
-  };
 
   const [listeningField, setListeningField] = useState<string | null>(null);
   const [optimizingField, setOptimizingField] = useState<string | null>(null);

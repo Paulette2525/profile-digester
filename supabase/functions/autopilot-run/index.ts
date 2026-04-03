@@ -224,8 +224,10 @@ Si tu ne trouves pas de news des dernières 24h, cherche celles des 48h-72h dern
           .limit(1)
           .maybeSingle();
 
-        // 7. Load photos and ideas
+        // 7. Load photos (with category) and ideas
         const { data: photos } = await supabase.from("user_photos").select("*").eq("user_id", userId);
+        const { data: viralPhotos } = await supabase.from("user_photos").select("*").eq("user_id", userId).eq("photo_category", "viral");
+        const { data: storytellingPhotos } = await supabase.from("user_photos").select("*").eq("user_id", userId).eq("photo_category", "storytelling");
         const { data: ideas } = await supabase.from("content_ideas").select("*").eq("user_id", userId).eq("used", false).limit(config.posts_per_day);
 
         // Check for ideas with resource URLs (for auto DM rules)
