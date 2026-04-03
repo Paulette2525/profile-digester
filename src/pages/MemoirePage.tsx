@@ -430,10 +430,23 @@ export default function MemoirePage() {
             <CardDescription>Photos personnelles à utiliser dans vos publications</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex gap-2 items-end">
-              <div className="flex-1 space-y-1.5">
+            <div className="flex gap-2 items-end flex-wrap">
+              <div className="flex-1 min-w-[200px] space-y-1.5">
                 <Label>Description (optionnelle)</Label>
                 <Input value={photoDesc} onChange={e => setPhotoDesc(e.target.value)} placeholder="Photo de conférence, portrait pro…" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Usage</Label>
+                <Select value={photoCategory} onValueChange={setPhotoCategory}>
+                  <SelectTrigger className="w-[160px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="general">Général</SelectItem>
+                    <SelectItem value="viral">Viral</SelectItem>
+                    <SelectItem value="storytelling">Storytelling</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label htmlFor="photo-upload" className="cursor-pointer">
@@ -454,7 +467,12 @@ export default function MemoirePage() {
                     <button onClick={() => deletePhoto(p.id, p.image_url)} className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <X className="h-3 w-3" />
                     </button>
-                    {p.description && <p className="text-xs p-1.5 text-muted-foreground truncate">{p.description}</p>}
+                    <div className="p-1.5">
+                      {(p as any).photo_category && (
+                        <Badge variant="secondary" className="text-xs mb-1">{(p as any).photo_category}</Badge>
+                      )}
+                      {p.description && <p className="text-xs text-muted-foreground truncate">{p.description}</p>}
+                    </div>
                   </div>
                 ))}
               </div>
