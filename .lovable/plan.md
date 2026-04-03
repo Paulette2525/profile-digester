@@ -1,52 +1,43 @@
 
 
-## Plan : Visuels ultra-realistes et contextualises avec Nano Banana 2
+## Plan : Barre de progression en temps reel pour l'execution Autopilot
 
-### Problemes identifies
+### Probleme
 
-1. **Prompts trop generiques** : Les prompts actuels sont courts et vagues — ils mentionnent le topic et 200 caracteres de contenu, mais ne decrivent pas concretement la scene a illustrer. Un tuto sur "comment negocier un salaire" recoit le meme style generique qu'un tuto sur "utiliser Notion".
+Quand on clique "Executer", la page affiche un simple spinner (`Loader2 animate-spin`) pendant toute la duree (qui peut etre longue : Perplexity + AI generation + visuels). Aucun retour sur l'etape en cours ni le pourcentage d'avancement.
 
-2. **Modele sous-optimal** : Le code utilise `google/gemini-3-pro-image-preview` partout. Le modele `google/gemini-3.1-flash-image-preview` (Nano Banana 2) est plus rapide avec une qualite pro equivalente.
+### Solution
 
-3. **Photos utilisateur limitees au viral/storytelling** : Le code ne cherche les photos utilisateur que pour `viral` et `storytelling` (ligne 121). Pour les news et tutos, aucune photo perso n'est utilisee meme si l'utilisateur en a.
+La fonction edge `autopilot-run` ne peut pas streamer de progression en temps reel via HTTP classique. On va utiliser la table `autopilot_config` comme canal de progression : la fonction edge ecrira l'etape en cours dans un nouveau champ `run_progress` (jsonb), et le frontend interrogera ce champ en polling toutes les 2 secondes.
 
-4. **Prompts d'edition trop simples** : Le prompt d'edit-image dit juste "enhance this photo" sans decrire la scene concrete liee au contenu du post.
+**Etapes de progression definies :**
+1. `loading_memory` — Chargement memoire et profil (10%)
+2. `fetching_trends` — Veille Perplexity (25%)
+3. `generating_posts` — Generation IA des posts (50%)
+4. `generating_visuals` — Generation des visuels (75%)
+5. `finalizing` — Sauvegarde et planification (90%)
+6. `done` — Termine (100%)
 
-### Solutions
+### Modifications
 
-**1. Prompts de generation radicalement ameliores**
+**Migration SQL** : Ajouter colonne `run_progress` (jsonb, nullable, default null) a `autopilot_config`. Format : `{ "step": "generating_posts", "percent": 50, "label": "Generation des posts..." }`
 
-Remplacement complet de `buildImagePrompt` avec des prompts ultra-detailles par type :
+**`supabase/functions/autopilot-run/index.ts`** : Ajouter des appels `supabase.from("autopilot_config").update({ run_progress: {...} })` a chaque etape cle du pipeline. Remettre a null a la fin.
 
-- **Tutorial** : Decrire une scene concrete illustrant le sujet (ex: "une personne en train de presenter un framework sur un whiteboard dans un bureau moderne, vue en contre-plongee, lumiere naturelle laterale"). Integrer le topic ET le contenu pour que le visuel soit specifique.
-- **News** : Scene editoriale type magazine avec elements visuels du sujet, tons bleus de la marque, ambiance presse professionnelle.
-- **Viral** : Moment humain fort, composition cinematographique, emotion palpable, eclairage dramatique.
-- **Storytelling** : Ambiance documentaire authentique, lumiere golden hour, moment de vie captivant.
-
-Le prompt enverra 500 caracteres du contenu (au lieu de 200) pour que l'IA comprenne mieux le sujet.
-
-**2. Passer au modele Nano Banana 2**
-
-Remplacer `google/gemini-3-pro-image-preview` par `google/gemini-3.1-flash-image-preview` dans les deux modes (generation et edition). Plus rapide, qualite pro.
-
-**3. Utiliser les photos utilisateur pour TOUS les types**
-
-Elargir la recherche de photos utilisateur a tous les types de posts (pas seulement viral/storytelling). Si l'utilisateur a uploade des photos, elles seront utilisees comme base pour tous les visuels, retravaillees par l'IA selon le contexte du post.
-
-**4. Prompts d'edition contextualises**
-
-Remplacement complet de `buildEditPrompt` avec des instructions precises qui decrivent la transformation souhaitee en fonction du contenu reel du post, pas juste "enhance".
-
-### Fichier a modifier
-
-| Fichier | Action |
-|---------|--------|
-| `supabase/functions/generate-visual/index.ts` | Refonte des prompts, modele Nano Banana 2, photos pour tous types |
+**`src/pages/AutopilotPage.tsx`** : Remplacer le spinner par une barre de progression animee avec le label de l'etape. Utiliser un `useEffect` avec `setInterval` de 2s qui re-fetch `run_progress` pendant que `running === true`. Afficher un composant `Progress` (deja dans shadcn) + le texte de l'etape.
 
 ### Section technique
 
-- `buildImagePrompt` : prompts de 300+ mots par type, incluant 500 chars du contenu, directives photographiques professionnelles (ouverture, focale, composition, lumiere), interdiction stricte de texte/watermark
-- `buildEditPrompt` : instructions detaillees decrivant comment retravailler la photo selon le sujet precis du post
-- Modele : `google/gemini-3.1-flash-image-preview` partout
-- Recherche photos : retirer la condition `postType === "viral" || postType === "storytelling"`, chercher pour tous types avec fallback sur photos sans categorie
+- Le polling s'arrete des que `run_progress` est null ou `percent === 100`
+- La fonction edge fait ~6 updates de progression (cout negligeable)
+- Le composant Progress de shadcn est deja disponible dans le projet
+- Pas de realtime necessaire, le polling a 2s suffit pour ce cas d'usage
+
+### Fichiers a modifier
+
+| Fichier | Action |
+|---------|--------|
+| Migration SQL | Ajouter `run_progress` jsonb a `autopilot_config` |
+| `supabase/functions/autopilot-run/index.ts` | Ecrire la progression a chaque etape |
+| `src/pages/AutopilotPage.tsx` | Afficher barre de progression + label en polling |
 
