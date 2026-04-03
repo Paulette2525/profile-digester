@@ -113,7 +113,7 @@ serve(async (req) => {
       .single();
     if (postErr || !post) throw new Error("Post not found");
 
-    const postType = (post as any).post_type || "";
+    const postType = inferPostType(post);
     const userId = post.user_id;
 
     // Try to find a user photo for edit-image mode (viral/storytelling)
