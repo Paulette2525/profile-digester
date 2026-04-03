@@ -1,50 +1,39 @@
 
 
-## Plan : Refonte du calendrier + precision horaire des publications
+## Plan : Planification amelioree + visuels qui correspondent aux publications
 
-### Problemes identifies
+### Probleme 1 : Planification peu pratique
 
-1. **Calendrier peu lisible** : Les posts sont de minuscules lignes de texte avec un point de couleur de 2px — impossible de distinguer visuellement publie/planifie/brouillon au premier coup d'oeil.
-2. **Dialog de detail trop basique** : Pas d'heure precise, pas d'actions (publier, annuler).
-3. **Requete SQL incorrecte** : Le double `.or()` ne filtre pas correctement par mois — des posts hors du mois courant peuvent apparaitre ou des posts du mois peuvent manquer.
-4. **Publications groupees au meme moment** : Le cron toutes les 5 min publie tout d'un coup. Pas de mecanisme pour espacer les publications.
+Le champ `datetime-local` actuel est minuscule (ligne 307-312) et difficile a utiliser. Il faut un systeme de planification plus clair avec un Popover contenant un calendrier + selecteur d'heure.
 
-### Solutions
+**Fix** : Remplacer l'input `datetime-local` par un bouton "Planifier" qui ouvre un Popover avec :
+- Un calendrier Shadcn (composant deja present)
+- Un selecteur d'heure (dropdown avec creneaux : 8h, 9h, 10h... 20h)
+- Un bouton de confirmation
+- Possibilite de replanifier un post deja scheduled (changer la date/heure)
 
-**1. Refonte visuelle du calendrier**
+### Probleme 2 : Photos ne correspondent pas aux publications
 
-- Remplacer les petits points par des **barres colorees pleines** avec fond colore par statut :
-  - Vert clair (`bg-green-100 border-l-4 border-green-500`) pour publie
-  - Bleu clair (`bg-blue-100 border-l-4 border-blue-500`) pour planifie
-  - Gris clair (`bg-gray-100 border-l-4 border-gray-400`) pour brouillon
-- Afficher l'heure a cote du titre (`09:00 - Mon post`)
-- Augmenter la hauteur des cellules pour mieux voir les posts
+**Cause racine** : La colonne `post_type` n'existe PAS dans la table `suggested_posts`. Le code `generate-visual` lit `post.post_type` (ligne 105) qui est toujours `undefined` → `""`. Donc TOUS les visuels utilisent le prompt generique, sans adapter le style au type de contenu.
 
-**2. Dialog de detail enrichi**
+**Fix en 2 parties** :
 
-- Afficher le badge de statut avec couleur forte
-- Montrer l'image en grand
-- Afficher l'heure exacte de programmation et de publication
-- Ajouter des boutons d'action : "Publier maintenant", "Annuler la planification" (pour les scheduled)
-- Permettre de naviguer entre les posts du meme jour
-
-**3. Corriger la requete SQL**
-
-La requete actuelle avec double `.or()` est incorrecte. Remplacer par une logique correcte :
-```
-.or(`scheduled_at.gte.${start},scheduled_at.lte.${end}`)
-.or(`published_at.gte.${start},published_at.lte.${end}`)
-```
-En realite il faut un filtre qui prend les posts dont la date pertinente tombe dans le mois. Utiliser une approche plus simple : recuperer tous les posts non-draft du user puis filtrer cote client, ou utiliser `.gte` et `.lte` sur chaque champ avec un `or` unique bien forme.
-
-**4. Publication a l'heure exacte (pas en batch)**
-
-Dans `publish-scheduled-post`, ajouter une fenetre de tolerance : ne publier que les posts dont `scheduled_at` est entre `now() - 6min` et `now()`. Cela evite de publier d'un coup tous les posts en retard. Si un post a ete rate (scheduled_at trop ancien), le marquer avec un statut `missed` ou le publier avec un delai entre chaque post (sleep 60s entre 2 posts).
+1. **Ajouter la colonne `post_type`** a `suggested_posts` (migration SQL) — type `text`, nullable, default null
+2. **Mettre a jour `generate-posts`** pour remplir `post_type` lors de la generation (il connait deja le type via le calendrier editorial)
+3. **Ameliorer `generate-visual`** : si `post_type` est null, deduire le type depuis le `topic` ou le contenu du post (recherche de mots-cles comme "storytelling", "viral", "tuto", "news")
 
 ### Fichiers a modifier
 
 | Fichier | Action |
 |---------|--------|
-| `src/pages/CalendarPage.tsx` | Refonte visuelle complete + dialog enrichi + fix requete |
-| `supabase/functions/publish-scheduled-post/index.ts` | Ajouter fenetre de tolerance + espacement entre posts |
+| Migration SQL | Ajouter colonne `post_type` a `suggested_posts` |
+| `supabase/functions/generate-posts/index.ts` | Remplir `post_type` lors de l'insertion |
+| `supabase/functions/generate-visual/index.ts` | Fallback : deduire le type depuis topic/content si `post_type` est null |
+| `src/pages/SuggestedPostsPage.tsx` | Remplacer input datetime par Popover calendrier + heure ; permettre replanification |
+
+### Section technique
+
+- La deduction de type utilisera des regexps simples sur le contenu/topic : si contient "histoire"/"parcours" → storytelling, "astuce"/"etapes"/"comment" → tutorial, "actualite"/"etude" → news, etc.
+- Le Popover de planification utilisera le composant Calendar existant + un Select pour l'heure
+- Les posts deja scheduled auront un bouton "Replanifier" qui reouvre le meme Popover
 
