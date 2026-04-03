@@ -99,18 +99,37 @@ serve(async (req) => {
             postSlots.push({ type: forcedType, instructions: typeInstructions[forcedType] });
           }
         } else {
-          const mixEntries = Object.entries(contentMix as Record<string, number>).filter(([_, v]) => v > 0);
-          const totalWeight = mixEntries.reduce((s, [_, v]) => s + v, 0);
-          let remaining = totalPosts;
-          mixEntries.forEach(([type, weight], idx) => {
-            const count = idx === mixEntries.length - 1
-              ? remaining
-              : Math.max(0, Math.round((weight / totalWeight) * totalPosts));
-            remaining -= count;
-            for (let i = 0; i < count; i++) {
+          // Sort active types by weight descending
+          const mixEntries = Object.entries(contentMix as Record<string, number>)
+            .filter(([_, v]) => v > 0)
+            .sort(([, a], [, b]) => b - a);
+
+          // Rule: each active type gets exactly 1 slot first (no duplicates until all types used)
+          // If posts_per_day < active types → pick top N by weight
+          // If posts_per_day > active types → distribute remaining round-robin by weight
+          const uniqueTypes = mixEntries.map(([type]) => type);
+          
+          if (totalPosts <= uniqueTypes.length) {
+            // Take the top N types by weight
+            for (let i = 0; i < totalPosts; i++) {
+              const type = uniqueTypes[i];
               postSlots.push({ type, instructions: typeInstructions[type] || typeInstructions.news });
             }
-          });
+          } else {
+            // First pass: one of each type
+            for (const type of uniqueTypes) {
+              postSlots.push({ type, instructions: typeInstructions[type] || typeInstructions.news });
+            }
+            // Remaining slots: round-robin by weight (each type max 1 extra vs others)
+            let extra = totalPosts - uniqueTypes.length;
+            let idx = 0;
+            while (extra > 0) {
+              const type = uniqueTypes[idx % uniqueTypes.length];
+              postSlots.push({ type, instructions: typeInstructions[type] || typeInstructions.news });
+              extra--;
+              idx++;
+            }
+          }
         }
 
         if (postSlots.length === 0) {
