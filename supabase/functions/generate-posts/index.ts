@@ -228,8 +228,9 @@ serve(async (req) => {
                       use_personal_photo: { type: "boolean" },
                       suggested_hour: { type: "number", description: "Heure optimale de publication (7-20)" },
                       length: { type: "string", enum: ["short", "medium", "long"], description: "Longueur du post" },
+                      post_type: { type: "string", enum: ["storytelling", "viral", "tutorial", "news", "personal_branding", "engagement"], description: "Type de contenu du post" },
                     },
-                    required: ["content", "topic", "virality_score", "suggested_hour", "length"],
+                    required: ["content", "topic", "virality_score", "suggested_hour", "length", "post_type"],
                   },
                 },
               },
@@ -288,6 +289,7 @@ serve(async (req) => {
         user_id: userId,
         image_url: ideaImage || (usePhoto ? photoUrls[Math.floor(Math.random() * photoUrls.length)] : null),
         scheduled_at: scheduledAt,
+        post_type: p.post_type || calendarSlot?.type || null,
       };
     });
 

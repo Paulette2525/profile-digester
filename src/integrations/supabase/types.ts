@@ -514,6 +514,7 @@ export type Database = {
           id: string
           image_url: string | null
           post_performance: Json | null
+          post_type: string | null
           published_at: string | null
           scheduled_at: string | null
           source_analysis_id: string | null
@@ -529,6 +530,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           post_performance?: Json | null
+          post_type?: string | null
           published_at?: string | null
           scheduled_at?: string | null
           source_analysis_id?: string | null
@@ -544,6 +546,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           post_performance?: Json | null
+          post_type?: string | null
           published_at?: string | null
           scheduled_at?: string | null
           source_analysis_id?: string | null

@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
-import { PenLine, Loader2, Copy, Calendar, Check, Sparkles, ImageIcon, RefreshCw, ChevronDown, Images, Trash2, Send, CalendarCheck, Clock, ImagePlus } from "lucide-react";
+import { PenLine, Loader2, Copy, Check, Sparkles, ImageIcon, RefreshCw, ChevronDown, Images, Trash2, Send, CalendarCheck, Clock, ImagePlus } from "lucide-react";
 import ChangeImageDialog from "@/components/posts/ChangeImageDialog";
+import SchedulePopover from "@/components/posts/SchedulePopover";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
@@ -26,7 +26,6 @@ export default function SuggestedPostsPage() {
   const [deleting, setDeleting] = useState(false);
   const [publishingId, setPublishingId] = useState<string | null>(null);
   const [isSchedulingAll, setIsSchedulingAll] = useState(false);
-  const [scheduleInputs, setScheduleInputs] = useState<Record<string, string>>({});
   const [changingImagePostId, setChangingImagePostId] = useState<string | null>(null);
 
   const { data: posts, refetch } = useQuery({
@@ -124,17 +123,8 @@ export default function SuggestedPostsPage() {
     else { toast.success("Post modifié !"); setEditingId(null); refetch(); }
   };
 
-  const handleSchedulePost = async (id: string) => {
-    const dateStr = scheduleInputs[id];
-    let scheduledAt: string;
-    if (dateStr) {
-      scheduledAt = new Date(dateStr).toISOString();
-    } else {
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      tomorrow.setHours(9, 0, 0, 0);
-      scheduledAt = tomorrow.toISOString();
-    }
+  const handleSchedulePost = async (id: string, date: Date) => {
+    const scheduledAt = date.toISOString();
     const { error } = await supabase.functions.invoke("schedule-posts", {
       body: { schedule: [{ post_id: id, scheduled_at: scheduledAt }] },
     });
@@ -303,18 +293,11 @@ export default function SuggestedPostsPage() {
                       <ImagePlus className="h-3.5 w-3.5" /> Changer
                     </Button>
                     {post.status === "draft" && (
-                      <>
-                        <Input
-                          type="datetime-local"
-                          value={scheduleInputs[post.id] || ""}
-                          onChange={(e) => setScheduleInputs(prev => ({ ...prev, [post.id]: e.target.value }))}
-                          className="w-auto h-8 text-xs"
-                        />
-                        <Button size="sm" variant="outline" onClick={() => handleSchedulePost(post.id)}><Calendar className="h-3.5 w-3.5" /> Planifier</Button>
-                      </>
+                      <SchedulePopover onSchedule={(date) => handleSchedulePost(post.id, date)} />
                     )}
                     {post.status === "scheduled" && (
                       <>
+                        <SchedulePopover onSchedule={(date) => handleSchedulePost(post.id, date)} existingDate={post.scheduled_at} />
                         <Button size="sm" onClick={() => handlePublishNow(post.id)} disabled={publishingId === post.id}>
                           {publishingId === post.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
                           Publier
