@@ -15,6 +15,29 @@ async function fetchWithRetry(url: string, options: RequestInit, retries = 2): P
   return fetch(url, options);
 }
 
+function buildImagePrompt(post: any): string {
+  const contentPreview = (post.content || "").substring(0, 200);
+  const topic = post.topic || "professional";
+  const postType = post.post_type || "";
+
+  const baseStyle = "Photorealistic, editorial photography style, natural lighting, high resolution, shot on professional camera, no text overlays, no typography, no watermarks, no logos";
+
+  if (postType === "news_analysis" || postType === "news") {
+    return `${baseStyle}. Professional editorial magazine-style photograph related to: "${topic}". Context: "${contentPreview}". Style: clean corporate environment, modern office or tech setting, professional atmosphere, warm natural light.`;
+  }
+  if (postType === "tutorial") {
+    return `${baseStyle}. Realistic workspace photograph showing a professional environment related to: "${topic}". Context: "${contentPreview}". Style: clean desk setup, modern workspace, laptop or tools in frame, depth of field, warm ambient lighting.`;
+  }
+  if (postType === "viral") {
+    return `${baseStyle}. Emotionally powerful photojournalism-style photograph related to: "${topic}". Context: "${contentPreview}". Style: dramatic lighting, candid moment, strong visual impact, human emotion, cinematic composition.`;
+  }
+  if (postType === "storytelling") {
+    return `${baseStyle}. Atmospheric lifestyle photograph capturing a moment of personal journey related to: "${topic}". Context: "${contentPreview}". Style: warm golden hour lighting, authentic candid moment, depth and mood, documentary style.`;
+  }
+
+  return `${baseStyle}. Professional photograph related to: "${topic}". Context: "${contentPreview}". Clean composition, modern setting, professional atmosphere.`;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -37,10 +60,8 @@ serve(async (req) => {
       .single();
     if (postErr || !post) throw new Error("Post not found");
 
-    const contentPreview = post.content.substring(0, 300);
-    const imagePrompt = `Create a professional LinkedIn visual. Theme: "${post.topic || 'professional'}". Context: "${contentPreview}". Style: Clean, modern infographic, bold typography, blue/turquoise palette, minimalist. Square format. Prefer visual metaphors over text. Any text must be in FRENCH.`;
-
-    console.log("Generating image for post:", post_id);
+    const imagePrompt = buildImagePrompt(post);
+    console.log("Generating image for post:", post_id, "type:", (post as any).post_type || "unknown");
 
     const response = await fetchWithRetry("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -49,7 +70,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3.1-flash-image-preview",
+        model: "google/gemini-3-pro-image-preview",
         messages: [{ role: "user", content: imagePrompt }],
         modalities: ["image", "text"],
       }),
@@ -73,7 +94,6 @@ serve(async (req) => {
     const aiData = await response.json();
     const message = aiData.choices?.[0]?.message;
 
-    // Log response structure for debugging
     console.log("AI response keys:", JSON.stringify({
       hasImages: !!message?.images,
       imagesLength: message?.images?.length,
@@ -83,7 +103,6 @@ serve(async (req) => {
 
     let imageBase64: string | null = null;
 
-    // Method 1: message.images array (Lovable AI standard format)
     if (!imageBase64 && message?.images && Array.isArray(message.images)) {
       for (const img of message.images) {
         const url = img?.image_url?.url;
@@ -95,29 +114,22 @@ serve(async (req) => {
       }
     }
 
-    // Method 2: message.content as array of parts (multimodal response)
     if (!imageBase64 && Array.isArray(message?.content)) {
       for (const part of message.content) {
         if (part?.type === "image_url" && part?.image_url?.url?.startsWith("data:image/")) {
           imageBase64 = part.image_url.url.split(",")[1];
-          console.log("Found image via content parts (image_url)");
           break;
         }
         if (part?.inline_data?.data) {
           imageBase64 = part.inline_data.data;
-          console.log("Found image via content parts (inline_data)");
           break;
         }
       }
     }
 
-    // Method 3: message.content as string containing data URI
     if (!imageBase64 && typeof message?.content === "string") {
       const match = message.content.match(/data:image\/[^;]+;base64,([A-Za-z0-9+/=]+)/);
-      if (match) {
-        imageBase64 = match[1];
-        console.log("Found image via content string data URI");
-      }
+      if (match) imageBase64 = match[1];
     }
 
     if (!imageBase64) {
@@ -125,7 +137,6 @@ serve(async (req) => {
       throw new Error("No image data in AI response");
     }
 
-    // Upload to storage
     const imageBytes = Uint8Array.from(atob(imageBase64), c => c.charCodeAt(0));
     const fileName = `visuals/${post_id}-${Date.now()}.png`;
 
