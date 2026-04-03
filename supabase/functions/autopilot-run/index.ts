@@ -236,13 +236,13 @@ Si tu ne trouves pas de news des dernières 24h, cherche celles des 48h-72h dern
           .order("likes_count", { ascending: false })
           .limit(10);
 
-        // 5. Load recent generated posts for continuity
+        // 5. Load recent generated posts for continuity (20 for strong anti-repetition)
         const { data: recentPosts } = await supabase
           .from("suggested_posts")
           .select("content, topic, status, scheduled_at, post_performance")
           .eq("user_id", userId)
           .order("created_at", { ascending: false })
-          .limit(10);
+          .limit(20);
 
         // 6. Load virality analysis (OPTIONAL — no longer blocks generation)
         const { data: latestAnalysis } = await supabase
@@ -320,12 +320,15 @@ Si tu ne trouves pas de news des dernières 24h, cherche celles des 48h-72h dern
         }
 
         if (recentPosts?.length) {
+          const recentTopics = recentPosts.map((p: any) => p.topic).filter(Boolean);
           userPrompt += `📝 DERNIERS POSTS GÉNÉRÉS (assure une CONTINUITÉ LOGIQUE, ne répète pas les mêmes sujets) :\n`;
-          recentPosts.slice(0, 10).forEach((p: any, i: number) => {
+          recentPosts.slice(0, 20).forEach((p: any, i: number) => {
             const perf = p.post_performance ? ` — Perf: ${JSON.stringify(p.post_performance)}` : "";
             userPrompt += `${i + 1}. [${p.topic}] ${(p.content || "").slice(0, 200)}...${perf}\n`;
           });
-          userPrompt += `\n`;
+          userPrompt += `\n🚫 SUJETS INTERDITS (déjà traités, NE JAMAIS les reprendre ni les reformuler) :\n`;
+          recentTopics.forEach((t: string) => { userPrompt += `- "${t}"\n`; });
+          userPrompt += `Tu DOIS proposer des sujets 100% NOUVEAUX qui n'apparaissent PAS dans cette liste. Aucune reformulation d'un sujet existant n'est acceptable.\n\n`;
         }
 
         if (latestAnalysis) {
