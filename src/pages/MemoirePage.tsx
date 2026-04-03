@@ -143,25 +143,34 @@ export default function MemoirePage() {
   const [photoDesc, setPhotoDesc] = useState("");
   const [photoCategory, setPhotoCategory] = useState<string>("general");
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState("");
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
     setUploading(true);
+    const total = files.length;
+    let done = 0;
+    setUploadProgress(`0/${total}`);
     try {
-      const ext = file.name.split(".").pop();
-      const path = `${crypto.randomUUID()}.${ext}`;
-      const { error: uploadErr } = await supabase.storage.from("user-photos").upload(path, file);
-      if (uploadErr) throw uploadErr;
-      const { data: urlData } = supabase.storage.from("user-photos").getPublicUrl(path);
-      const { error: insertErr } = await supabase.from("user_photos").insert({
-        image_url: urlData.publicUrl,
-        description: photoDesc || null,
-        photo_category: photoCategory === "general" ? null : photoCategory,
-        user_id: user?.id,
-      } as any);
-      if (insertErr) throw insertErr;
-      toast.success("Photo ajoutée !");
+      const uploads = Array.from(files).map(async (file) => {
+        const ext = file.name.split(".").pop();
+        const path = `${crypto.randomUUID()}.${ext}`;
+        const { error: uploadErr } = await supabase.storage.from("user-photos").upload(path, file);
+        if (uploadErr) throw uploadErr;
+        const { data: urlData } = supabase.storage.from("user-photos").getPublicUrl(path);
+        const { error: insertErr } = await supabase.from("user_photos").insert({
+          image_url: urlData.publicUrl,
+          description: photoDesc || null,
+          photo_category: photoCategory === "general" ? null : photoCategory,
+          user_id: user?.id,
+        } as any);
+        if (insertErr) throw insertErr;
+        done++;
+        setUploadProgress(`${done}/${total}`);
+      });
+      await Promise.all(uploads);
+      toast.success(`${total} photo${total > 1 ? "s" : ""} ajoutée${total > 1 ? "s" : ""} !`);
       setPhotoDesc("");
       setPhotoCategory("general");
       queryClient.invalidateQueries({ queryKey: ["user-photos"] });
@@ -169,6 +178,8 @@ export default function MemoirePage() {
       toast.error(err.message);
     } finally {
       setUploading(false);
+      setUploadProgress("");
+      e.target.value = "";
     }
   };
 
