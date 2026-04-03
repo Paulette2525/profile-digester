@@ -297,7 +297,10 @@ export default function SuggestedPostsPage() {
                     <Button size="sm" variant="outline" onClick={() => { setEditingId(post.id); setEditContent(post.content); }}><PenLine className="h-3.5 w-3.5" /> Modifier</Button>
                     <Button size="sm" variant="outline" onClick={() => handleGenerateVisual(post.id)} disabled={generatingVisualId === post.id}>
                       {generatingVisualId === post.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : post.image_url ? <RefreshCw className="h-3.5 w-3.5" /> : <ImageIcon className="h-3.5 w-3.5" />}
-                      {post.image_url ? "Regénérer" : "Visuel"}
+                      {post.image_url ? "Regénérer" : "Visuel IA"}
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => setChangingImagePostId(post.id)}>
+                      <ImagePlus className="h-3.5 w-3.5" /> Changer
                     </Button>
                     {post.status === "draft" && (
                       <>
