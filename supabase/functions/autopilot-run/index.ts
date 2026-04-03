@@ -224,8 +224,10 @@ Si tu ne trouves pas de news des dernières 24h, cherche celles des 48h-72h dern
           .limit(1)
           .maybeSingle();
 
-        // 7. Load photos and ideas
+        // 7. Load photos (with category) and ideas
         const { data: photos } = await supabase.from("user_photos").select("*").eq("user_id", userId);
+        const { data: viralPhotos } = await supabase.from("user_photos").select("*").eq("user_id", userId).eq("photo_category", "viral");
+        const { data: storytellingPhotos } = await supabase.from("user_photos").select("*").eq("user_id", userId).eq("photo_category", "storytelling");
         const { data: ideas } = await supabase.from("content_ideas").select("*").eq("user_id", userId).eq("used", false).limit(config.posts_per_day);
 
         // Check for ideas with resource URLs (for auto DM rules)
@@ -414,6 +416,19 @@ Si tu ne trouves pas de news des dernières 24h, cherche celles des 48h-72h dern
           }
 
           const usePhoto = p.use_personal_photo && photoUrls.length > 0;
+          
+          // For viral/storytelling, prioritize user-uploaded categorized photos
+          const postType = postSlots[idx]?.type || "";
+          let assignedImageUrl: string | null = null;
+          if (postType === "viral" && viralPhotos?.length) {
+            const photo = viralPhotos[idx % viralPhotos.length] as any;
+            assignedImageUrl = photo.image_url;
+          } else if (postType === "storytelling" && storytellingPhotos?.length) {
+            const photo = storytellingPhotos[idx % storytellingPhotos.length] as any;
+            assignedImageUrl = photo.image_url;
+          } else if (usePhoto) {
+            assignedImageUrl = photoUrls[Math.floor(Math.random() * photoUrls.length)];
+          }
 
           return {
             content: p.content,
@@ -422,7 +437,7 @@ Si tu ne trouves pas de news des dernières 24h, cherche celles des 48h-72h dern
             source_analysis_id: latestAnalysis?.id || null,
             status: isAutoMode ? "scheduled" : "draft",
             user_id: userId,
-            image_url: usePhoto ? photoUrls[Math.floor(Math.random() * photoUrls.length)] : null,
+            image_url: assignedImageUrl,
             scheduled_at: scheduledDate.toISOString(),
           };
         });
@@ -430,11 +445,15 @@ Si tu ne trouves pas de news des dernières 24h, cherche celles des 48h-72h dern
         const { data: saved, error: sErr } = await supabase.from("suggested_posts").insert(toInsert).select("*");
         if (sErr) throw sErr;
 
-        // Generate visuals if auto_visuals is enabled
+        // Generate visuals if auto_visuals is enabled (skip posts that already have user photos)
         if (config.auto_visuals && saved?.length) {
           const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
           const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
           for (const post of saved) {
+            if (post.image_url) {
+              console.log(`Post ${post.id} already has a user photo, skipping AI visual`);
+              continue;
+            }
             try {
               await fetchWithRetry(`${SUPABASE_URL}/functions/v1/generate-visual`, {
                 method: "POST",

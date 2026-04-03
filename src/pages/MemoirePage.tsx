@@ -6,7 +6,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Brain, Save, Loader2, Upload, X, Plus, Lightbulb, Trash2, Image as ImageIcon, Target, User, Megaphone, BookOpen, Mic, MicOff, Sparkles } from "lucide-react";
+import { Brain, Save, Loader2, Upload, X, Plus, Trash2, Image as ImageIcon, Target, User, Megaphone, BookOpen, Mic, MicOff, Sparkles } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -140,6 +141,7 @@ export default function MemoirePage() {
   });
 
   const [photoDesc, setPhotoDesc] = useState("");
+  const [photoCategory, setPhotoCategory] = useState<string>("general");
   const [uploading, setUploading] = useState(false);
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -155,11 +157,13 @@ export default function MemoirePage() {
       const { error: insertErr } = await supabase.from("user_photos").insert({
         image_url: urlData.publicUrl,
         description: photoDesc || null,
+        photo_category: photoCategory === "general" ? null : photoCategory,
         user_id: user?.id,
       } as any);
       if (insertErr) throw insertErr;
       toast.success("Photo ajoutée !");
       setPhotoDesc("");
+      setPhotoCategory("general");
       queryClient.invalidateQueries({ queryKey: ["user-photos"] });
     } catch (err: any) {
       toast.error(err.message);
@@ -180,65 +184,6 @@ export default function MemoirePage() {
     }
   };
 
-  // ---- Ideas ----
-  const { data: ideas, isLoading: ideasLoading } = useQuery({
-    queryKey: ["content-ideas"],
-    staleTime: 1000 * 60 * 10,
-    queryFn: async () => {
-      const { data, error } = await supabase.from("content_ideas").select("*").order("created_at", { ascending: false });
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  const [newIdea, setNewIdea] = useState("");
-  const [ideaUploading, setIdeaUploading] = useState(false);
-
-  const addIdea = async (imageFile?: File) => {
-    if (!newIdea.trim()) return;
-    let imageUrl: string | null = null;
-    if (imageFile) {
-      setIdeaUploading(true);
-      try {
-        const ext = imageFile.name.split(".").pop();
-        const path = `ideas/${crypto.randomUUID()}.${ext}`;
-        const { error: uploadErr } = await supabase.storage.from("user-photos").upload(path, imageFile);
-        if (uploadErr) throw uploadErr;
-        const { data: urlData } = supabase.storage.from("user-photos").getPublicUrl(path);
-        imageUrl = urlData.publicUrl;
-      } catch (err: any) {
-        toast.error("Erreur upload image: " + err.message);
-        setIdeaUploading(false);
-        return;
-      }
-    }
-    const { error } = await supabase.from("content_ideas").insert({ idea_text: newIdea.trim(), image_url: imageUrl, user_id: user?.id } as any);
-    if (error) { toast.error(error.message); setIdeaUploading(false); return; }
-    toast.success("Idée ajoutée !");
-    setNewIdea("");
-    setIdeaUploading(false);
-    queryClient.invalidateQueries({ queryKey: ["content-ideas"] });
-  };
-
-  const uploadIdeaImage = async (ideaId: string, file: File) => {
-    try {
-      const ext = file.name.split(".").pop();
-      const path = `ideas/${crypto.randomUUID()}.${ext}`;
-      const { error: uploadErr } = await supabase.storage.from("user-photos").upload(path, file);
-      if (uploadErr) throw uploadErr;
-      const { data: urlData } = supabase.storage.from("user-photos").getPublicUrl(path);
-      await supabase.from("content_ideas").update({ image_url: urlData.publicUrl } as any).eq("id", ideaId);
-      queryClient.invalidateQueries({ queryKey: ["content-ideas"] });
-      toast.success("Image associée !");
-    } catch (err: any) {
-      toast.error(err.message);
-    }
-  };
-
-  const deleteIdea = async (id: string) => {
-    await supabase.from("content_ideas").delete().eq("id", id);
-    queryClient.invalidateQueries({ queryKey: ["content-ideas"] });
-  };
 
   const [listeningField, setListeningField] = useState<string | null>(null);
   const [optimizingField, setOptimizingField] = useState<string | null>(null);
@@ -426,10 +371,23 @@ export default function MemoirePage() {
             <CardDescription>Photos personnelles à utiliser dans vos publications</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex gap-2 items-end">
-              <div className="flex-1 space-y-1.5">
+            <div className="flex gap-2 items-end flex-wrap">
+              <div className="flex-1 min-w-[200px] space-y-1.5">
                 <Label>Description (optionnelle)</Label>
                 <Input value={photoDesc} onChange={e => setPhotoDesc(e.target.value)} placeholder="Photo de conférence, portrait pro…" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Usage</Label>
+                <Select value={photoCategory} onValueChange={setPhotoCategory}>
+                  <SelectTrigger className="w-[160px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="general">Général</SelectItem>
+                    <SelectItem value="viral">Viral</SelectItem>
+                    <SelectItem value="storytelling">Storytelling</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label htmlFor="photo-upload" className="cursor-pointer">
@@ -450,7 +408,12 @@ export default function MemoirePage() {
                     <button onClick={() => deletePhoto(p.id, p.image_url)} className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <X className="h-3 w-3" />
                     </button>
-                    {p.description && <p className="text-xs p-1.5 text-muted-foreground truncate">{p.description}</p>}
+                    <div className="p-1.5">
+                      {(p as any).photo_category && (
+                        <Badge variant="secondary" className="text-xs mb-1">{(p as any).photo_category}</Badge>
+                      )}
+                      {p.description && <p className="text-xs text-muted-foreground truncate">{p.description}</p>}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -460,57 +423,6 @@ export default function MemoirePage() {
           </CardContent>
         </Card>
 
-        {/* Ideas with images */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2"><Lightbulb className="h-4 w-4" /> Idées de publications</CardTitle>
-            <CardDescription>Notez vos idées avec des images optionnelles, elles seront utilisées lors de la génération</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Textarea value={newIdea} onChange={e => setNewIdea(e.target.value)} placeholder="Écrire une idée de publication…" rows={2} />
-              <div className="flex gap-2">
-                <Button onClick={() => addIdea()} disabled={!newIdea.trim() || ideaUploading}><Plus className="h-4 w-4" /> Ajouter</Button>
-                <Label htmlFor="idea-image-upload" className="cursor-pointer">
-                  <Button variant="outline" asChild disabled={!newIdea.trim() || ideaUploading}>
-                    <span><ImageIcon className="h-4 w-4" /> Ajouter avec image</span>
-                  </Button>
-                </Label>
-                <input id="idea-image-upload" type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) addIdea(f); }} />
-              </div>
-            </div>
-            {ideasLoading ? (
-              <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
-            ) : ideas && ideas.length > 0 ? (
-              <div className="space-y-2">
-                {ideas.map(idea => (
-                  <div key={idea.id} className="flex items-start gap-3 rounded-lg border p-3">
-                    {(idea as any).image_url && (
-                      <img src={(idea as any).image_url} alt="" className="w-16 h-16 rounded object-cover shrink-0" />
-                    )}
-                    <p className="flex-1 text-sm">{idea.idea_text}</p>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      {idea.used && <Badge variant="outline" className="text-xs">Utilisée</Badge>}
-                      {!(idea as any).image_url && (
-                        <Label htmlFor={`idea-img-${idea.id}`} className="cursor-pointer">
-                          <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
-                            <span><ImageIcon className="h-3.5 w-3.5 text-muted-foreground" /></span>
-                          </Button>
-                        </Label>
-                      )}
-                      <input id={`idea-img-${idea.id}`} type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) uploadIdeaImage(idea.id, f); }} />
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => deleteIdea(idea.id)}>
-                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground text-center py-4">Aucune idée enregistrée</p>
-            )}
-          </CardContent>
-        </Card>
       </div>
     </>
   );
