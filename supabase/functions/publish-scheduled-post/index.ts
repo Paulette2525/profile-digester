@@ -24,6 +24,13 @@ const MIME_EXT: Record<string, string> = {
   "image/webp": "webp",
 };
 
+const TOLERANCE_MS = 6 * 60 * 1000; // 6 minutes
+const DELAY_BETWEEN_POSTS_MS = 60 * 1000; // 60 seconds between posts
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -45,6 +52,7 @@ serve(async (req) => {
 
     let postsToPublish;
     if (singlePostId) {
+      // Manual publish: no time restriction
       const { data } = await supabase
         .from("suggested_posts")
         .select("*")
@@ -53,11 +61,17 @@ serve(async (req) => {
         .single();
       postsToPublish = data ? [data] : [];
     } else {
+      // Cron mode: only posts within the tolerance window
+      const now = new Date();
+      const windowStart = new Date(now.getTime() - TOLERANCE_MS).toISOString();
+      const windowEnd = now.toISOString();
+
       const { data } = await supabase
         .from("suggested_posts")
         .select("*")
         .eq("status", "scheduled")
-        .lte("scheduled_at", new Date().toISOString());
+        .gte("scheduled_at", windowStart)
+        .lte("scheduled_at", windowEnd);
       postsToPublish = data || [];
     }
 
@@ -70,7 +84,15 @@ serve(async (req) => {
     const accountId = await getLinkedInAccountId(UNIPILE_DSN, UNIPILE_API_KEY);
     const results = [];
 
-    for (const post of postsToPublish) {
+    for (let i = 0; i < postsToPublish.length; i++) {
+      const post = postsToPublish[i];
+
+      // Space out posts if more than one (except first)
+      if (i > 0 && !singlePostId) {
+        console.log(`Waiting ${DELAY_BETWEEN_POSTS_MS / 1000}s before next post...`);
+        await sleep(DELAY_BETWEEN_POSTS_MS);
+      }
+
       try {
         const formData = new FormData();
         formData.append("account_id", accountId);
@@ -85,7 +107,6 @@ serve(async (req) => {
               const mimeBase = contentType.split(";")[0].trim();
               const ext = MIME_EXT[mimeBase] || "png";
               const imgBlob = await imgRes.blob();
-              // Unipile expects "attachments" field, not "media"
               const file = new File([imgBlob], `visual.${ext}`, { type: mimeBase });
               formData.append("attachments", file);
               imageAttached = true;
