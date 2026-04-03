@@ -58,28 +58,18 @@ serve(async (req) => {
     const linkedin = (accountsData.items || []).find((a: any) => a.type === "LINKEDIN");
     if (!linkedin) throw new Error("No LinkedIn account connected");
 
-    // Use the correct provider ID from connection_params
     const providerId = linkedin.connection_params?.im?.id || linkedin.id;
-    console.log("Using provider ID for posts:", providerId);
 
-    // Fetch own posts - try multiple endpoint formats
+    // Fetch own posts
     let linkedinPosts: any[] = [];
-    
-    // Try 1: /api/v1/users/{providerId}/posts with account_id
     const postsRes = await fetchWithRetry(
       `https://${UNIPILE_DSN}/api/v1/users/${providerId}/posts?account_id=${linkedin.id}&limit=50`,
       { headers }
     );
-    
     if (postsRes.ok) {
       const postsData = await postsRes.json();
       linkedinPosts = postsData.items || postsData || [];
-      console.log(`Fetched ${linkedinPosts.length} posts via /users/{id}/posts`);
     } else {
-      const errText = await postsRes.text();
-      console.error("Posts endpoint 1 failed:", postsRes.status, errText);
-      
-      // Try 2: /api/v1/posts with account_id
       try {
         const postsRes2 = await fetchWithRetry(
           `https://${UNIPILE_DSN}/api/v1/posts?account_id=${linkedin.id}&limit=50`,
@@ -88,33 +78,31 @@ serve(async (req) => {
         if (postsRes2.ok) {
           const postsData2 = await postsRes2.json();
           linkedinPosts = postsData2.items || postsData2 || [];
-          console.log(`Fetched ${linkedinPosts.length} posts via /posts`);
-        } else {
-          console.error("Posts endpoint 2 failed:", postsRes2.status, await postsRes2.text());
         }
       } catch (e) {
         console.error("Posts endpoint 2 error:", e);
       }
     }
 
-    if (linkedinPosts.length > 0) {
-      // Log first post structure for debugging
-      console.log("Sample post keys:", JSON.stringify(Object.keys(linkedinPosts[0])));
-      console.log("Sample post:", JSON.stringify(linkedinPosts[0]).substring(0, 500));
-    }
-
     const results = [];
 
     for (const post of publishedPosts) {
-      const contentStart = (post.content || "").substring(0, 80).trim();
-      
-      // Match by content similarity (first 80 chars, normalized)
-      const matched = linkedinPosts.find((lp: any) => {
-        const lpContent = (lp.text || lp.content || lp.body || "").substring(0, 80).trim();
-        return lpContent === contentStart || 
-               lpContent.includes(contentStart.substring(0, 50)) ||
-               contentStart.includes(lpContent.substring(0, 50));
-      });
+      // Priority 1: match by unipile_post_id (exact)
+      let matched: any = null;
+      if (post.unipile_post_id) {
+        matched = linkedinPosts.find((lp: any) => lp.id === post.unipile_post_id);
+      }
+
+      // Priority 2: fallback to content matching
+      if (!matched) {
+        const contentStart = (post.content || "").substring(0, 80).trim();
+        matched = linkedinPosts.find((lp: any) => {
+          const lpContent = (lp.text || lp.content || lp.body || "").substring(0, 80).trim();
+          return lpContent === contentStart ||
+                 lpContent.includes(contentStart.substring(0, 50)) ||
+                 contentStart.includes(lpContent.substring(0, 50));
+        });
+      }
 
       if (matched) {
         const likes = matched.reaction_counter ?? matched.likes_count ?? matched.num_likes ?? 0;
@@ -131,14 +119,20 @@ serve(async (req) => {
           fetched_at: new Date().toISOString(),
         };
 
+        // Also save unipile_post_id if we matched by content but didn't have it
+        const updatePayload: any = { post_performance: performance };
+        if (!post.unipile_post_id && matched.id) {
+          updatePayload.unipile_post_id = matched.id;
+        }
+
         await supabase
           .from("suggested_posts")
-          .update({ post_performance: performance })
+          .update(updatePayload)
           .eq("id", post.id);
 
         results.push({ id: post.id, matched: true, performance });
       } else {
-        results.push({ id: post.id, matched: false, content_preview: contentStart.substring(0, 40) });
+        results.push({ id: post.id, matched: false });
       }
     }
 

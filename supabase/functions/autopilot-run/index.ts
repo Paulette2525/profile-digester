@@ -99,18 +99,37 @@ serve(async (req) => {
             postSlots.push({ type: forcedType, instructions: typeInstructions[forcedType] });
           }
         } else {
-          const mixEntries = Object.entries(contentMix as Record<string, number>).filter(([_, v]) => v > 0);
-          const totalWeight = mixEntries.reduce((s, [_, v]) => s + v, 0);
-          let remaining = totalPosts;
-          mixEntries.forEach(([type, weight], idx) => {
-            const count = idx === mixEntries.length - 1
-              ? remaining
-              : Math.max(0, Math.round((weight / totalWeight) * totalPosts));
-            remaining -= count;
-            for (let i = 0; i < count; i++) {
+          // Sort active types by weight descending
+          const mixEntries = Object.entries(contentMix as Record<string, number>)
+            .filter(([_, v]) => v > 0)
+            .sort(([, a], [, b]) => b - a);
+
+          // Rule: each active type gets exactly 1 slot first (no duplicates until all types used)
+          // If posts_per_day < active types → pick top N by weight
+          // If posts_per_day > active types → distribute remaining round-robin by weight
+          const uniqueTypes = mixEntries.map(([type]) => type);
+          
+          if (totalPosts <= uniqueTypes.length) {
+            // Take the top N types by weight
+            for (let i = 0; i < totalPosts; i++) {
+              const type = uniqueTypes[i];
               postSlots.push({ type, instructions: typeInstructions[type] || typeInstructions.news });
             }
-          });
+          } else {
+            // First pass: one of each type
+            for (const type of uniqueTypes) {
+              postSlots.push({ type, instructions: typeInstructions[type] || typeInstructions.news });
+            }
+            // Remaining slots: round-robin by weight (each type max 1 extra vs others)
+            let extra = totalPosts - uniqueTypes.length;
+            let idx = 0;
+            while (extra > 0) {
+              const type = uniqueTypes[idx % uniqueTypes.length];
+              postSlots.push({ type, instructions: typeInstructions[type] || typeInstructions.news });
+              extra--;
+              idx++;
+            }
+          }
         }
 
         if (postSlots.length === 0) {
@@ -323,6 +342,14 @@ Si tu ne trouves pas de news des dernières 24h, cherche celles des 48h-72h dern
         userPrompt += `8. NE JAMAIS écrire de carousel ou sondage\n`;
         userPrompt += `9. Assurer un FIL NARRATIF cohérent avec les posts précédents\n`;
         userPrompt += `10. Pour chaque post, suggère une heure entre 7h et 20h\n\n`;
+
+        userPrompt += `🎨 CRÉATIVITÉ MAXIMALE — RÈGLES ABSOLUES :\n`;
+        userPrompt += `- Chaque post DOIT être RADICALEMENT DIFFÉRENT des autres : sujet différent, angle différent, structure différente, ton différent\n`;
+        userPrompt += `- RÉINVENTE-TOI à chaque post : ne réutilise JAMAIS la même structure narrative deux fois\n`;
+        userPrompt += `- Varie les formats : liste, narration, question rhétorique, constat choc, anecdote, thread, lettre ouverte, confession, défi\n`;
+        userPrompt += `- Varie les ouvertures : chiffre choc, question provocante, citation détournée, situation absurde, aveu personnel, contradiction\n`;
+        userPrompt += `- Si 2 posts se ressemblent même légèrement dans la structure ou le ton → C'EST UN ÉCHEC\n\n`;
+
         userPrompt += `📋 ASSIGNATION DES TYPES PAR POST (RESPECTER OBLIGATOIREMENT) :\n${slotDescriptions}\n\n`;
         userPrompt += `Génère exactement ${postSlots.length} posts en respectant le type assigné à chacun.`;
 
@@ -439,6 +466,7 @@ Si tu ne trouves pas de news des dernières 24h, cherche celles des 48h-72h dern
             user_id: userId,
             image_url: assignedImageUrl,
             scheduled_at: scheduledDate.toISOString(),
+            post_type: postSlots[idx]?.type || p.post_type || null,
           };
         });
 
