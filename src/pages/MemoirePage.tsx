@@ -403,10 +403,10 @@ export default function MemoirePage() {
               <div>
                 <Label htmlFor="photo-upload" className="cursor-pointer">
                   <Button variant="outline" asChild disabled={uploading}>
-                    <span>{uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />} Uploader</span>
+                    <span>{uploading ? <><Loader2 className="h-4 w-4 animate-spin" /> {uploadProgress}</> : <><Upload className="h-4 w-4" /> Uploader</>}</span>
                   </Button>
                 </Label>
-                <input id="photo-upload" type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
+                <input id="photo-upload" type="file" accept="image/*" multiple className="hidden" onChange={handlePhotoUpload} />
               </div>
             </div>
             {photosLoading ? (
