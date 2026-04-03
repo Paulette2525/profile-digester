@@ -6,6 +6,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const AI_MODEL = "google/gemini-3.1-flash-image-preview";
+
 async function fetchWithRetry(url: string, options: RequestInit, retries = 2): Promise<Response> {
   for (let i = 0; i <= retries; i++) {
     const res = await fetch(url, options);
@@ -27,40 +29,96 @@ function inferPostType(post: any): string {
 }
 
 function buildImagePrompt(post: any): string {
-  const contentPreview = (post.content || "").substring(0, 200);
-  const topic = post.topic || "professional";
+  const contentPreview = (post.content || "").substring(0, 500);
+  const topic = post.topic || "professional development";
   const postType = inferPostType(post);
 
-  const baseStyle = "Photorealistic, editorial photography style, natural lighting, high resolution, shot on professional camera, no text overlays, no typography, no watermarks, no logos";
+  const baseRules = `STRICT RULES: Absolutely NO text, NO typography, NO watermarks, NO logos, NO captions, NO overlays anywhere in the image. Pure photography only. The image must look like it was shot by a professional photographer with 10+ years of experience using a full-frame camera.`;
 
-  if (postType === "news_analysis" || postType === "news") {
-    return `${baseStyle}. Professional editorial magazine-style photograph related to: "${topic}". Context: "${contentPreview}". Style: clean corporate environment, modern office or tech setting, professional atmosphere, warm natural light.`;
-  }
   if (postType === "tutorial") {
-    return `${baseStyle}. Realistic workspace photograph showing a professional environment related to: "${topic}". Context: "${contentPreview}". Style: clean desk setup, modern workspace, laptop or tools in frame, depth of field, warm ambient lighting.`;
-  }
-  if (postType === "viral") {
-    return `${baseStyle}. Emotionally powerful photojournalism-style photograph related to: "${topic}". Context: "${contentPreview}". Style: dramatic lighting, candid moment, strong visual impact, human emotion, cinematic composition.`;
-  }
-  if (postType === "storytelling") {
-    return `${baseStyle}. Atmospheric lifestyle photograph capturing a moment of personal journey related to: "${topic}". Context: "${contentPreview}". Style: warm golden hour lighting, authentic candid moment, depth and mood, documentary style.`;
+    return `Create a stunning, hyper-realistic editorial photograph that concretely illustrates this tutorial topic: "${topic}".
+
+Post content for context: "${contentPreview}"
+
+SCENE DIRECTION: Design a specific, concrete scene that visually represents the exact subject of this tutorial. If it's about negotiation, show a confident professional in a meeting room. If it's about productivity tools, show a beautifully organized workspace with screens. If it's about leadership, show a person leading a workshop. The scene MUST directly relate to the specific topic, not be generic.
+
+PHOTOGRAPHY SPECS: Shot on Sony A7R IV, 35mm f/1.4 lens, natural window light from the left creating soft shadows, shallow depth of field with the main subject tack-sharp, background softly blurred. Color temperature 5500K, slight warm toning. Composition follows rule of thirds. Clean, modern environment — think WeWork or high-end co-working space. Muted earth tones with one accent color that pops.
+
+${baseRules}`;
   }
 
-  return `${baseStyle}. Professional photograph related to: "${topic}". Context: "${contentPreview}". Clean composition, modern setting, professional atmosphere.`;
+  if (postType === "news" || postType === "news_analysis") {
+    return `Create a powerful, magazine-cover-quality editorial photograph related to this news topic: "${topic}".
+
+Post content for context: "${contentPreview}"
+
+SCENE DIRECTION: Capture a scene that embodies the essence of this specific news story. Show real-world environments, technology, or human situations directly connected to the topic. If it's about AI trends, show cutting-edge tech environments. If about economics, show financial district atmospheres. The visual must tell the story at a glance.
+
+PHOTOGRAPHY SPECS: Shot on Canon EOS R5, 24-70mm f/2.8 lens, dramatic editorial lighting with strong directional light and deep shadows. Cool blue-toned color grade reminiscent of Bloomberg or The Economist magazine photography. High contrast, cinematic 2.39:1 feel even in standard aspect ratio. Professional, authoritative atmosphere. Sharp throughout with exceptional detail.
+
+${baseRules}`;
+  }
+
+  if (postType === "viral") {
+    return `Create an emotionally striking, award-winning photojournalism-style photograph that captures the essence of: "${topic}".
+
+Post content for context: "${contentPreview}"
+
+SCENE DIRECTION: This must be a visually arresting image that stops people mid-scroll. Capture a powerful human moment — determination, breakthrough, vulnerability, or triumph — directly connected to the specific topic. The image should evoke immediate emotional response. Show a real, authentic scene that feels unposed and raw.
+
+PHOTOGRAPHY SPECS: Shot on Leica Q3, 28mm f/1.7, available light only — dramatic chiaroscuro effect. Cinematic color grading with rich blacks and lifted shadows. Slightly desaturated with one warm highlight color. Documentary-style composition — slightly off-center, dynamic angles, sense of movement. Grain reminiscent of ISO 3200. The kind of image that wins World Press Photo awards.
+
+${baseRules}`;
+  }
+
+  if (postType === "storytelling") {
+    return `Create a deeply atmospheric, cinematic photograph that captures a pivotal life moment related to: "${topic}".
+
+Post content for context: "${contentPreview}"
+
+SCENE DIRECTION: Visualize the specific story being told. If it's about a career pivot, show a contemplative moment at a crossroads. If about failure and resilience, show someone rising from adversity. The scene must feel intimate, personal, and directly connected to the narrative. Think National Geographic meets LinkedIn — authentic humanity in a professional context.
+
+PHOTOGRAPHY SPECS: Shot on Fujifilm GFX 100S, 80mm f/1.7, golden hour natural light creating long warm shadows and rim lighting on the subject. Film-like color science with rich warm tones, slight fade in shadows. Shallow depth of field with dreamy bokeh. Composition feels candid and unscripted — as if capturing a decisive moment. Nostalgic yet modern aesthetic.
+
+${baseRules}`;
+  }
+
+  // personal_branding fallback
+  return `Create a polished, high-end professional portrait or lifestyle photograph related to: "${topic}".
+
+Post content for context: "${contentPreview}"
+
+SCENE DIRECTION: Show a confident professional in their element — the scene should reflect the specific topic and convey expertise and authenticity. Modern, clean environment with subtle personal touches.
+
+PHOTOGRAPHY SPECS: Shot on Nikon Z9, 85mm f/1.4, studio-quality natural light from large windows, clean background, professional color grading with warm skin tones. Sharp focus, beautiful bokeh, magazine-quality finish.
+
+${baseRules}`;
 }
 
 function buildEditPrompt(post: any): string {
   const topic = post.topic || "professional";
-  const contentPreview = (post.content || "").substring(0, 150);
+  const contentPreview = (post.content || "").substring(0, 400);
   const postType = inferPostType(post);
 
+  const baseEditRules = `CRITICAL: Keep the person's face and body completely natural and recognizable — do NOT alter facial features or body proportions. Do NOT add any text, typography, watermarks, or logos. The result must look like a real photograph, not AI-generated.`;
+
+  if (postType === "tutorial") {
+    return `Transform this photo into a professional tutorial cover image. Place the person in a clean, modern workspace environment that relates to "${topic}". Add soft natural window lighting from the left, create a shallow depth of field effect. The background should suggest a professional learning environment (modern office, whiteboard, or screen visible but blurred). Apply warm, inviting color grading. Context: "${contentPreview}". ${baseEditRules}`;
+  }
+
+  if (postType === "news" || postType === "news_analysis") {
+    return `Transform this photo into a striking editorial magazine-style image. Apply dramatic, high-contrast lighting with cool blue tones reminiscent of Bloomberg or The Economist photography. Add depth with strong directional shadows. The mood should feel authoritative and professional, fitting a news story about "${topic}". Context: "${contentPreview}". ${baseEditRules}`;
+  }
+
   if (postType === "viral") {
-    return `Transform this photo into a powerful, emotionally impactful editorial shot. Add dramatic cinematic lighting, strong depth of field, and professional color grading. Keep the person natural and authentic. Do not add any text or typography. Context: "${topic}" — "${contentPreview}"`;
+    return `Transform this photo into a powerful, emotionally impactful editorial shot worthy of a photojournalism award. Apply dramatic chiaroscuro lighting — strong contrast between light and shadow. Add cinematic color grading with slightly desaturated tones and one warm accent. Create a sense of raw authenticity and emotional intensity that connects to "${topic}". Context: "${contentPreview}". ${baseEditRules}`;
   }
+
   if (postType === "storytelling") {
-    return `Enhance this photo with warm golden hour atmosphere, soft documentary-style lighting. Make it feel like an authentic candid life moment. Keep the person natural and genuine. Do not add any text or typography. Context: "${topic}" — "${contentPreview}"`;
+    return `Transform this photo into an atmospheric, cinematic golden hour shot. Add warm, directional sunlight creating rim lighting and long shadows. Apply film-like color science with rich warm tones and a gentle fade in the shadows. The mood should feel intimate, contemplative, and deeply personal — like capturing a decisive life moment related to "${topic}". Context: "${contentPreview}". ${baseEditRules}`;
   }
-  return `Enhance this photo with professional editorial lighting and cinematic atmosphere. Keep it natural and authentic. Do not add any text. Context: "${topic}"`;
+
+  return `Enhance this photo with professional editorial lighting, cinematic color grading, and magazine-quality finish. Keep it natural and authentic. The mood should match the topic: "${topic}". Context: "${contentPreview}". ${baseEditRules}`;
 }
 
 function extractBase64Image(aiData: any): string | null {
@@ -116,9 +174,9 @@ serve(async (req) => {
     const postType = inferPostType(post);
     const userId = post.user_id;
 
-    // Try to find a user photo for edit-image mode (viral/storytelling)
+    // Search user photos for ALL post types (not just viral/storytelling)
     let userPhotoUrl: string | null = null;
-    if (userId && (postType === "viral" || postType === "storytelling")) {
+    if (userId) {
       const { data: userPhotos } = await supabase
         .from("user_photos")
         .select("image_url")
@@ -128,20 +186,19 @@ serve(async (req) => {
         .limit(10);
 
       if (userPhotos && userPhotos.length > 0) {
-        // Pick a random photo from the user's collection
         userPhotoUrl = userPhotos[Math.floor(Math.random() * userPhotos.length)].image_url;
       }
     }
 
-    // Also check general photos if no category-specific ones found
-    if (!userPhotoUrl && userId && (postType === "viral" || postType === "storytelling")) {
+    // Fallback: general photos (no category)
+    if (!userPhotoUrl && userId) {
       const { data: generalPhotos } = await supabase
         .from("user_photos")
         .select("image_url")
         .eq("user_id", userId)
         .is("photo_category", null)
         .order("created_at", { ascending: false })
-        .limit(5);
+        .limit(10);
 
       if (generalPhotos && generalPhotos.length > 0) {
         userPhotoUrl = generalPhotos[Math.floor(Math.random() * generalPhotos.length)].image_url;
@@ -152,7 +209,7 @@ serve(async (req) => {
 
     // Mode 1: Edit-image using user's photo as base
     if (userPhotoUrl) {
-      console.log("Using edit-image mode with user photo for post:", post_id);
+      console.log("Using edit-image mode with user photo for post:", post_id, "type:", postType);
       const editPrompt = buildEditPrompt(post);
 
       try {
@@ -163,7 +220,7 @@ serve(async (req) => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            model: "google/gemini-3-pro-image-preview",
+            model: AI_MODEL,
             messages: [{
               role: "user",
               content: [
@@ -179,7 +236,7 @@ serve(async (req) => {
           const editData = await editResponse.json();
           imageBase64 = extractBase64Image(editData);
           if (imageBase64) {
-            console.log("Edit-image succeeded, using user photo variant");
+            console.log("Edit-image succeeded for type:", postType);
           }
         }
       } catch (editErr) {
@@ -190,7 +247,7 @@ serve(async (req) => {
     // Mode 2: Generate from scratch (fallback)
     if (!imageBase64) {
       const imagePrompt = buildImagePrompt(post);
-      console.log("Generating image from scratch for post:", post_id, "type:", postType || "unknown");
+      console.log("Generating image from scratch for post:", post_id, "type:", postType);
 
       const response = await fetchWithRetry("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
@@ -199,7 +256,7 @@ serve(async (req) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-3-pro-image-preview",
+          model: AI_MODEL,
           messages: [{ role: "user", content: imagePrompt }],
           modalities: ["image", "text"],
         }),
