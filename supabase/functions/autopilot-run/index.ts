@@ -552,10 +552,13 @@ Si tu ne trouves pas de news des dernières 24h, cherche celles des 48h-72h dern
             .in("topic", trendTopics);
         }
 
-        // Update last_run_at
+        // Progress: finalizing
+        await updateProgress(config.id, "finalizing", 90, "Finalisation...");
+
+        // Update last_run_at and clear progress
         await supabase
           .from("autopilot_config")
-          .update({ last_run_at: new Date().toISOString() })
+          .update({ last_run_at: new Date().toISOString(), run_progress: null })
           .eq("user_id", userId);
 
         results.push({ userId, status: "success", postsGenerated: saved?.length || 0 });
