@@ -1,44 +1,38 @@
 
 
-## Plan : Upload multiple photos + generation de variantes IA depuis vos photos
+## Plan : Permettre de changer la photo d'un post avant publication
 
-### 1. Upload multi-photos sur la page Memoire
+### Probleme
 
-**Actuellement** : L'input file n'accepte qu'une seule photo a la fois (`type="file"` sans `multiple`).
+Actuellement, la seule option pour changer l'image d'un post est de cliquer "Regénérer" (qui relance l'IA). Il n'y a aucun moyen d'uploader manuellement une image de remplacement ou de choisir parmi ses photos existantes dans la banque d'images.
 
-**Fix** : Ajouter `multiple` a l'input file. La fonction `handlePhotoUpload` sera refactoree pour iterer sur `e.target.files` et uploader chaque fichier en parallele avec la meme description et categorie. Un compteur de progression montrera "3/5 photos uploadees...".
+### Solution
 
-Fichier : `src/pages/MemoirePage.tsx`
+Ajouter un bouton "Changer la photo" sur chaque post (a cote de Regénérer) qui ouvre un dialogue avec deux options :
+1. **Uploader une nouvelle image** depuis l'ordinateur
+2. **Choisir parmi ses photos** existantes dans `user_photos`
 
-### 2. Generation de variantes realistes depuis vos photos
+L'image selectionnee sera uploadee dans le bucket `user-photos` (si nouvelle) puis le champ `image_url` du post sera mis a jour.
 
-**Concept** : Quand l'autopilot genere un visuel pour un post Viral ou Storytelling, au lieu de creer une image de zero, il prendra une de vos photos personnelles et la passera au modele IA en mode **edit** pour generer une variante contextuelle realiste (meme personne, cadrage different, atmosphere adaptee au post).
+### Implementation
 
-**Implementation dans `generate-visual/index.ts`** :
-- Avant de generer une image from scratch, verifier s'il existe des photos utilisateur avec `photo_category` = `viral` ou `storytelling` (selon le type du post)
-- Si une photo existe, utiliser le mode **edit-image** de l'AI gateway : envoyer la photo originale + un prompt d'editing contextuel ("Enhance this photo with dramatic cinematic lighting for a powerful LinkedIn post about {topic}")
-- Si aucune photo utilisateur, generer normalement comme avant
-- Le prompt d'editing gardera le style realiste et professionnel
+**Fichier : `src/pages/SuggestedPostsPage.tsx`**
 
-**Prompt d'editing selon le type** :
-- **Viral** : "Transform this photo into a powerful, emotionally impactful editorial shot. Add dramatic lighting, cinematic depth of field. Keep the person natural and authentic. Context: {topic}"
-- **Storytelling** : "Enhance this photo with warm golden hour atmosphere, documentary style. Make it feel like a candid life moment. Keep the person natural. Context: {topic}"
+- Ajouter un state pour le post en cours de changement d'image (`changingImagePostId`)
+- Ajouter un Dialog qui s'ouvre au clic sur "Changer"
+- Dans le Dialog :
+  - Onglet 1 : Input file pour uploader une image → upload vers `user-photos` bucket → update `suggested_posts.image_url`
+  - Onglet 2 : Grille des photos existantes depuis `user_photos` (query deja disponible via le user_id) → clic sur une photo → update `suggested_posts.image_url`
+- Apres la mise a jour, fermer le dialog et refetch
 
-### 3. Modification autopilot-run
-
-Le flux existant dans `autopilot-run` qui assigne des photos utilisateur aux posts viral/storytelling reste inchange. La nouveaute est dans `generate-visual` : quand il est appele pour un post sans image pre-assignee, il cherchera quand meme les photos utilisateur pour les utiliser comme base d'editing IA plutot que de generer from scratch.
+**Bouton dans la barre d'actions de chaque post** :
+- Visible des qu'un post a une `image_url` (a cote de "Regénérer")
+- Aussi visible si pas d'image (comme alternative a la generation IA)
+- Icone : `ImagePlus` ou `Replace`
 
 ### Fichiers a modifier
 
 | Fichier | Action |
 |---------|--------|
-| `src/pages/MemoirePage.tsx` | Input `multiple` + upload en batch |
-| `supabase/functions/generate-visual/index.ts` | Mode edit-image avec photos utilisateur |
-
-### Section technique
-
-- L'upload multiple utilisera `Promise.all` avec un `map` sur `FileList`
-- Le mode edit-image utilise le meme endpoint AI gateway mais avec le champ `image_url` dans le message content (format multipart image + texte)
-- La photo utilisateur est recuperee via son URL publique dans le bucket `user-photos`
-- Si l'editing echoue (ex: modele refuse), fallback sur la generation classique
+| `src/pages/SuggestedPostsPage.tsx` | Ajouter Dialog de changement d'image avec upload + selection depuis galerie |
 
