@@ -293,18 +293,11 @@ export default function SuggestedPostsPage() {
                       <ImagePlus className="h-3.5 w-3.5" /> Changer
                     </Button>
                     {post.status === "draft" && (
-                      <>
-                        <Input
-                          type="datetime-local"
-                          value={scheduleInputs[post.id] || ""}
-                          onChange={(e) => setScheduleInputs(prev => ({ ...prev, [post.id]: e.target.value }))}
-                          className="w-auto h-8 text-xs"
-                        />
-                        <Button size="sm" variant="outline" onClick={() => handleSchedulePost(post.id)}><Calendar className="h-3.5 w-3.5" /> Planifier</Button>
-                      </>
+                      <SchedulePopover onSchedule={(date) => handleSchedulePost(post.id, date)} />
                     )}
                     {post.status === "scheduled" && (
                       <>
+                        <SchedulePopover onSchedule={(date) => handleSchedulePost(post.id, date)} existingDate={post.scheduled_at} />
                         <Button size="sm" onClick={() => handlePublishNow(post.id)} disabled={publishingId === post.id}>
                           {publishingId === post.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
                           Publier
