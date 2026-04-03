@@ -466,6 +466,7 @@ Si tu ne trouves pas de news des dernières 24h, cherche celles des 48h-72h dern
             user_id: userId,
             image_url: assignedImageUrl,
             scheduled_at: scheduledDate.toISOString(),
+            post_type: postSlots[idx]?.type || p.post_type || null,
           };
         });
 
