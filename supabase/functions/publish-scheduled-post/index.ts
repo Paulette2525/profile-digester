@@ -17,6 +17,13 @@ async function getLinkedInAccountId(dsn: string, apiKey: string): Promise<string
   return linkedin.id;
 }
 
+const MIME_EXT: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/gif": "gif",
+  "image/webp": "webp",
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -30,7 +37,6 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Check for optional single post_id in body
     let singlePostId: string | null = null;
     try {
       const body = await req.json();
@@ -47,7 +53,6 @@ serve(async (req) => {
         .single();
       postsToPublish = data ? [data] : [];
     } else {
-      // Cron: get all scheduled posts where scheduled_at <= now
       const { data } = await supabase
         .from("suggested_posts")
         .select("*")
@@ -67,19 +72,24 @@ serve(async (req) => {
 
     for (const post of postsToPublish) {
       try {
-        // Publish via Unipile (requires multipart/form-data)
         const formData = new FormData();
         formData.append("account_id", accountId);
         formData.append("text", post.content);
 
-        // Attach image if available
+        let imageAttached = false;
         if (post.image_url && post.image_url.startsWith("http")) {
           try {
             const imgRes = await fetch(post.image_url);
             if (imgRes.ok) {
+              const contentType = imgRes.headers.get("content-type") || "image/png";
+              const mimeBase = contentType.split(";")[0].trim();
+              const ext = MIME_EXT[mimeBase] || "png";
               const imgBlob = await imgRes.blob();
-              formData.append("media", imgBlob, "visual.png");
-              console.log("Image attached to post:", post.id);
+              // Unipile expects "attachments" field, not "media"
+              const file = new File([imgBlob], `visual.${ext}`, { type: mimeBase });
+              formData.append("attachments", file);
+              imageAttached = true;
+              console.log(`Image attached (${mimeBase}) for post: ${post.id}`);
             }
           } catch (imgErr) {
             console.error("Failed to attach image, publishing without it:", imgErr);
@@ -98,12 +108,37 @@ serve(async (req) => {
         if (!publishRes.ok) {
           const errText = await publishRes.text();
           console.error(`Publish failed for ${post.id}: ${publishRes.status} - ${errText}`);
+
+          // If image caused the error, retry without image
+          if (imageAttached && publishRes.status === 400) {
+            console.log(`Retrying post ${post.id} without image...`);
+            const retryForm = new FormData();
+            retryForm.append("account_id", accountId);
+            retryForm.append("text", post.content);
+            const retryRes = await fetch(`https://${UNIPILE_DSN}/api/v1/posts`, {
+              method: "POST",
+              headers: { "X-API-KEY": UNIPILE_API_KEY, Accept: "application/json" },
+              body: retryForm,
+            });
+            if (!retryRes.ok) {
+              const retryErr = await retryRes.text();
+              results.push({ id: post.id, success: false, error: `Retry failed: ${retryErr}` });
+              continue;
+            }
+            const retryData = await retryRes.json();
+            await supabase.from("suggested_posts").update({
+              status: "published",
+              published_at: new Date().toISOString(),
+            }).eq("id", post.id);
+            results.push({ id: post.id, success: true, linkedin_post_id: retryData.id, note: "published without image" });
+            continue;
+          }
+
           results.push({ id: post.id, success: false, error: `${publishRes.status}: ${errText}` });
           continue;
         }
 
         const publishData = await publishRes.json();
-
         await supabase.from("suggested_posts").update({
           status: "published",
           published_at: new Date().toISOString(),
