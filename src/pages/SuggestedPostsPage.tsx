@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
-import { PenLine, Loader2, Copy, Calendar, Check, Sparkles, ImageIcon, RefreshCw, ChevronDown, Images, Trash2, Send, CalendarCheck, Clock, ImagePlus } from "lucide-react";
+import { PenLine, Loader2, Copy, Check, Sparkles, ImageIcon, RefreshCw, ChevronDown, Images, Trash2, Send, CalendarCheck, Clock, ImagePlus } from "lucide-react";
 import ChangeImageDialog from "@/components/posts/ChangeImageDialog";
+import SchedulePopover from "@/components/posts/SchedulePopover";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
