@@ -1,43 +1,44 @@
 
 
-## Plan : Barre de progression en temps reel pour l'execution Autopilot
+## Plan : Photos perso uniquement pour Viral/Storytelling + prompts dynamiques + anti-repetition
 
-### Probleme
+### Problemes identifies
 
-Quand on clique "Executer", la page affiche un simple spinner (`Loader2 animate-spin`) pendant toute la duree (qui peut etre longue : Perplexity + AI generation + visuels). Aucun retour sur l'etape en cours ni le pourcentage d'avancement.
+1. **Photos utilisateur sur tous les types** : Le code actuel (lignes 177-206 de `generate-visual/index.ts`) cherche les photos utilisateur pour TOUS les types de posts. Les Tutos et News utilisent donc les photos perso au lieu de generer des images illustratives du sujet.
 
-### Solution
+2. **Prompts d'edition statiques** : Les prompts `buildEditPrompt` decrivent toujours le meme type de transformation pour un type donne (meme eclairage, meme ambiance). Aucune variation aleatoire de contexte, tenue, environnement.
 
-La fonction edge `autopilot-run` ne peut pas streamer de progression en temps reel via HTTP classique. On va utiliser la table `autopilot_config` comme canal de progression : la fonction edge ecrira l'etape en cours dans un nouveau champ `run_progress` (jsonb), et le frontend interrogera ce champ en polling toutes les 2 secondes.
+3. **Pas de deduplication** : Ni le generateur de contenu ni le generateur de visuels ne verifient les publications precedentes pour eviter les repetitions.
 
-**Etapes de progression definies :**
-1. `loading_memory` — Chargement memoire et profil (10%)
-2. `fetching_trends` — Veille Perplexity (25%)
-3. `generating_posts` — Generation IA des posts (50%)
-4. `generating_visuals` — Generation des visuels (75%)
-5. `finalizing` — Sauvegarde et planification (90%)
-6. `done` — Termine (100%)
+### Solutions
 
-### Modifications
+**1. Restreindre les photos perso au Viral et Storytelling uniquement**
 
-**Migration SQL** : Ajouter colonne `run_progress` (jsonb, nullable, default null) a `autopilot_config`. Format : `{ "step": "generating_posts", "percent": 50, "label": "Generation des posts..." }`
+Dans `generate-visual/index.ts`, ajouter une condition : la recherche de `user_photos` ne se fait QUE si `postType === "viral"` ou `postType === "storytelling"`. Pour tous les autres types (tutorial, news, personal_branding), aller directement en mode generation depuis zero — le visuel sera cree par l'IA pour illustrer concretement le sujet du post.
 
-**`supabase/functions/autopilot-run/index.ts`** : Ajouter des appels `supabase.from("autopilot_config").update({ run_progress: {...} })` a chaque etape cle du pipeline. Remettre a null a la fin.
+**2. Prompts d'edition dynamiques avec variations aleatoires**
 
-**`src/pages/AutopilotPage.tsx`** : Remplacer le spinner par une barre de progression animee avec le label de l'etape. Utiliser un `useEffect` avec `setInterval` de 2s qui re-fetch `run_progress` pendant que `running === true`. Afficher un composant `Progress` (deja dans shadcn) + le texte de l'etape.
+Remplacer `buildEditPrompt` par une version qui injecte des variations aleatoires a chaque appel :
+- Pool de 6+ environnements (terrasse panoramique, cafe parisien, rooftop urbain, studio creatif, bibliotheque, jardin zen)
+- Pool de 6+ ambiances lumineuses (golden hour, blue hour, lumiere studio, jour de pluie dramatique, aube)
+- Pool de tenues/styles (costume elegant, casual chic, streetwear premium, col roule noir)
+- Selection aleatoire d'un element de chaque pool pour chaque generation
 
-### Section technique
+**3. Anti-repetition dans autopilot-run**
 
-- Le polling s'arrete des que `run_progress` est null ou `percent === 100`
-- La fonction edge fait ~6 updates de progression (cout negligeable)
-- Le composant Progress de shadcn est deja disponible dans le projet
-- Pas de realtime necessaire, le polling a 2s suffit pour ce cas d'usage
+Renforcer le prompt dans `autopilot-run/index.ts` en chargeant les 20 derniers topics (au lieu de 10) et en ajoutant une instruction explicite : "NE REPETE JAMAIS un sujet deja traite dans les posts precedents. Verifie la liste et propose des angles 100% nouveaux."
 
 ### Fichiers a modifier
 
 | Fichier | Action |
 |---------|--------|
-| Migration SQL | Ajouter `run_progress` jsonb a `autopilot_config` |
-| `supabase/functions/autopilot-run/index.ts` | Ecrire la progression a chaque etape |
-| `src/pages/AutopilotPage.tsx` | Afficher barre de progression + label en polling |
+| `supabase/functions/generate-visual/index.ts` | Restreindre photos perso a viral/storytelling ; prompts edit dynamiques avec pools aleatoires |
+| `supabase/functions/autopilot-run/index.ts` | Charger 20 derniers posts ; renforcer instruction anti-repetition |
+
+### Section technique
+
+- Condition photo : `if ((postType === "viral" || postType === "storytelling") && userId)` avant la recherche user_photos
+- Pools de variation : tableaux `const environments = [...]`, `const lightings = [...]`, `const styles = [...]` avec `Math.random()` pour la selection
+- Les prompts `buildImagePrompt` pour tutorial/news restent inchanges (ils generent deja des scenes illustratives)
+- Pour l'anti-repetition : les 20 derniers `topic` sont envoyes dans le prompt avec l'instruction "ces sujets sont INTERDITS"
 
