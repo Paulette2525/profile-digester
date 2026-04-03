@@ -56,6 +56,11 @@ serve(async (req) => {
 
     const results: any[] = [];
 
+    // Helper to update progress
+    const updateProgress = async (configId: string, step: string, percent: number, label: string) => {
+      await supabase.from("autopilot_config").update({ run_progress: { step, percent, label } }).eq("id", configId);
+    };
+
     for (const config of configs) {
       const userId = config.user_id;
 
@@ -66,6 +71,9 @@ serve(async (req) => {
       }
 
       try {
+        // Progress: loading memory
+        await updateProgress(config.id, "loading_memory", 10, "Chargement de la mémoire...");
+
         // 1. Load Memory
         const { data: memory } = await supabase
           .from("user_memory")
@@ -140,6 +148,9 @@ serve(async (req) => {
         const needsNews = postSlots.some(slot => slot.type === "news");
         let trends = "";
         let trendTopics: string[] = [];
+
+        // Progress: fetching trends
+        await updateProgress(config.id, "fetching_trends", 25, "Veille Perplexity en cours...");
 
         if (needsNews && PERPLEXITY_API_KEY) {
           const industriesQuery = (config.industries_to_watch || []).length > 0
@@ -353,6 +364,9 @@ Si tu ne trouves pas de news des dernières 24h, cherche celles des 48h-72h dern
         userPrompt += `📋 ASSIGNATION DES TYPES PAR POST (RESPECTER OBLIGATOIREMENT) :\n${slotDescriptions}\n\n`;
         userPrompt += `Génère exactement ${postSlots.length} posts en respectant le type assigné à chacun.`;
 
+        // Progress: generating posts
+        await updateProgress(config.id, "generating_posts", 50, "Génération IA des posts...");
+
         // 9. Call AI
         const aiRes = await fetchWithRetry("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
@@ -475,6 +489,8 @@ Si tu ne trouves pas de news des dernières 24h, cherche celles des 48h-72h dern
 
         // Generate visuals if auto_visuals is enabled (skip posts that already have user photos)
         if (config.auto_visuals && saved?.length) {
+          // Progress: generating visuals
+          await updateProgress(config.id, "generating_visuals", 75, "Génération des visuels...");
           const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
           const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
           for (const post of saved) {
@@ -536,10 +552,13 @@ Si tu ne trouves pas de news des dernières 24h, cherche celles des 48h-72h dern
             .in("topic", trendTopics);
         }
 
-        // Update last_run_at
+        // Progress: finalizing
+        await updateProgress(config.id, "finalizing", 90, "Finalisation...");
+
+        // Update last_run_at and clear progress
         await supabase
           .from("autopilot_config")
-          .update({ last_run_at: new Date().toISOString() })
+          .update({ last_run_at: new Date().toISOString(), run_progress: null })
           .eq("user_id", userId);
 
         results.push({ userId, status: "success", postsGenerated: saved?.length || 0 });

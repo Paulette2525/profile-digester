@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -8,6 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { toast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -85,17 +86,50 @@ export default function AutopilotPage() {
   });
 
   const [running, setRunning] = useState(false);
+  const [runProgress, setRunProgress] = useState<{ step: string; percent: number; label: string } | null>(null);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Polling for progress while running
+  useEffect(() => {
+    if (running && config?.id) {
+      pollingRef.current = setInterval(async () => {
+        const { data } = await supabase
+          .from("autopilot_config")
+          .select("run_progress")
+          .eq("id", config.id)
+          .maybeSingle();
+        const progress = data?.run_progress as any;
+        if (progress) {
+          setRunProgress(progress);
+        } else if (runProgress?.percent === 90) {
+          // Progress was cleared = done
+          setRunProgress({ step: "done", percent: 100, label: "Terminé !" });
+        }
+      }, 2000);
+    } else {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
+    return () => { if (pollingRef.current) clearInterval(pollingRef.current); };
+  }, [running, config?.id]);
+
   const runNow = async () => {
     setRunning(true);
+    setRunProgress({ step: "starting", percent: 5, label: "Démarrage..." });
     try {
       const { data, error } = await supabase.functions.invoke("autopilot-run", { body: { force: true } });
       if (error) throw error;
+      setRunProgress({ step: "done", percent: 100, label: "Terminé !" });
       toast({ title: "Autopilote exécuté", description: `${data?.results?.[0]?.postsGenerated || 0} posts générés` });
       queryClient.invalidateQueries({ queryKey: ["trend-insights", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["autopilot-config", user?.id] });
     } catch (err: any) {
       toast({ title: "Erreur", description: String(err), variant: "destructive" });
     } finally {
-      setRunning(false);
+      setTimeout(() => {
+        setRunning(false);
+        setRunProgress(null);
+      }, 2000);
     }
   };
 
@@ -181,6 +215,19 @@ export default function AutopilotPage() {
           </div>
         </div>
       </div>
+
+      {/* Progress Bar */}
+      {runProgress && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-primary">{runProgress.label}</span>
+              <span className="text-sm font-bold text-primary">{runProgress.percent}%</span>
+            </div>
+            <Progress value={runProgress.percent} className="h-3" />
+          </CardContent>
+        </Card>
+      )}
 
       {/* Section 1: Essentiel */}
       <div className="grid gap-4 md:grid-cols-2">

@@ -1,0 +1,1 @@
+ALTER TABLE public.autopilot_config ADD COLUMN run_progress jsonb DEFAULT NULL;

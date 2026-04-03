@@ -141,6 +141,7 @@ export type Database = {
           last_run_at: string | null
           posting_hours: number[]
           posts_per_day: number
+          run_progress: Json | null
           updated_at: string
           user_id: string
         }
@@ -157,6 +158,7 @@ export type Database = {
           last_run_at?: string | null
           posting_hours?: number[]
           posts_per_day?: number
+          run_progress?: Json | null
           updated_at?: string
           user_id: string
         }
@@ -173,6 +175,7 @@ export type Database = {
           last_run_at?: string | null
           posting_hours?: number[]
           posts_per_day?: number
+          run_progress?: Json | null
           updated_at?: string
           user_id?: string
         }
