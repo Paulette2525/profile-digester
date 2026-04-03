@@ -236,13 +236,13 @@ Si tu ne trouves pas de news des dernières 24h, cherche celles des 48h-72h dern
           .order("likes_count", { ascending: false })
           .limit(10);
 
-        // 5. Load recent generated posts for continuity
+        // 5. Load recent generated posts for continuity (20 for strong anti-repetition)
         const { data: recentPosts } = await supabase
           .from("suggested_posts")
           .select("content, topic, status, scheduled_at, post_performance")
           .eq("user_id", userId)
           .order("created_at", { ascending: false })
-          .limit(10);
+          .limit(20);
 
         // 6. Load virality analysis (OPTIONAL — no longer blocks generation)
         const { data: latestAnalysis } = await supabase
