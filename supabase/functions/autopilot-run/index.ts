@@ -149,6 +149,9 @@ serve(async (req) => {
         let trends = "";
         let trendTopics: string[] = [];
 
+        // Progress: fetching trends
+        await updateProgress(config.id, "fetching_trends", 25, "Veille Perplexity en cours...");
+
         if (needsNews && PERPLEXITY_API_KEY) {
           const industriesQuery = (config.industries_to_watch || []).length > 0
             ? config.industries_to_watch.join(", ")
