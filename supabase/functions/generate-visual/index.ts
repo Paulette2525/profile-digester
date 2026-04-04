@@ -84,30 +84,47 @@ function buildImagePrompt(post: any): string {
   const topic = post.topic || "professional development";
   const postType = inferPostType(post);
 
-  const baseRules = `STRICT RULES: Absolutely NO text, NO typography, NO watermarks, NO logos, NO captions, NO overlays anywhere in the image. Pure photography only. The image must look like it was shot by a professional photographer with 10+ years of experience using a full-frame camera.`;
+  const photoRules = `STRICT RULES: Absolutely NO text, NO typography, NO watermarks, NO logos, NO captions, NO overlays anywhere in the image. Pure photography only. The image must look like it was shot by a professional photographer with 10+ years of experience using a full-frame camera.`;
+
+  const infographicRules = `STRICT RULES: NO photographs of real humans, NO realistic faces, NO photographic portraits. You MAY and SHOULD include: brand logos, company names, key figures/numbers, text labels, data visualizations, icons, diagrams. The visual must be a clean, professional INFOGRAPHIC or ILLUSTRATION — NOT a photograph.`;
 
   if (postType === "tutorial") {
-    return `Create a stunning, hyper-realistic editorial photograph that concretely illustrates this tutorial topic: "${topic}".
+    return `Create a clean, modern infographic-style visual that illustrates this tutorial topic: "${topic}".
 
-Post content for context: "${contentPreview}"
+Post content for full context: "${contentPreview}"
 
-SCENE DIRECTION: Design a specific, concrete scene that visually represents the exact subject of this tutorial. If it's about negotiation, show a confident professional in a meeting room. If it's about productivity tools, show a beautifully organized workspace with screens. If it's about leadership, show a person leading a workshop. The scene MUST directly relate to the specific topic, not be generic.
+DESIGN DIRECTION: Create a Dribbble-quality flat illustration that visually explains the tutorial step-by-step. Use:
+- Flat design icons and symbols directly related to the specific topic
+- Numbered steps with arrows showing the workflow/process
+- If the tutorial mentions a specific tool (Notion, ChatGPT, Canva, etc.), include its LOGO prominently
+- Key figures, percentages, or metrics mentioned in the content as bold typography
+- Visual hierarchy with a clear focal point
+- Clean white or soft gradient background (#f8f9fa to #e9ecef)
+- Bold accent colors: electric blue (#2563eb), coral (#f97316), or emerald (#10b981)
+- Subtle grid or dot pattern in the background for depth
 
-PHOTOGRAPHY SPECS: Shot on Sony A7R IV, 35mm f/1.4 lens, natural window light from the left creating soft shadows, shallow depth of field with the main subject tack-sharp, background softly blurred. Color temperature 5500K, slight warm toning. Composition follows rule of thirds. Clean, modern environment — think WeWork or high-end co-working space. Muted earth tones with one accent color that pops.
+STYLE: Think Infographic + Editorial Design hybrid. Like a premium slide from a tech company keynote. Flat vectors, rounded corners, soft shadows, modern sans-serif typography for labels. NO 3D renders, NO stock photo style.
 
-${baseRules}`;
+${infographicRules}`;
   }
 
   if (postType === "news" || postType === "news_analysis") {
-    return `Create a powerful, magazine-cover-quality editorial photograph related to this news topic: "${topic}".
+    return `Create a professional news-style infographic visual for this headline: "${topic}".
 
-Post content for context: "${contentPreview}"
+Post content for full context: "${contentPreview}"
 
-SCENE DIRECTION: Capture a scene that embodies the essence of this specific news story. Show real-world environments, technology, or human situations directly connected to the topic. If it's about AI trends, show cutting-edge tech environments. If about economics, show financial district atmospheres. The visual must tell the story at a glance.
+DESIGN DIRECTION: Create a Bloomberg/TechCrunch-style editorial graphic that tells the news story visually:
+- Feature the company/brand LOGO prominently (e.g., OpenAI logo for OpenAI news, Google logo for Google news)
+- Show KEY FIGURES in bold, large typography (funding amounts, percentages, user numbers)
+- Use contextual ICONS: rocket for launches, chart for growth, shield for security, globe for expansion
+- Data visualization elements: mini bar charts, trend arrows, comparison blocks
+- Dark or deep gradient background (#0f172a to #1e293b) with vibrant accent colors (#3b82f6, #22d3ee, #a78bfa)
+- News-style layout: headline zone at top, visual data in center, context icons around
+- Subtle tech-grid or circuit-board pattern in background
 
-PHOTOGRAPHY SPECS: Shot on Canon EOS R5, 24-70mm f/2.8 lens, dramatic editorial lighting with strong directional light and deep shadows. Cool blue-toned color grade reminiscent of Bloomberg or The Economist magazine photography. High contrast, cinematic 2.39:1 feel even in standard aspect ratio. Professional, authoritative atmosphere. Sharp throughout with exceptional detail.
+STYLE: Think Bloomberg Terminal meets Apple Keynote slide. Premium, authoritative, data-rich. Bold sans-serif typography (like Inter or SF Pro). Clean geometric shapes. NO photographs, NO realistic scenes.
 
-${baseRules}`;
+${infographicRules}`;
   }
 
   if (postType === "viral") {
@@ -119,7 +136,7 @@ SCENE DIRECTION: This must be a visually arresting image that stops people mid-s
 
 PHOTOGRAPHY SPECS: Shot on Leica Q3, 28mm f/1.7, available light only — dramatic chiaroscuro effect. Cinematic color grading with rich blacks and lifted shadows. Slightly desaturated with one warm highlight color. Documentary-style composition — slightly off-center, dynamic angles, sense of movement. Grain reminiscent of ISO 3200. The kind of image that wins World Press Photo awards.
 
-${baseRules}`;
+${photoRules}`;
   }
 
   if (postType === "storytelling") {
@@ -131,19 +148,17 @@ SCENE DIRECTION: Visualize the specific story being told. If it's about a career
 
 PHOTOGRAPHY SPECS: Shot on Fujifilm GFX 100S, 80mm f/1.7, golden hour natural light creating long warm shadows and rim lighting on the subject. Film-like color science with rich warm tones, slight fade in shadows. Shallow depth of field with dreamy bokeh. Composition feels candid and unscripted — as if capturing a decisive moment. Nostalgic yet modern aesthetic.
 
-${baseRules}`;
+${photoRules}`;
   }
 
-  // personal_branding fallback
-  return `Create a polished, high-end professional portrait or lifestyle photograph related to: "${topic}".
+  // personal_branding fallback — infographic style
+  return `Create a polished professional infographic visual related to: "${topic}".
 
 Post content for context: "${contentPreview}"
 
-SCENE DIRECTION: Show a confident professional in their element — the scene should reflect the specific topic and convey expertise and authenticity. Modern, clean environment with subtle personal touches.
+DESIGN DIRECTION: Create a clean, modern visual that illustrates the topic with icons, symbols, and text labels. Use brand colors, professional layout, and data visualization elements if applicable. Style: premium LinkedIn carousel slide aesthetic.
 
-PHOTOGRAPHY SPECS: Shot on Nikon Z9, 85mm f/1.4, studio-quality natural light from large windows, clean background, professional color grading with warm skin tones. Sharp focus, beautiful bokeh, magazine-quality finish.
-
-${baseRules}`;
+${infographicRules}`;
 }
 
 function buildEditPrompt(post: any): string {
