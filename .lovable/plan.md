@@ -1,44 +1,45 @@
 
 
-## Plan : Photos perso uniquement pour Viral/Storytelling + prompts dynamiques + anti-repetition
+## Plan : Visuels infographiques pour News/Tuto + photos perso restreintes au Viral/Storytelling
 
-### Problemes identifies
+### Probleme
 
-1. **Photos utilisateur sur tous les types** : Le code actuel (lignes 177-206 de `generate-visual/index.ts`) cherche les photos utilisateur pour TOUS les types de posts. Les Tutos et News utilisent donc les photos perso au lieu de generer des images illustratives du sujet.
+Les prompts actuels pour les types **Tutorial** et **News** demandent des "photographs" avec des specs de camera (Sony A7R IV, Canon EOS R5), ce qui produit des images photo-realistes avec des humains. L'utilisateur veut des **visuels illustratifs statiques** — infographies, icones, logos de marques, chiffres cles — pas des photos de personnes.
 
-2. **Prompts d'edition statiques** : Les prompts `buildEditPrompt` decrivent toujours le meme type de transformation pour un type donne (meme eclairage, meme ambiance). Aucune variation aleatoire de contexte, tenue, environnement.
-
-3. **Pas de deduplication** : Ni le generateur de contenu ni le generateur de visuels ne verifient les publications precedentes pour eviter les repetitions.
+De plus, dans `autopilot-run/index.ts` (lignes 462-474), le code peut encore assigner des photos personnelles a des posts non-viral/non-storytelling via le fallback `usePhoto` (ligne 473). Meme chose dans `generate-posts/index.ts` (ligne 290).
 
 ### Solutions
 
-**1. Restreindre les photos perso au Viral et Storytelling uniquement**
+**1. Refonte des prompts Tutorial et News dans `generate-visual/index.ts`**
 
-Dans `generate-visual/index.ts`, ajouter une condition : la recherche de `user_photos` ne se fait QUE si `postType === "viral"` ou `postType === "storytelling"`. Pour tous les autres types (tutorial, news, personal_branding), aller directement en mode generation depuis zero — le visuel sera cree par l'IA pour illustrer concretement le sujet du post.
+Remplacer les prompts "photograph" par des prompts de type **infographie/illustration professionnelle** :
 
-**2. Prompts d'edition dynamiques avec variations aleatoires**
+- **Tutorial** : "Create a clean, modern infographic-style visual that illustrates the tutorial topic. Use flat design icons, diagrams, numbered steps, arrows, and visual hierarchy. Include relevant brand logos if applicable (e.g., Notion logo if about Notion). Use text labels and key figures. Style: Dribbble-quality flat illustration, clean white or soft gradient background, bold accent colors. NO photographs, NO humans, NO realistic scenes."
 
-Remplacer `buildEditPrompt` par une version qui injecte des variations aleatoires a chaque appel :
-- Pool de 6+ environnements (terrasse panoramique, cafe parisien, rooftop urbain, studio creatif, bibliotheque, jardin zen)
-- Pool de 6+ ambiances lumineuses (golden hour, blue hour, lumiere studio, jour de pluie dramatique, aube)
-- Pool de tenues/styles (costume elegant, casual chic, streetwear premium, col roule noir)
-- Selection aleatoire d'un element de chaque pool pour chaque generation
+- **News** : "Create a professional news-style infographic visual. Include the company/brand logo prominently (e.g., OpenAI logo for an OpenAI story). Show key figures, data points, and contextual icons. Use bold typography for headline numbers. Style: Bloomberg/TechCrunch editorial graphic, dark or gradient background with vibrant accent colors. Include relevant text, logos, and data visualization elements. NO photographs, NO humans."
 
-**3. Anti-repetition dans autopilot-run**
+Le `baseRules` sera modifie pour ces types : au lieu de "NO text, NO logos", il autorisera explicitement texte et logos.
 
-Renforcer le prompt dans `autopilot-run/index.ts` en chargeant les 20 derniers topics (au lieu de 10) et en ajoutant une instruction explicite : "NE REPETE JAMAIS un sujet deja traite dans les posts precedents. Verifie la liste et propose des angles 100% nouveaux."
+**2. Bloquer les photos perso pour Tutorial/News dans `autopilot-run/index.ts`**
+
+Ligne 462-474 : ne plus assigner `assignedImageUrl` pour les types `tutorial` et `news`. Le fallback `usePhoto` ne s'applique qu'aux types `viral` et `storytelling`.
+
+**3. Meme correction dans `generate-posts/index.ts`**
+
+Ligne 290 : ne pas assigner de photo perso si le `post_type` est `tutorial` ou `news`.
 
 ### Fichiers a modifier
 
 | Fichier | Action |
 |---------|--------|
-| `supabase/functions/generate-visual/index.ts` | Restreindre photos perso a viral/storytelling ; prompts edit dynamiques avec pools aleatoires |
-| `supabase/functions/autopilot-run/index.ts` | Charger 20 derniers posts ; renforcer instruction anti-repetition |
+| `supabase/functions/generate-visual/index.ts` | Refonte prompts Tutorial/News en infographie ; autoriser texte/logos |
+| `supabase/functions/autopilot-run/index.ts` | Bloquer assignation de photos perso pour tutorial/news (lignes 462-474) |
+| `supabase/functions/generate-posts/index.ts` | Bloquer assignation de photos perso pour tutorial/news (ligne 290) |
 
 ### Section technique
 
-- Condition photo : `if ((postType === "viral" || postType === "storytelling") && userId)` avant la recherche user_photos
-- Pools de variation : tableaux `const environments = [...]`, `const lightings = [...]`, `const styles = [...]` avec `Math.random()` pour la selection
-- Les prompts `buildImagePrompt` pour tutorial/news restent inchanges (ils generent deja des scenes illustratives)
-- Pour l'anti-repetition : les 20 derniers `topic` sont envoyes dans le prompt avec l'instruction "ces sujets sont INTERDITS"
+- Prompts infographiques : ~200 mots, style Dribbble/editorial, flat design avec icones et logos
+- `baseRules` split en 2 variantes : une pour photo (viral/storytelling) qui interdit le texte, une pour infographie (tutorial/news) qui autorise texte, logos et chiffres
+- Condition dans autopilot-run : `if (postType === "viral" || postType === "storytelling") { ... assign photo ... } else { assignedImageUrl = null; }`
+- Le `inferPostType` reste inchange, il detecte deja correctement les types
 
