@@ -267,17 +267,26 @@ serve(async (req) => {
     const ideaImages = (ideas || []).filter((i: any) => i.image_url).map((i: any) => i.image_url);
 
     const toInsert = generatedPosts.map((p, idx) => {
-      const usePhoto = p.use_personal_photo && photoUrls.length > 0;
       const ideaImage = ideaImages[idx] || null;
       const calendarSlot = calendar?.[idx];
+      const postType = p.post_type || calendarSlot?.type || null;
 
       // Auto-assign scheduled_at: use calendar slot, or compute from suggested_hour
       let scheduledAt = calendarSlot?.scheduled_at || null;
       if (!scheduledAt && p.suggested_hour) {
         const postDate = new Date();
-        postDate.setDate(postDate.getDate() + 1 + idx); // spread across days
+        postDate.setDate(postDate.getDate() + 1 + idx);
         postDate.setHours(Math.max(7, Math.min(20, p.suggested_hour)), 0, 0, 0);
         scheduledAt = postDate.toISOString();
+      }
+
+      // Only assign personal photos for viral and storytelling
+      let imageUrl: string | null = ideaImage;
+      if (!imageUrl && p.use_personal_photo && photoUrls.length > 0) {
+        const isPhotoType = postType === "viral" || postType === "storytelling";
+        if (isPhotoType) {
+          imageUrl = photoUrls[Math.floor(Math.random() * photoUrls.length)];
+        }
       }
 
       return {
@@ -287,9 +296,9 @@ serve(async (req) => {
         source_analysis_id: analysis_id,
         status: "draft",
         user_id: userId,
-        image_url: ideaImage || (usePhoto ? photoUrls[Math.floor(Math.random() * photoUrls.length)] : null),
+        image_url: imageUrl,
         scheduled_at: scheduledAt,
-        post_type: p.post_type || calendarSlot?.type || null,
+        post_type: postType,
       };
     });
 

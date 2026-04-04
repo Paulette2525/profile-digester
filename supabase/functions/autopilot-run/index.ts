@@ -459,20 +459,24 @@ Si tu ne trouves pas de news des dernières 24h, cherche celles des 48h-72h dern
             scheduledDate.setHours(postingHours[hourIdx], 0, 0, 0);
           }
 
-          const usePhoto = p.use_personal_photo && photoUrls.length > 0;
-          
-          // For viral/storytelling, prioritize user-uploaded categorized photos
+          // ONLY assign personal photos for viral and storytelling types
           const postType = postSlots[idx]?.type || "";
           let assignedImageUrl: string | null = null;
-          if (postType === "viral" && viralPhotos?.length) {
-            const photo = viralPhotos[idx % viralPhotos.length] as any;
-            assignedImageUrl = photo.image_url;
-          } else if (postType === "storytelling" && storytellingPhotos?.length) {
-            const photo = storytellingPhotos[idx % storytellingPhotos.length] as any;
-            assignedImageUrl = photo.image_url;
-          } else if (usePhoto) {
-            assignedImageUrl = photoUrls[Math.floor(Math.random() * photoUrls.length)];
+          
+          if (postType === "viral") {
+            if (viralPhotos?.length) {
+              assignedImageUrl = (viralPhotos[idx % viralPhotos.length] as any).image_url;
+            } else if (photoUrls.length > 0) {
+              assignedImageUrl = photoUrls[Math.floor(Math.random() * photoUrls.length)];
+            }
+          } else if (postType === "storytelling") {
+            if (storytellingPhotos?.length) {
+              assignedImageUrl = (storytellingPhotos[idx % storytellingPhotos.length] as any).image_url;
+            } else if (photoUrls.length > 0) {
+              assignedImageUrl = photoUrls[Math.floor(Math.random() * photoUrls.length)];
+            }
           }
+          // For tutorial, news, personal_branding: assignedImageUrl stays null → visual will be generated from scratch
 
           return {
             content: p.content,
