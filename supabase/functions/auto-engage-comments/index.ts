@@ -200,6 +200,7 @@ serve(async (req) => {
                 });
                 results.push({ type: "dm_rule", author: authorName, ok: chatRes.ok, keyword: rule.trigger_keyword });
                 totalProcessed++;
+                await new Promise(r => setTimeout(r, dmDelayS * 1000));
               } catch (e) {
                 await supabase.from("auto_engagement_logs").insert({
                   action_type: "dm_rule", post_id: post.id, comment_id: commentId,
