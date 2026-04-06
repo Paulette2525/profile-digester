@@ -355,8 +355,27 @@ export default function ProspectionPage() {
           </Card>
         )}
 
-        {/* Campaign history */}
-        <CampaignHistory campaigns={campaigns} campaignsLoading={campaignsLoading} userId={user?.id} />
+        {/* Campaign history with expandable details */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Historique des campagnes</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {campaignsLoading ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : campaigns.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">Aucune campagne lancée</p>
+            ) : (
+              <div className="space-y-3">
+                {campaigns.map((c: any) => (
+                  <CampaignRow key={c.id} campaign={c} userId={user?.id} />
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Recent messages */}
         {recentMessages.length > 0 && (
