@@ -111,11 +111,17 @@ export default function EngagementPage() {
 
   const [replyPrompt, setReplyPrompt] = useState("");
   const [dmTemplate, setDmTemplate] = useState("");
+  const [likeDelay, setLikeDelay] = useState(5);
+  const [replyDelay, setReplyDelay] = useState(10);
+  const [dmDelay, setDmDelay] = useState(15);
 
   useEffect(() => {
     if (config) {
       setReplyPrompt(config.reply_prompt || "");
       setDmTemplate(config.dm_template || "");
+      setLikeDelay((config as any).like_delay_seconds ?? 5);
+      setReplyDelay((config as any).reply_delay_seconds ?? 10);
+      setDmDelay((config as any).dm_delay_seconds ?? 15);
     }
   }, [config]);
 
