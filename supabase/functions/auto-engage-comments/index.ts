@@ -166,6 +166,7 @@ serve(async (req) => {
                 error_message: replyRes.ok ? null : `HTTP ${replyRes.status}`,
               });
               results.push({ type: "reply", author: authorName, ok: replyRes.ok });
+              await new Promise(r => setTimeout(r, replyDelayS * 1000));
               totalProcessed++;
             }
           } catch (e) {
