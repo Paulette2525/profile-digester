@@ -29,6 +29,7 @@ serve(async (req) => {
         type: "create",
         providers: ["LINKEDIN"],
         api_url: `https://${UNIPILE_DSN}`,
+        expiresOn: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().replace(/(\.\d{3})\d*Z$/, "$1Z"),
       }),
     });
 
