@@ -103,7 +103,7 @@ function CampaignRow({ campaign: c, userId }: { campaign: any; userId?: string }
   );
 }
 
-
+export default function ProspectionPage() {
   const { user } = useAuth();
   const qc = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
