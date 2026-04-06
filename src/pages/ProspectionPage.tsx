@@ -356,51 +356,7 @@ export default function ProspectionPage() {
         )}
 
         {/* Campaign history */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Historique des campagnes</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {campaignsLoading ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              </div>
-            ) : campaigns.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-8">Aucune campagne lancée</p>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Campagne</TableHead>
-                    <TableHead>Prospects</TableHead>
-                    <TableHead>Envoyés</TableHead>
-                    <TableHead>Réponses</TableHead>
-                    <TableHead>Statut</TableHead>
-                    <TableHead>Date</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {campaigns.map((c: any) => (
-                    <TableRow key={c.id}>
-                      <TableCell className="font-medium">{c.name}</TableCell>
-                      <TableCell>{c.total_prospects}</TableCell>
-                      <TableCell>{c.sent_count}</TableCell>
-                      <TableCell>{c.reply_count}</TableCell>
-                      <TableCell>
-                        <Badge variant={c.status === "active" ? "default" : "secondary"}>
-                          {c.status === "active" ? "Active" : c.status === "completed" ? "Terminée" : c.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {format(new Date(c.created_at), "dd MMM yyyy", { locale: fr })}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
+        <CampaignHistory campaigns={campaigns} campaignsLoading={campaignsLoading} userId={user?.id} />
 
         {/* Recent messages */}
         {recentMessages.length > 0 && (

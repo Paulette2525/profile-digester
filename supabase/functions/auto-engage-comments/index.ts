@@ -229,6 +229,7 @@ serve(async (req) => {
             });
             results.push({ type: "dm", author: authorName, ok: chatRes.ok });
             totalProcessed++;
+            await new Promise(r => setTimeout(r, dmDelayS * 1000));
           } catch (e) {
             await supabase.from("auto_engagement_logs").insert({
               action_type: "dm", post_id: post.id, comment_id: commentId,
