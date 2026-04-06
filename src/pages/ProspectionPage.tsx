@@ -25,7 +25,85 @@ interface SearchResult {
   linkedin_url: string;
 }
 
-export default function ProspectionPage() {
+function CampaignRow({ campaign: c, userId }: { campaign: any; userId?: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const { data: messages, isLoading } = useQuery({
+    queryKey: ["campaign-messages", c.id],
+    enabled: expanded && !!userId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("prospection_messages")
+        .select("*")
+        .eq("campaign_id", c.id)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return (data || []) as any[];
+    },
+  });
+
+  return (
+    <div className="border rounded-lg">
+      <div
+        className="flex items-center justify-between p-3 cursor-pointer hover:bg-accent/30 transition-colors"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <p className="text-sm font-medium truncate">{c.name}</p>
+          <Badge variant={c.status === "active" ? "default" : "secondary"} className="shrink-0">
+            {c.status === "active" ? "Active" : c.status === "completed" ? "Terminée" : c.status}
+          </Badge>
+        </div>
+        <div className="flex items-center gap-4 text-xs text-muted-foreground shrink-0">
+          <span>{c.total_prospects} prospects</span>
+          <span>{c.sent_count} envoyés</span>
+          <span>{c.reply_count} réponses</span>
+          <span>{format(new Date(c.created_at), "dd MMM yyyy", { locale: fr })}</span>
+          {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+        </div>
+      </div>
+      {expanded && (
+        <div className="border-t p-3">
+          {isLoading ? (
+            <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+          ) : !messages?.length ? (
+            <p className="text-sm text-muted-foreground text-center py-4">Aucun message</p>
+          ) : (
+            <div className="space-y-2 max-h-[300px] overflow-y-auto">
+              {messages.map((msg: any) => (
+                <div key={msg.id} className="flex items-center gap-3 p-2 rounded border bg-muted/20">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium">{msg.prospect_name}</p>
+                    <p className="text-xs text-muted-foreground truncate">{msg.prospect_headline}</p>
+                  </div>
+                  <Badge
+                    variant={
+                      msg.status === "sent" ? "default" :
+                      msg.status === "replied" ? "secondary" :
+                      msg.status === "error" ? "destructive" : "outline"
+                    }
+                    className="text-xs"
+                  >
+                    {msg.status === "sent" && <CheckCircle className="h-3 w-3 mr-1" />}
+                    {msg.status === "pending" && <Clock className="h-3 w-3 mr-1" />}
+                    {msg.status === "error" && <XCircle className="h-3 w-3 mr-1" />}
+                    {msg.status}
+                  </Badge>
+                  {msg.sent_at && (
+                    <span className="text-[10px] text-muted-foreground shrink-0">
+                      {format(new Date(msg.sent_at), "dd/MM HH:mm")}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
   const { user } = useAuth();
   const qc = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
