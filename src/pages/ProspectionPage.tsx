@@ -12,7 +12,7 @@ import { Slider } from "@/components/ui/slider";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Users, Send, Loader2, UserPlus, CheckCircle, XCircle, Clock, BarChart3, CheckSquare } from "lucide-react";
+import { Search, Users, Send, Loader2, UserPlus, CheckCircle, XCircle, Clock, BarChart3, CheckSquare, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -23,6 +23,84 @@ interface SearchResult {
   headline: string;
   avatar_url: string;
   linkedin_url: string;
+}
+
+function CampaignRow({ campaign: c, userId }: { campaign: any; userId?: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const { data: messages, isLoading } = useQuery({
+    queryKey: ["campaign-messages", c.id],
+    enabled: expanded && !!userId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("prospection_messages")
+        .select("*")
+        .eq("campaign_id", c.id)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return (data || []) as any[];
+    },
+  });
+
+  return (
+    <div className="border rounded-lg">
+      <div
+        className="flex items-center justify-between p-3 cursor-pointer hover:bg-accent/30 transition-colors"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <p className="text-sm font-medium truncate">{c.name}</p>
+          <Badge variant={c.status === "active" ? "default" : "secondary"} className="shrink-0">
+            {c.status === "active" ? "Active" : c.status === "completed" ? "Terminée" : c.status}
+          </Badge>
+        </div>
+        <div className="flex items-center gap-4 text-xs text-muted-foreground shrink-0">
+          <span>{c.total_prospects} prospects</span>
+          <span>{c.sent_count} envoyés</span>
+          <span>{c.reply_count} réponses</span>
+          <span>{format(new Date(c.created_at), "dd MMM yyyy", { locale: fr })}</span>
+          {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+        </div>
+      </div>
+      {expanded && (
+        <div className="border-t p-3">
+          {isLoading ? (
+            <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+          ) : !messages?.length ? (
+            <p className="text-sm text-muted-foreground text-center py-4">Aucun message</p>
+          ) : (
+            <div className="space-y-2 max-h-[300px] overflow-y-auto">
+              {messages.map((msg: any) => (
+                <div key={msg.id} className="flex items-center gap-3 p-2 rounded border bg-muted/20">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium">{msg.prospect_name}</p>
+                    <p className="text-xs text-muted-foreground truncate">{msg.prospect_headline}</p>
+                  </div>
+                  <Badge
+                    variant={
+                      msg.status === "sent" ? "default" :
+                      msg.status === "replied" ? "secondary" :
+                      msg.status === "error" ? "destructive" : "outline"
+                    }
+                    className="text-xs"
+                  >
+                    {msg.status === "sent" && <CheckCircle className="h-3 w-3 mr-1" />}
+                    {msg.status === "pending" && <Clock className="h-3 w-3 mr-1" />}
+                    {msg.status === "error" && <XCircle className="h-3 w-3 mr-1" />}
+                    {msg.status}
+                  </Badge>
+                  {msg.sent_at && (
+                    <span className="text-[10px] text-muted-foreground shrink-0">
+                      {format(new Date(msg.sent_at), "dd/MM HH:mm")}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function ProspectionPage() {
@@ -321,10 +399,10 @@ export default function ProspectionPage() {
                     value={[dailyContactLimit]}
                     onValueChange={(v) => setDailyContactLimit(v[0])}
                     min={5}
-                    max={100}
+                    max={500}
                     step={5}
                   />
-                  <p className="text-xs text-muted-foreground">Limite quotidienne pour protéger votre compte</p>
+                  <p className="text-xs text-muted-foreground">Limite quotidienne (5-500)</p>
                 </div>
                 <div className="space-y-3">
                   <Label className="text-sm">Délai entre messages : <span className="font-bold text-primary">{delayBetweenMessages}s</span></Label>
@@ -355,7 +433,7 @@ export default function ProspectionPage() {
           </Card>
         )}
 
-        {/* Campaign history */}
+        {/* Campaign history with expandable details */}
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Historique des campagnes</CardTitle>
@@ -368,36 +446,11 @@ export default function ProspectionPage() {
             ) : campaigns.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-8">Aucune campagne lancée</p>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Campagne</TableHead>
-                    <TableHead>Prospects</TableHead>
-                    <TableHead>Envoyés</TableHead>
-                    <TableHead>Réponses</TableHead>
-                    <TableHead>Statut</TableHead>
-                    <TableHead>Date</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {campaigns.map((c: any) => (
-                    <TableRow key={c.id}>
-                      <TableCell className="font-medium">{c.name}</TableCell>
-                      <TableCell>{c.total_prospects}</TableCell>
-                      <TableCell>{c.sent_count}</TableCell>
-                      <TableCell>{c.reply_count}</TableCell>
-                      <TableCell>
-                        <Badge variant={c.status === "active" ? "default" : "secondary"}>
-                          {c.status === "active" ? "Active" : c.status === "completed" ? "Terminée" : c.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {format(new Date(c.created_at), "dd MMM yyyy", { locale: fr })}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <div className="space-y-3">
+                {campaigns.map((c: any) => (
+                  <CampaignRow key={c.id} campaign={c} userId={user?.id} />
+                ))}
+              </div>
             )}
           </CardContent>
         </Card>

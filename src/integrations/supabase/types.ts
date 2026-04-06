@@ -47,8 +47,11 @@ export type Database = {
           auto_like: boolean
           auto_reply: boolean
           created_at: string
+          dm_delay_seconds: number
           dm_template: string | null
           id: string
+          like_delay_seconds: number
+          reply_delay_seconds: number
           reply_prompt: string | null
           updated_at: string
           user_id: string | null
@@ -58,8 +61,11 @@ export type Database = {
           auto_like?: boolean
           auto_reply?: boolean
           created_at?: string
+          dm_delay_seconds?: number
           dm_template?: string | null
           id?: string
+          like_delay_seconds?: number
+          reply_delay_seconds?: number
           reply_prompt?: string | null
           updated_at?: string
           user_id?: string | null
@@ -69,8 +75,11 @@ export type Database = {
           auto_like?: boolean
           auto_reply?: boolean
           created_at?: string
+          dm_delay_seconds?: number
           dm_template?: string | null
           id?: string
+          like_delay_seconds?: number
+          reply_delay_seconds?: number
           reply_prompt?: string | null
           updated_at?: string
           user_id?: string | null

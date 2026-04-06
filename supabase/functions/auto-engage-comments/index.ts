@@ -102,6 +102,10 @@ serve(async (req) => {
         const authorProviderId = comment.author?.provider_id || comment.author?.id || null;
         const commentLower = commentText.toLowerCase();
 
+        const likeDelay = config.like_delay_seconds ?? 5;
+        const replyDelayS = config.reply_delay_seconds ?? 10;
+        const dmDelayS = config.dm_delay_seconds ?? 15;
+
         // Auto-like
         if (config.auto_like && !processedSet.has(`${commentId}:like`)) {
           try {
@@ -121,6 +125,7 @@ serve(async (req) => {
             });
             results.push({ type: "like", author: authorName, ok: likeRes.ok });
             totalProcessed++;
+            await new Promise(r => setTimeout(r, likeDelay * 1000));
           } catch (e) {
             await supabase.from("auto_engagement_logs").insert({
               action_type: "like", post_id: post.id, comment_id: commentId,
@@ -161,6 +166,7 @@ serve(async (req) => {
                 error_message: replyRes.ok ? null : `HTTP ${replyRes.status}`,
               });
               results.push({ type: "reply", author: authorName, ok: replyRes.ok });
+              await new Promise(r => setTimeout(r, replyDelayS * 1000));
               totalProcessed++;
             }
           } catch (e) {
@@ -194,6 +200,7 @@ serve(async (req) => {
                 });
                 results.push({ type: "dm_rule", author: authorName, ok: chatRes.ok, keyword: rule.trigger_keyword });
                 totalProcessed++;
+                await new Promise(r => setTimeout(r, dmDelayS * 1000));
               } catch (e) {
                 await supabase.from("auto_engagement_logs").insert({
                   action_type: "dm_rule", post_id: post.id, comment_id: commentId,
@@ -222,6 +229,7 @@ serve(async (req) => {
             });
             results.push({ type: "dm", author: authorName, ok: chatRes.ok });
             totalProcessed++;
+            await new Promise(r => setTimeout(r, dmDelayS * 1000));
           } catch (e) {
             await supabase.from("auto_engagement_logs").insert({
               action_type: "dm", post_id: post.id, comment_id: commentId,

@@ -9,9 +9,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, Play, MessageSquare, Heart, Send, CheckCircle, XCircle, Plus, Trash2, Link, Zap } from "lucide-react";
+import { Loader2, Play, MessageSquare, Heart, Send, CheckCircle, XCircle, Plus, Trash2, Link, Zap, Clock } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -110,11 +111,17 @@ export default function EngagementPage() {
 
   const [replyPrompt, setReplyPrompt] = useState("");
   const [dmTemplate, setDmTemplate] = useState("");
+  const [likeDelay, setLikeDelay] = useState(5);
+  const [replyDelay, setReplyDelay] = useState(10);
+  const [dmDelay, setDmDelay] = useState(15);
 
   useEffect(() => {
     if (config) {
       setReplyPrompt(config.reply_prompt || "");
       setDmTemplate(config.dm_template || "");
+      setLikeDelay((config as any).like_delay_seconds ?? 5);
+      setReplyDelay((config as any).reply_delay_seconds ?? 10);
+      setDmDelay((config as any).dm_delay_seconds ?? 15);
     }
   }, [config]);
 
@@ -192,20 +199,47 @@ export default function EngagementPage() {
         {/* Toggles */}
         <div className="grid gap-4 md:grid-cols-3">
           {[
-            { key: "auto_reply", icon: MessageSquare, title: "Auto-Réponse", desc: "Répondre automatiquement aux commentaires" },
-            { key: "auto_dm", icon: Send, title: "Auto-DM", desc: "Envoyer un message privé aux commentateurs" },
-            { key: "auto_like", icon: Heart, title: "Auto-Like", desc: "Liker automatiquement les commentaires" },
+            { key: "auto_like", icon: Heart, title: "Auto-Like", desc: "Liker automatiquement les commentaires", delayKey: "like_delay_seconds", delay: likeDelay, setDelay: setLikeDelay },
+            { key: "auto_reply", icon: MessageSquare, title: "Auto-Réponse", desc: "Répondre automatiquement aux commentaires", delayKey: "reply_delay_seconds", delay: replyDelay, setDelay: setReplyDelay },
+            { key: "auto_dm", icon: Send, title: "Auto-DM", desc: "Envoyer un message privé aux commentateurs", delayKey: "dm_delay_seconds", delay: dmDelay, setDelay: setDmDelay },
           ].map(item => (
             <Card key={item.key}>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center gap-2"><item.icon className="h-4 w-4" /> {item.title}</CardTitle>
                 <CardDescription>{item.desc}</CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
                 <div className="flex items-center gap-2">
                   <Switch checked={(config as any)?.[item.key] || false} onCheckedChange={v => updateConfig.mutate({ [item.key]: v })} />
                   <Label>{(config as any)?.[item.key] ? "Activé" : "Désactivé"}</Label>
                 </div>
+                {(config as any)?.[item.key] && (
+                  <div className="space-y-2 pt-2 border-t">
+                    <Label className="text-xs flex items-center gap-1.5">
+                      <Clock className="h-3 w-3" /> Délai entre chaque action : <span className="font-bold text-primary">{item.delay}s</span>
+                    </Label>
+                    <Slider
+                      value={[item.delay]}
+                      onValueChange={v => item.setDelay(v[0])}
+                      min={1}
+                      max={60}
+                      step={1}
+                    />
+                    <div className="flex justify-between">
+                      <span className="text-[10px] text-muted-foreground">1s (rapide)</span>
+                      <span className="text-[10px] text-muted-foreground">60s (prudent)</span>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full text-xs"
+                      onClick={() => updateConfig.mutate({ [item.delayKey]: item.delay })}
+                      disabled={updateConfig.isPending}
+                    >
+                      Sauvegarder le délai
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           ))}
