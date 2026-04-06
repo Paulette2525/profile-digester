@@ -321,10 +321,10 @@ export default function ProspectionPage() {
                     value={[dailyContactLimit]}
                     onValueChange={(v) => setDailyContactLimit(v[0])}
                     min={5}
-                    max={100}
+                    max={500}
                     step={5}
                   />
-                  <p className="text-xs text-muted-foreground">Limite quotidienne pour protéger votre compte</p>
+                  <p className="text-xs text-muted-foreground">Limite quotidienne (5-500)</p>
                 </div>
                 <div className="space-y-3">
                   <Label className="text-sm">Délai entre messages : <span className="font-bold text-primary">{delayBetweenMessages}s</span></Label>
