@@ -67,7 +67,7 @@ export default function AutopilotPage() {
       if (config) {
         const { error } = await supabase
           .from("autopilot_config")
-          .update(updates)
+          .update(updates as any)
           .eq("id", config.id);
         if (error) throw error;
       } else {
