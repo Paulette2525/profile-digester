@@ -472,6 +472,7 @@ export type Database = {
           created_at: string
           id: string
           message_sent: string | null
+          next_followup_at: string | null
           prospect_avatar_url: string | null
           prospect_headline: string | null
           prospect_linkedin_url: string | null
@@ -479,6 +480,7 @@ export type Database = {
           replied_at: string | null
           sent_at: string | null
           status: string
+          step_order: number
           user_id: string
         }
         Insert: {
@@ -486,6 +488,7 @@ export type Database = {
           created_at?: string
           id?: string
           message_sent?: string | null
+          next_followup_at?: string | null
           prospect_avatar_url?: string | null
           prospect_headline?: string | null
           prospect_linkedin_url?: string | null
@@ -493,6 +496,7 @@ export type Database = {
           replied_at?: string | null
           sent_at?: string | null
           status?: string
+          step_order?: number
           user_id: string
         }
         Update: {
@@ -500,6 +504,7 @@ export type Database = {
           created_at?: string
           id?: string
           message_sent?: string | null
+          next_followup_at?: string | null
           prospect_avatar_url?: string | null
           prospect_headline?: string | null
           prospect_linkedin_url?: string | null
@@ -507,11 +512,47 @@ export type Database = {
           replied_at?: string | null
           sent_at?: string | null
           status?: string
+          step_order?: number
           user_id?: string
         }
         Relationships: [
           {
             foreignKeyName: "prospection_messages_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "prospection_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prospection_sequence_steps: {
+        Row: {
+          campaign_id: string
+          created_at: string
+          delay_days: number
+          id: string
+          message_template: string
+          step_order: number
+        }
+        Insert: {
+          campaign_id: string
+          created_at?: string
+          delay_days?: number
+          id?: string
+          message_template: string
+          step_order?: number
+        }
+        Update: {
+          campaign_id?: string
+          created_at?: string
+          delay_days?: number
+          id?: string
+          message_template?: string
+          step_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prospection_sequence_steps_campaign_id_fkey"
             columns: ["campaign_id"]
             isOneToOne: false
             referencedRelation: "prospection_campaigns"
