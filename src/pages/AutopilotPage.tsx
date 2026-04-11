@@ -73,7 +73,7 @@ export default function AutopilotPage() {
       } else {
         const { error } = await supabase
           .from("autopilot_config")
-          .insert({ user_id: user!.id, ...updates });
+          .insert({ user_id: user!.id, ...updates } as any);
         if (error) throw error;
       }
     },
