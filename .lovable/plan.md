@@ -1,24 +1,35 @@
 
 
-## Plan : Corriger les erreurs de build TypeScript
+## Plan : Actualisation en temps reel de la page Performance
 
 ### Probleme
 
-Deux erreurs TypeScript identiques dans `AutopilotPage.tsx` (ligne 70) et `EngagementPage.tsx` (ligne 88) : `Record<string, any>` n'est pas assignable au type strict attendu par Supabase pour `.update()` et `.insert()`.
+La page Performance ne se met a jour que lors du chargement initial ou quand on clique manuellement sur "Actualiser". Les commentaires, likes et autres donnees ne se rafraichissent pas automatiquement.
 
-### Concernant la planification
+### Solution
 
-L'edge function `schedule-posts` fonctionne correctement (test retourne 200). Les posts sont bien planifies en base. Le probleme de planification que tu rencontres est probablement lie a ces erreurs de build qui empechent le deploiement correct du frontend.
+1. **Migration SQL** : Activer le realtime sur les tables `suggested_posts` et `account_stats_history`
+   ```sql
+   ALTER PUBLICATION supabase_realtime ADD TABLE suggested_posts;
+   ALTER PUBLICATION supabase_realtime ADD TABLE account_stats_history;
+   ```
 
-### Corrections
+2. **`src/pages/AnalyserPage.tsx`** : Ajouter des abonnements realtime Supabase qui invalident les queries React Query quand les donnees changent
+   - Ecouter les changements sur `suggested_posts` (filtre `user_id`) pour rafraichir les stats de performance (likes, commentaires, partages, impressions)
+   - Ecouter les changements sur `account_stats_history` pour rafraichir le graphique de croissance
+   - Nettoyage des channels au unmount du composant
 
-**Fichier 1 : `src/pages/AutopilotPage.tsx`**
-- Ligne 66 : changer `Record<string, any>` en type explicite utilisant `Tables<"autopilot_config">["Update"]` ou cast avec `as any` sur l'appel `.update()` et `.insert()`
+### Section technique
 
-**Fichier 2 : `src/pages/EngagementPage.tsx`**  
-- Ligne 86 : meme correction pour `auto_engagement_config`
+- Utilisation de `supabase.channel()` avec `postgres_changes` event `*` sur chaque table
+- Dans le callback, appel de `queryClient.invalidateQueries()` sur les query keys correspondantes (`published-posts-analysis`, `account-stats-history`, `account-stats`)
+- Import de `useQueryClient` depuis `@tanstack/react-query`
+- Ajout d'un `useEffect` avec cleanup pour les subscriptions
 
-### Solution technique
+### Fichiers modifies
 
-Caster les objets `updates` avec `as any` dans les appels `.update(updates as any)` et `.insert({ user_id: user!.id, ...updates } as any)`. C'est la solution la plus simple et non-breaking puisque les champs sont deja valides a l'execution.
+| Fichier | Action |
+|---------|--------|
+| Migration SQL | Ajouter realtime sur 2 tables |
+| `src/pages/AnalyserPage.tsx` | Ajouter subscriptions realtime + useQueryClient |
 
