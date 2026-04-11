@@ -67,13 +67,13 @@ export default function AutopilotPage() {
       if (config) {
         const { error } = await supabase
           .from("autopilot_config")
-          .update(updates)
+          .update(updates as any)
           .eq("id", config.id);
         if (error) throw error;
       } else {
         const { error } = await supabase
           .from("autopilot_config")
-          .insert({ user_id: user!.id, ...updates });
+          .insert({ user_id: user!.id, ...updates } as any);
         if (error) throw error;
       }
     },

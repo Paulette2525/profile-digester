@@ -85,7 +85,7 @@ export default function EngagementPage() {
   const updateConfig = useMutation({
     mutationFn: async (updates: Record<string, any>) => {
       if (!config?.id) return;
-      const { error } = await supabase.from("auto_engagement_config").update(updates).eq("id", config.id);
+      const { error } = await supabase.from("auto_engagement_config").update(updates as any).eq("id", config.id);
       if (error) throw error;
     },
     onSuccess: () => {
