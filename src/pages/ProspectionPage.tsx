@@ -9,10 +9,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Users, Send, Loader2, UserPlus, CheckCircle, XCircle, Clock, BarChart3, CheckSquare, ChevronDown, ChevronUp } from "lucide-react";
+import { Search, Users, Send, Loader2, UserPlus, CheckCircle, XCircle, Clock, BarChart3, CheckSquare, ChevronDown, ChevronUp, Plus, Trash2, RefreshCw } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -25,6 +24,17 @@ interface SearchResult {
   linkedin_url: string;
 }
 
+interface SequenceStep {
+  step_order: number;
+  delay_days: number;
+  message_template: string;
+}
+
+function StepBadge({ stepOrder }: { stepOrder: number }) {
+  if (stepOrder === 1) return <Badge variant="outline" className="text-[10px]">Message initial</Badge>;
+  return <Badge variant="secondary" className="text-[10px]"><RefreshCw className="h-2.5 w-2.5 mr-1" />Relance {stepOrder - 1}</Badge>;
+}
+
 function CampaignRow({ campaign: c, userId }: { campaign: any; userId?: string }) {
   const [expanded, setExpanded] = useState(false);
   const { data: messages, isLoading } = useQuery({
@@ -35,6 +45,7 @@ function CampaignRow({ campaign: c, userId }: { campaign: any; userId?: string }
         .from("prospection_messages")
         .select("*")
         .eq("campaign_id", c.id)
+        .order("step_order", { ascending: true })
         .order("created_at", { ascending: true });
       if (error) throw error;
       return (data || []) as any[];
@@ -75,6 +86,7 @@ function CampaignRow({ campaign: c, userId }: { campaign: any; userId?: string }
                     <p className="text-sm font-medium">{msg.prospect_name}</p>
                     <p className="text-xs text-muted-foreground truncate">{msg.prospect_headline}</p>
                   </div>
+                  <StepBadge stepOrder={msg.step_order || 1} />
                   <Badge
                     variant={
                       msg.status === "sent" ? "default" :
@@ -88,6 +100,11 @@ function CampaignRow({ campaign: c, userId }: { campaign: any; userId?: string }
                     {msg.status === "error" && <XCircle className="h-3 w-3 mr-1" />}
                     {msg.status}
                   </Badge>
+                  {msg.next_followup_at && msg.status === "sent" && (
+                    <span className="text-[10px] text-muted-foreground shrink-0">
+                      Relance : {format(new Date(msg.next_followup_at), "dd/MM")}
+                    </span>
+                  )}
                   {msg.sent_at && (
                     <span className="text-[10px] text-muted-foreground shrink-0">
                       {format(new Date(msg.sent_at), "dd/MM HH:mm")}
@@ -117,6 +134,35 @@ export default function ProspectionPage() {
   const [messageTemplate, setMessageTemplate] = useState(
     "Bonjour {name},\n\nJ'ai vu votre profil ({headline}) et j'aimerais échanger avec vous.\n\nBien cordialement"
   );
+
+  // Sequence steps state
+  const [sequenceSteps, setSequenceSteps] = useState<SequenceStep[]>([]);
+
+  const addSequenceStep = () => {
+    const lastDelay = sequenceSteps.length > 0
+      ? sequenceSteps[sequenceSteps.length - 1].delay_days
+      : 0;
+    setSequenceSteps([
+      ...sequenceSteps,
+      {
+        step_order: sequenceSteps.length + 2, // +2 because step 1 is the initial message
+        delay_days: lastDelay + 3,
+        message_template: `Bonjour {name},\n\nJe me permets de revenir vers vous suite à mon précédent message.\n\nBien cordialement`,
+      },
+    ]);
+  };
+
+  const removeSequenceStep = (index: number) => {
+    setSequenceSteps((prev) =>
+      prev.filter((_, i) => i !== index).map((s, i) => ({ ...s, step_order: i + 2 }))
+    );
+  };
+
+  const updateSequenceStep = (index: number, field: keyof SequenceStep, value: any) => {
+    setSequenceSteps((prev) =>
+      prev.map((s, i) => (i === index ? { ...s, [field]: value } : s))
+    );
+  };
 
   // Fetch campaigns
   const { data: campaigns = [], isLoading: campaignsLoading } = useQuery({
@@ -198,6 +244,24 @@ export default function ProspectionPage() {
         .single();
       if (campErr) throw campErr;
 
+      // Insert sequence steps (step 1 = initial message + follow-ups)
+      const allSteps: SequenceStep[] = [
+        { step_order: 1, delay_days: 0, message_template: messageTemplate },
+        ...sequenceSteps,
+      ];
+
+      const { error: stepErr } = await supabase
+        .from("prospection_sequence_steps" as any)
+        .insert(
+          allSteps.map((s) => ({
+            campaign_id: (campaign as any).id,
+            step_order: s.step_order,
+            delay_days: s.delay_days,
+            message_template: s.message_template,
+          })) as any
+        );
+      if (stepErr) throw stepErr;
+
       const messages = selectedProspects.map((p) => ({
         campaign_id: (campaign as any).id,
         user_id: user.id,
@@ -209,6 +273,7 @@ export default function ProspectionPage() {
           .replace("{name}", p.name)
           .replace("{headline}", p.headline),
         status: "pending",
+        step_order: 1,
       }));
 
       const { error: msgErr } = await supabase
@@ -232,6 +297,7 @@ export default function ProspectionPage() {
       setCampaignName("");
       setSelectedProspects([]);
       setSearchResults([]);
+      setSequenceSteps([]);
       qc.invalidateQueries({ queryKey: ["prospection-campaigns"] });
       qc.invalidateQueries({ queryKey: ["prospection-messages"] });
     },
@@ -245,7 +311,6 @@ export default function ProspectionPage() {
   const totalReplies = campaigns.reduce((s: number, c: any) => s + (c.reply_count || 0), 0);
   const totalAccepted = campaigns.reduce((s: number, c: any) => s + (c.accepted_count || 0), 0);
   const replyRate = totalSent > 0 ? Math.round((totalReplies / totalSent) * 100) : 0;
-  const acceptRate = totalSent > 0 ? Math.round((totalAccepted / totalSent) * 100) : 0;
 
   const allSelected = searchResults.length > 0 && selectedProspects.length === searchResults.length;
 
@@ -289,7 +354,6 @@ export default function ProspectionPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Search controls */}
             <div className="flex gap-2">
               <Input
                 value={searchQuery}
@@ -317,7 +381,6 @@ export default function ProspectionPage() {
               </Button>
             </div>
 
-            {/* Results header with select all */}
             {searchResults.length > 0 && (
               <>
                 <div className="flex items-center justify-between">
@@ -382,14 +445,68 @@ export default function ProspectionPage() {
                 />
               </div>
 
+              {/* Step 1: Initial message */}
               <div className="space-y-2">
-                <Label>Message personnalisé</Label>
+                <Label className="flex items-center gap-2">
+                  <Badge variant="outline" className="text-xs">Étape 1</Badge>
+                  Message initial
+                </Label>
                 <Textarea
                   value={messageTemplate}
                   onChange={(e) => setMessageTemplate(e.target.value)}
-                  rows={5}
+                  rows={4}
                 />
               </div>
+
+              {/* Follow-up steps */}
+              {sequenceSteps.map((step, index) => (
+                <div key={index} className="space-y-2 p-4 rounded-lg border border-dashed bg-muted/20">
+                  <div className="flex items-center justify-between">
+                    <Label className="flex items-center gap-2">
+                      <Badge variant="secondary" className="text-xs">
+                        <RefreshCw className="h-3 w-3 mr-1" />
+                        Relance {index + 1}
+                      </Badge>
+                      après J+{step.delay_days}
+                    </Label>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => removeSequenceStep(index)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                    </Button>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Label className="text-xs whitespace-nowrap">Délai (jours) :</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={30}
+                      value={step.delay_days}
+                      onChange={(e) => updateSequenceStep(index, "delay_days", parseInt(e.target.value) || 1)}
+                      className="w-20"
+                    />
+                  </div>
+                  <Textarea
+                    value={step.message_template}
+                    onChange={(e) => updateSequenceStep(index, "message_template", e.target.value)}
+                    rows={3}
+                    placeholder="Message de relance..."
+                  />
+                </div>
+              ))}
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={addSequenceStep}
+                className="w-full border-dashed"
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Ajouter une relance
+              </Button>
 
               {/* Advanced settings */}
               <div className="grid gap-4 md:grid-cols-2 p-4 rounded-lg border bg-muted/30">
@@ -427,13 +544,13 @@ export default function ProspectionPage() {
                 ) : (
                   <Send className="h-4 w-4 mr-2" />
                 )}
-                Lancer ({selectedProspects.length} prospects — {Math.ceil(selectedProspects.length / dailyContactLimit)} jour(s))
+                Lancer ({selectedProspects.length} prospects — {sequenceSteps.length > 0 ? `${sequenceSteps.length + 1} étapes — ` : ""}{Math.ceil(selectedProspects.length / dailyContactLimit)} jour(s))
               </Button>
             </CardContent>
           </Card>
         )}
 
-        {/* Campaign history with expandable details */}
+        {/* Campaign history */}
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Historique des campagnes</CardTitle>
@@ -469,6 +586,7 @@ export default function ProspectionPage() {
                       <p className="text-sm font-medium">{msg.prospect_name}</p>
                       <p className="text-xs text-muted-foreground truncate">{msg.prospect_headline}</p>
                     </div>
+                    <StepBadge stepOrder={msg.step_order || 1} />
                     <Badge
                       variant={
                         msg.status === "sent" ? "default" :
