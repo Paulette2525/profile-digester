@@ -41,20 +41,30 @@ serve(async (req) => {
     const linkedinAccount = (accountData.items || []).find((a: any) => a.type === "LINKEDIN");
     if (!linkedinAccount) throw new Error("No LinkedIn account connected in Unipile");
 
-    // Fetch pending messages for this campaign
+    // Fetch sequence steps for this campaign
+    const { data: sequenceSteps } = await supabase
+      .from("prospection_sequence_steps")
+      .select("*")
+      .eq("campaign_id", campaign_id)
+      .order("step_order", { ascending: true });
+
+    // Fetch pending messages for step 1
     const { data: messages, error: msgErr } = await supabase
       .from("prospection_messages")
       .select("*")
       .eq("campaign_id", campaign_id)
-      .eq("status", "pending");
+      .eq("status", "pending")
+      .eq("step_order", 1);
     if (msgErr) throw msgErr;
 
     let sentCount = 0;
     let errorCount = 0;
 
+    // Find next step after step 1
+    const nextStep = (sequenceSteps || []).find((s: any) => s.step_order === 2);
+
     for (const msg of (messages || []).slice(0, daily_limit)) {
       try {
-        // Send message via Unipile
         const sendRes = await fetch(
           `https://${UNIPILE_DSN}/api/v1/chats`,
           {
@@ -73,9 +83,19 @@ serve(async (req) => {
         );
 
         if (sendRes.ok) {
+          // Calculate next_followup_at if there's a next step
+          const now = new Date();
+          const nextFollowupAt = nextStep
+            ? new Date(now.getTime() + nextStep.delay_days * 24 * 60 * 60 * 1000).toISOString()
+            : null;
+
           await supabase
             .from("prospection_messages")
-            .update({ status: "sent", sent_at: new Date().toISOString() })
+            .update({
+              status: "sent",
+              sent_at: now.toISOString(),
+              next_followup_at: nextFollowupAt,
+            })
             .eq("id", msg.id);
           sentCount++;
         } else {
@@ -88,7 +108,6 @@ serve(async (req) => {
           errorCount++;
         }
 
-        // Rate limiting: wait between messages
         await new Promise((r) => setTimeout(r, delay_seconds * 1000));
       } catch (e) {
         console.error(`Error sending to ${msg.prospect_name}:`, e);
