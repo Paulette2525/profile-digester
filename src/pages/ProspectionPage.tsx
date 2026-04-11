@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Users, Send, Loader2, UserPlus, CheckCircle, XCircle, Clock, BarChart3, CheckSquare, ChevronDown, ChevronUp, Plus, Trash2, RefreshCw } from "lucide-react";
+import { Search, Users, Send, Loader2, UserPlus, CheckCircle, XCircle, Clock, BarChart3, CheckSquare, ChevronDown, ChevronUp, Plus, Trash2, RefreshCw, Pause, Play } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -37,6 +37,7 @@ function StepBadge({ stepOrder }: { stepOrder: number }) {
 
 function CampaignRow({ campaign: c, userId }: { campaign: any; userId?: string }) {
   const [expanded, setExpanded] = useState(false);
+  const qc = useQueryClient();
   const { data: messages, isLoading } = useQuery({
     queryKey: ["campaign-messages", c.id],
     enabled: expanded && !!userId,
@@ -52,6 +53,26 @@ function CampaignRow({ campaign: c, userId }: { campaign: any; userId?: string }
     },
   });
 
+  const togglePause = useMutation({
+    mutationFn: async () => {
+      const newStatus = c.status === "paused" ? "active" : "paused";
+      const { error } = await supabase
+        .from("prospection_campaigns")
+        .update({ status: newStatus })
+        .eq("id", c.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["prospection-campaigns"] });
+      toast({ title: c.status === "paused" ? "Campagne reprise ▶️" : "Campagne mise en pause ⏸️" });
+    },
+    onError: (e: any) => {
+      toast({ title: "Erreur", description: e.message, variant: "destructive" });
+    },
+  });
+
+  const canTogglePause = c.status === "active" || c.status === "paused";
+
   return (
     <div className="border rounded-lg">
       <div
@@ -60,8 +81,12 @@ function CampaignRow({ campaign: c, userId }: { campaign: any; userId?: string }
       >
         <div className="flex items-center gap-3 flex-1 min-w-0">
           <p className="text-sm font-medium truncate">{c.name}</p>
-          <Badge variant={c.status === "active" ? "default" : "secondary"} className="shrink-0">
-            {c.status === "active" ? "Active" : c.status === "completed" ? "Terminée" : c.status}
+          <Badge
+            variant={c.status === "active" ? "default" : c.status === "paused" ? "outline" : "secondary"}
+            className={`shrink-0 ${c.status === "paused" ? "border-orange-400 text-orange-600" : ""}`}
+          >
+            {c.status === "paused" && <Pause className="h-3 w-3 mr-1" />}
+            {c.status === "active" ? "Active" : c.status === "completed" ? "Terminée" : c.status === "paused" ? "En pause" : c.status}
           </Badge>
         </div>
         <div className="flex items-center gap-4 text-xs text-muted-foreground shrink-0">
@@ -69,6 +94,24 @@ function CampaignRow({ campaign: c, userId }: { campaign: any; userId?: string }
           <span>{c.sent_count} envoyés</span>
           <span>{c.reply_count} réponses</span>
           <span>{format(new Date(c.created_at), "dd MMM yyyy", { locale: fr })}</span>
+          {canTogglePause && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={(e) => { e.stopPropagation(); togglePause.mutate(); }}
+              disabled={togglePause.isPending}
+              title={c.status === "paused" ? "Reprendre" : "Mettre en pause"}
+            >
+              {togglePause.isPending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : c.status === "paused" ? (
+                <Play className="h-3.5 w-3.5 text-green-600" />
+              ) : (
+                <Pause className="h-3.5 w-3.5 text-orange-500" />
+              )}
+            </Button>
+          )}
           {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
         </div>
       </div>

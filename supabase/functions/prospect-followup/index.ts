@@ -34,12 +34,14 @@ serve(async (req) => {
     if (!linkedinAccount) throw new Error("No LinkedIn account connected in Unipile");
 
     // Find messages due for follow-up: sent, not replied, next_followup_at <= now
+    // Exclude messages from paused campaigns
     const { data: dueMessages, error: dueErr } = await supabase
       .from("prospection_messages")
-      .select("*")
+      .select("*, prospection_campaigns!inner(status)")
       .eq("status", "sent")
       .not("next_followup_at", "is", null)
-      .lte("next_followup_at", new Date().toISOString());
+      .lte("next_followup_at", new Date().toISOString())
+      .neq("prospection_campaigns.status", "paused");
     if (dueErr) throw dueErr;
 
     let sentCount = 0;

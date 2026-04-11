@@ -32,6 +32,19 @@ serve(async (req) => {
       });
     }
 
+    // Check campaign is not paused
+    const { data: campaignData } = await supabase
+      .from("prospection_campaigns")
+      .select("status")
+      .eq("id", campaign_id)
+      .single();
+    if (campaignData?.status === "paused") {
+      return new Response(JSON.stringify({ error: "Campaign is paused" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Get LinkedIn account ID
     const accountRes = await fetch(`https://${UNIPILE_DSN}/api/v1/accounts`, {
       headers: { "X-API-KEY": UNIPILE_API_KEY, Accept: "application/json" },
