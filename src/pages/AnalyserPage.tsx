@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { BarChart3, TrendingUp, Target, RefreshCw, Loader2, ThumbsUp, MessageCircle, Share2, Eye, ChevronDown, Users, UserPlus, RotateCcw, Percent } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -14,9 +14,26 @@ import { toast } from "sonner";
 
 export default function AnalyserPage() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [isFetching, setIsFetching] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [visiblePosts, setVisiblePosts] = useState(10);
+
+  // Realtime subscriptions
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel('performance-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'suggested_posts', filter: `user_id=eq.${user.id}` }, () => {
+        queryClient.invalidateQueries({ queryKey: ['published-posts-analysis'] });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'account_stats_history', filter: `user_id=eq.${user.id}` }, () => {
+        queryClient.invalidateQueries({ queryKey: ['account-stats-history'] });
+        queryClient.invalidateQueries({ queryKey: ['account-stats'] });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user, queryClient]);
 
   // Account stats (followers, connections)
   const { data: accountStats, isLoading: accountLoading, refetch: refetchAccount } = useQuery({
