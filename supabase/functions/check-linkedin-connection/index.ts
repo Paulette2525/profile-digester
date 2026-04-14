@@ -6,16 +6,24 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+const UPSTREAM_UNAVAILABLE_STATUSES = new Set([502, 503, 504]);
+
 async function fetchWithRetry(url: string, options: RequestInit, retries = 2): Promise<Response> {
   for (let i = 0; i <= retries; i++) {
-    const res = await fetch(url, options);
-    if (res.ok || i === retries) return res;
-    if (res.status >= 500) {
-      await new Promise(r => setTimeout(r, 1000 * (i + 1)));
-      continue;
+    try {
+      const res = await fetch(url, options);
+      if (res.ok || i === retries) return res;
+      if (UPSTREAM_UNAVAILABLE_STATUSES.has(res.status)) {
+        await new Promise((r) => setTimeout(r, 1000 * (i + 1)));
+        continue;
+      }
+      return res;
+    } catch (error) {
+      if (i === retries) throw error;
+      await new Promise((r) => setTimeout(r, 1000 * (i + 1)));
     }
-    return res;
   }
+
   throw new Error("Unreachable");
 }
 
@@ -39,6 +47,18 @@ serve(async (req) => {
     });
 
     if (!res.ok) {
+      if (UPSTREAM_UNAVAILABLE_STATUSES.has(res.status)) {
+        return new Response(
+          JSON.stringify({
+            connected: false,
+            degraded: true,
+            reason: "upstream_unavailable",
+            status: res.status,
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
       throw new Error(`Failed to list accounts: ${res.status}`);
     }
 
