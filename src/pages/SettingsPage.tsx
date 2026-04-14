@@ -16,10 +16,14 @@ const SettingsPage = () => {
     queryKey: ["linkedin-connection-status"],
     queryFn: async () => {
       const { data, error } = await supabase.functions.invoke("check-linkedin-connection");
-      if (error) throw error;
+      if (error) {
+        console.warn("LinkedIn connection check failed:", error);
+        return { connected: false } as { connected: boolean; account?: { id: string; name: string; status: string } };
+      }
       return data as { connected: boolean; account?: { id: string; name: string; status: string } };
     },
     staleTime: 5 * 60 * 1000,
+    retry: 1,
   });
 
   const handleConnect = async () => {

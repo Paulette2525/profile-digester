@@ -49,11 +49,16 @@ export function AppSidebar() {
   const { data: linkedinConnected = null } = useQuery({
     queryKey: ["linkedin-connection"],
     queryFn: async () => {
-      const { data } = await supabase.functions.invoke("check-linkedin-connection");
-      return data?.connected ?? false;
+      try {
+        const { data } = await supabase.functions.invoke("check-linkedin-connection");
+        return data?.connected ?? false;
+      } catch {
+        return false;
+      }
     },
     staleTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
+    retry: 1,
   });
 
   return (
