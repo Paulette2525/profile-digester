@@ -47,19 +47,23 @@ serve(async (req) => {
     });
 
     if (!res.ok) {
-      if (UPSTREAM_UNAVAILABLE_STATUSES.has(res.status)) {
-        return new Response(
-          JSON.stringify({
-            connected: false,
-            degraded: true,
-            reason: "upstream_unavailable",
-            status: res.status,
-          }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
+      const reason = UPSTREAM_UNAVAILABLE_STATUSES.has(res.status)
+        ? "upstream_unavailable"
+        : res.status === 401 || res.status === 403
+          ? "auth_error"
+          : "unknown_error";
 
-      throw new Error(`Failed to list accounts: ${res.status}`);
+      console.error(`Unipile API error: ${res.status} – reason: ${reason}`);
+
+      return new Response(
+        JSON.stringify({
+          connected: false,
+          degraded: true,
+          reason,
+          status: res.status,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     const data = await res.json();
