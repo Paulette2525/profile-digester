@@ -19,11 +19,11 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
-    // Fetch all enabled autopilot configs
+    // Fetch all configs that have at least one mode enabled
     const { data: configs, error: cfgErr } = await supabase
       .from("prospection_autopilot_config")
       .select("*")
-      .eq("enabled", true);
+      .or("profiles_enabled.eq.true,commenters_enabled.eq.true,companies_enabled.eq.true");
     if (cfgErr) throw cfgErr;
     if (!configs || configs.length === 0) {
       return new Response(JSON.stringify({ message: "No active autopilot configs" }), {
