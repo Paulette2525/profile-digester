@@ -1,75 +1,51 @@
 
 
-## Plan : Filtres personnalisés par mode de prospection
+## Plan : Lien public pour soumettre des idées + Auto-création des règles DM
 
-### Concept
+### 1. Page publique de soumission d'idées (`/idee/:userId`)
 
-Ajouter des champs de filtrage avancés et spécifiques à chaque mode (Profils, Commentaires, Entreprises) directement dans les cartes de configuration de l'AutopilotPanel, au lieu d'un simple champ texte unique par mode.
+Créer une route publique (comme `/form/:slug`) qui permet de soumettre une idée depuis un téléphone sans être connecté.
 
-### 1. Migration SQL — nouveaux champs de filtre
+**Edge Function `submit-idea`** : endpoint public qui reçoit `{ user_id, idea_text, content_type }`, valide les champs, et insère dans `content_ideas`. Si `resource_url` est fourni, crée automatiquement une règle DM (voir point 2).
 
-Ajouter des colonnes de filtrage dans `prospection_autopilot_config` :
+**Page `PublicIdeaPage.tsx`** : formulaire simple et mobile-friendly avec :
+- Champ texte pour l'idée
+- Sélecteur de type (tutoriel, viral, storytelling, news, autre)
+- Champ optionnel pour lien/ressource
+- Message de confirmation après soumission
 
-```sql
--- Filtres Profils
-profiles_location text         -- Ex: "France", "Paris"
-profiles_industry text         -- Ex: "SaaS", "IA"
-profiles_title_filter text     -- Ex: "CEO, CTO, Fondateur"
-profiles_company_size text     -- Ex: "1-50", "51-200", "201-500"
+**Bouton "Copier mon lien" sur IdeasPage** : en haut de la page Boîte à idées, un bouton qui copie l'URL publique dans le presse-papier pour l'avoir sur son téléphone.
 
--- Filtres Commentaires  
-commenters_min_likes integer DEFAULT 0      -- Nb min de likes sur le commentaire
-commenters_filter_headline text             -- Filtrer par headline (ex: "CEO, Directeur")
-commenters_exclude_keywords text            -- Exclure certains profils
+**Route** : `/idee/:userId` dans `App.tsx` (publique, hors `ProtectedLayout`).
 
--- Filtres Entreprises
-companies_location text        -- Ex: "France"
-companies_size_min integer     -- Taille min employés
-companies_size_max integer     -- Taille max employés
-companies_industry_filter text -- Secteur spécifique
-```
+### 2. Auto-création des règles DM quand une idée a une `resource_url`
 
-### 2. Frontend — Filtres dans chaque carte de mode
+Quand une idée est créée (via la page interne OU via le lien public) avec un `resource_url` non vide :
 
-Transformer les 3 blocs de configuration actuels (lignes 377-406) en sections enrichies :
+**Dans l'Edge Function `submit-idea`** et **dans `IdeasPage.tsx` (handleSubmit)** :
+- Générer automatiquement un mot-clé déclencheur basé sur le type de contenu (ex: "GUIDE", "LIEN", "RESSOURCE")
+- Créer une entrée dans `post_dm_rules` avec :
+  - `trigger_keyword` : mot-clé généré (ex: "GUIDE")
+  - `dm_message` : message pré-rédigé du type "Bonjour {author_name} ! Voici la ressource mentionnée dans mon post : [url]"
+  - `resource_url` : le lien fourni
+  - `user_id` : l'utilisateur
+  - `is_active` : true
+- Le tout sans intervention manuelle sur la page Engagement
 
-**Profils** :
-- Mots-clés de recherche (existant)
-- Localisation (input texte)
-- Secteur d'activité (input texte)
-- Titre / poste ciblé (input texte, ex: "CEO, CTO, VP Sales")
-- Taille d'entreprise (select : 1-50, 51-200, 201-500, 500+)
-
-**Commentaires** :
-- IDs de posts (existant)
-- Filtrer par headline (input texte, ex: "Directeur, CEO")
-- Likes minimum sur le commentaire (input number)
-- Exclure des mots-clés (input texte)
-
-**Entreprises** :
-- Mots-clés entreprises (existant)
-- Localisation (input texte)
-- Taille min / max employés (2 inputs number)
-- Secteur d'activité (input texte)
-
-Chaque section de filtre sera repliable sous un bouton "Filtres avancés" pour ne pas surcharger l'interface.
-
-### 3. Edge Function — utiliser les filtres
-
-Modifier `prospection-autopilot` pour transmettre les filtres aux fonctions de recherche existantes (`search-profiles`, `extract-commenters`, `search-companies`) et filtrer côté serveur les résultats selon les critères définis.
-
-### Fichiers modifiés / créés
+### Fichiers à créer / modifier
 
 | Fichier | Action |
 |---------|--------|
-| Migration SQL | 10 nouvelles colonnes de filtrage |
-| `src/pages/ProspectionPage.tsx` | Enrichir les 3 blocs de config avec les filtres |
-| `supabase/functions/prospection-autopilot/index.ts` | Transmettre les filtres aux recherches |
+| `supabase/functions/submit-idea/index.ts` | Créer — soumission publique + auto DM rule |
+| `src/pages/PublicIdeaPage.tsx` | Créer — formulaire mobile-friendly |
+| `src/pages/IdeasPage.tsx` | Modifier — bouton "Copier lien" + auto DM rule dans handleSubmit |
+| `src/App.tsx` | Ajouter route publique `/idee/:userId` |
 
 ### Section technique
 
-- Tous les nouveaux champs sont nullable (pas de valeur par défaut obligatoire) pour compatibilité avec les configs existantes
-- Les filtres `headline` et `exclude_keywords` appliquent un filtre côté code après récupération des résultats Unipile (l'API ne supporte pas tous les filtres nativement)
-- L'UI utilise un `Collapsible` pour les filtres avancés afin de garder la page lisible
-- Le `saveMutation` existant est étendu pour inclure les nouveaux champs dans le payload
+- L'edge function `submit-idea` utilise `SUPABASE_SERVICE_ROLE_KEY` pour insérer dans `content_ideas` (car l'utilisateur n'est pas authentifié)
+- Le mot-clé DM est déduit du `content_type` : tutorial→"GUIDE", viral→"LIEN", storytelling→"RESSOURCE", news→"ARTICLE", autre→"LIEN"
+- Le message DM est un template standard : "Bonjour {author_name} ! 👋 Merci pour ton intérêt. Voici la ressource : [resource_url]. N'hésite pas si tu as des questions !"
+- L'auto-création DM rule ne crée pas de doublon si une règle avec le même `resource_url` existe déjà pour cet utilisateur
+- RLS : `content_ideas` n'a pas de policy `anon INSERT`, donc l'edge function utilise le service role key (comme `submit-lead-form`)
 
