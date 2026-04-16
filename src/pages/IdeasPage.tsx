@@ -9,8 +9,16 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Lightbulb, Plus, Trash2, Upload, Image as ImageIcon } from "lucide-react";
+import { Lightbulb, Plus, Trash2, Upload, Image as ImageIcon, Link2, Check } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+
+const keywordMap: Record<string, string> = {
+  tutorial: "GUIDE",
+  viral: "LIEN",
+  storytelling: "RESSOURCE",
+  news: "ARTICLE",
+  autre: "LIEN",
+};
 
 const contentTypes = [
   { value: "tutorial", label: "📚 Tutoriel", color: "bg-blue-100 text-blue-800" },
@@ -30,6 +38,16 @@ export default function IdeasPage() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [resourceUrl, setResourceUrl] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
+
+  const publicLink = user ? `${window.location.origin}/idee/${user.id}` : "";
+
+  const copyLink = async () => {
+    await navigator.clipboard.writeText(publicLink);
+    setLinkCopied(true);
+    toast({ title: "Lien copié ! 📋", description: "Collez-le dans vos favoris mobile" });
+    setTimeout(() => setLinkCopied(false), 2000);
+  };
 
   const { data: ideas = [], isLoading } = useQuery({
     queryKey: ["content-ideas", user?.id],
@@ -58,14 +76,36 @@ export default function IdeasPage() {
         const { data: urlData } = supabase.storage.from("user-photos").getPublicUrl(path);
         imageUrl = urlData.publicUrl;
       }
+      const trimmedResource = resourceUrl.trim() || null;
       const { error } = await supabase.from("content_ideas").insert({
         user_id: user.id,
         idea_text: text.trim(),
         content_type: type,
         image_url: imageUrl,
-        resource_url: resourceUrl.trim() || null,
+        resource_url: trimmedResource,
       } as any);
       if (error) throw error;
+
+      // Auto-create DM rule if resource_url provided
+      if (trimmedResource) {
+        const { data: existing } = await supabase
+          .from("post_dm_rules")
+          .select("id")
+          .eq("user_id", user.id)
+          .eq("resource_url", trimmedResource)
+          .limit(1);
+        if (!existing || existing.length === 0) {
+          const keyword = keywordMap[type] || "LIEN";
+          const dmMessage = `Bonjour {author_name} ! 👋 Merci pour ton intérêt. Voici la ressource : ${trimmedResource}\n\nN'hésite pas si tu as des questions !`;
+          await supabase.from("post_dm_rules").insert({
+            user_id: user.id,
+            trigger_keyword: keyword,
+            dm_message: dmMessage,
+            resource_url: trimmedResource,
+            is_active: true,
+          });
+        }
+      }
       setText("");
       setType("autre");
       setImageFile(null);
@@ -102,6 +142,11 @@ export default function IdeasPage() {
             Vos idées seront automatiquement utilisées par l'Autopilote pour générer des publications
           </p>
         </div>
+
+        <Button variant="outline" size="sm" onClick={copyLink} className="flex items-center gap-2">
+          {linkCopied ? <Check className="h-4 w-4" /> : <Link2 className="h-4 w-4" />}
+          {linkCopied ? "Lien copié !" : "Copier mon lien mobile"}
+        </Button>
 
         <Card>
           <CardHeader>
