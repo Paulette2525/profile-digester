@@ -26,6 +26,7 @@ const ResetPasswordPage = lazy(() => import("./pages/ResetPasswordPage"));
 const CalendarPage = lazy(() => import("./pages/CalendarPage"));
 const IdeasPage = lazy(() => import("./pages/IdeasPage"));
 const ProspectionPage = lazy(() => import("./pages/ProspectionPage"));
+const ProspectionStatsPage = lazy(() => import("./pages/ProspectionStatsPage"));
 const LeadsPage = lazy(() => import("./pages/LeadsPage"));
 const PublicFormPage = lazy(() => import("./pages/PublicFormPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -82,6 +83,7 @@ const App = () => (
                 <Route path="/calendrier" element={<CalendarPage />} />
                 <Route path="/idees" element={<IdeasPage />} />
                 <Route path="/prospection" element={<ProspectionPage />} />
+                <Route path="/prospection/stats" element={<ProspectionStatsPage />} />
                 <Route path="/leads" element={<LeadsPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
               </Route>

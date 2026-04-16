@@ -17,7 +17,7 @@ import { Search, Users, Send, Loader2, UserPlus, CheckCircle, XCircle, Clock, Ba
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
-import { ProspectionStats } from "@/components/prospection/ProspectionStats";
+
 
 interface SearchResult {
   id: string;
@@ -211,7 +211,9 @@ function AutopilotPanel({ userId }: { userId: string }) {
     },
   });
 
-  const [mode, setMode] = useState("profiles");
+  const [profilesEnabled, setProfilesEnabled] = useState(false);
+  const [commentersEnabled, setCommentersEnabled] = useState(false);
+  const [companiesEnabled, setCompaniesEnabled] = useState(false);
   const [searchQuery, setSearchQueryAP] = useState("");
   const [postIds, setPostIds] = useState("");
   const [companyKeywords, setCompanyKeywords] = useState("");
@@ -226,7 +228,9 @@ function AutopilotPanel({ userId }: { userId: string }) {
 
   useEffect(() => {
     if (config) {
-      setMode(config.mode || "profiles");
+      setProfilesEnabled(config.profiles_enabled ?? false);
+      setCommentersEnabled(config.commenters_enabled ?? false);
+      setCompaniesEnabled(config.companies_enabled ?? false);
       setSearchQueryAP(config.search_query || "");
       setPostIds((config.post_ids || []).join(", "));
       setCompanyKeywords(config.company_keywords || "");
@@ -242,11 +246,12 @@ function AutopilotPanel({ userId }: { userId: string }) {
   }, [config]);
 
   const saveMutation = useMutation({
-    mutationFn: async (enabled?: boolean) => {
+    mutationFn: async (overrides?: { profiles_enabled?: boolean; commenters_enabled?: boolean; companies_enabled?: boolean }) => {
       const payload = {
         user_id: userId,
-        enabled: enabled !== undefined ? enabled : (config?.enabled ?? false),
-        mode,
+        profiles_enabled: overrides?.profiles_enabled ?? profilesEnabled,
+        commenters_enabled: overrides?.commenters_enabled ?? commentersEnabled,
+        companies_enabled: overrides?.companies_enabled ?? companiesEnabled,
         search_query: searchQuery || null,
         post_ids: postIds.split(",").map((s: string) => s.trim()).filter(Boolean),
         company_keywords: companyKeywords || null,
@@ -282,24 +287,37 @@ function AutopilotPanel({ userId }: { userId: string }) {
     },
   });
 
-  const toggleEnabled = () => {
-    const newEnabled = !(config?.enabled ?? false);
-    saveMutation.mutate(newEnabled);
+  const toggleMode = (mode: "profiles" | "commenters" | "companies") => {
+    const overrides: any = {};
+    if (mode === "profiles") {
+      const v = !profilesEnabled;
+      setProfilesEnabled(v);
+      overrides.profiles_enabled = v;
+    } else if (mode === "commenters") {
+      const v = !commentersEnabled;
+      setCommentersEnabled(v);
+      overrides.commenters_enabled = v;
+    } else {
+      const v = !companiesEnabled;
+      setCompaniesEnabled(v);
+      overrides.companies_enabled = v;
+    }
+    saveMutation.mutate(overrides);
   };
 
-  const isEnabled = config?.enabled ?? false;
+  const anyEnabled = profilesEnabled || commentersEnabled || companiesEnabled;
   const lastRun = config?.last_run_at;
 
   if (isLoading) return null;
 
   return (
-    <Card className={`border-2 ${isEnabled ? "border-primary/50 bg-primary/5" : "border-dashed"}`}>
+    <Card className={`border-2 ${anyEnabled ? "border-primary/50 bg-primary/5" : "border-dashed"}`}>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-base flex items-center gap-2">
-            <Zap className={`h-5 w-5 ${isEnabled ? "text-primary" : "text-muted-foreground"}`} />
+            <Zap className={`h-5 w-5 ${anyEnabled ? "text-primary" : "text-muted-foreground"}`} />
             Prospection automatique
-            {isEnabled && <Badge className="bg-primary/20 text-primary text-[10px]">ACTIF</Badge>}
+            {anyEnabled && <Badge className="bg-primary/20 text-primary text-[10px]">ACTIF</Badge>}
           </CardTitle>
           <div className="flex items-center gap-2">
             {lastRun && (
@@ -310,59 +328,83 @@ function AutopilotPanel({ userId }: { userId: string }) {
             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setShowConfig(!showConfig)}>
               <Settings2 className="h-4 w-4" />
             </Button>
-            <Switch checked={isEnabled} onCheckedChange={toggleEnabled} disabled={saveMutation.isPending} />
           </div>
         </div>
         <CardDescription className="text-xs">
-          Configure une fois, la prospection s'exécute automatiquement chaque jour à 08h00.
+          Activez chaque mode indépendamment. La prospection s'exécute automatiquement chaque jour à 08h00.
         </CardDescription>
+
+        {/* 3 mode toggles */}
+        <div className="grid grid-cols-3 gap-3 mt-3">
+          <div className={`p-3 rounded-lg border ${profilesEnabled ? "border-primary/50 bg-primary/10" : "border-dashed"}`}>
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-1.5">
+                <Users className="h-3.5 w-3.5" />
+                <span className="text-sm font-medium">Profils</span>
+              </div>
+              <Switch checked={profilesEnabled} onCheckedChange={() => toggleMode("profiles")} disabled={saveMutation.isPending} />
+            </div>
+            {profilesEnabled && <Badge className="bg-primary/20 text-primary text-[9px]">ACTIF</Badge>}
+          </div>
+          <div className={`p-3 rounded-lg border ${commentersEnabled ? "border-primary/50 bg-primary/10" : "border-dashed"}`}>
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-1.5">
+                <MessageSquare className="h-3.5 w-3.5" />
+                <span className="text-sm font-medium">Commentaires</span>
+              </div>
+              <Switch checked={commentersEnabled} onCheckedChange={() => toggleMode("commenters")} disabled={saveMutation.isPending} />
+            </div>
+            {commentersEnabled && <Badge className="bg-primary/20 text-primary text-[9px]">ACTIF</Badge>}
+          </div>
+          <div className={`p-3 rounded-lg border ${companiesEnabled ? "border-primary/50 bg-primary/10" : "border-dashed"}`}>
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-1.5">
+                <Building2 className="h-3.5 w-3.5" />
+                <span className="text-sm font-medium">Entreprises</span>
+              </div>
+              <Switch checked={companiesEnabled} onCheckedChange={() => toggleMode("companies")} disabled={saveMutation.isPending} />
+            </div>
+            {companiesEnabled && <Badge className="bg-primary/20 text-primary text-[9px]">ACTIF</Badge>}
+          </div>
+        </div>
       </CardHeader>
 
       {showConfig && (
         <CardContent className="space-y-5 pt-0">
-          {/* Mode selection */}
-          <Tabs value={mode} onValueChange={setMode}>
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="profiles" className="flex items-center gap-1.5 text-xs">
-                <Users className="h-3 w-3" /> Profils
-              </TabsTrigger>
-              <TabsTrigger value="commenters" className="flex items-center gap-1.5 text-xs">
-                <MessageSquare className="h-3 w-3" /> Commentaires
-              </TabsTrigger>
-              <TabsTrigger value="companies" className="flex items-center gap-1.5 text-xs">
-                <Building2 className="h-3 w-3" /> Entreprises
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="profiles" className="space-y-2 mt-3">
-              <Label className="text-sm">Mots-clés de recherche</Label>
+          {/* Mode-specific fields */}
+          <div className="space-y-4">
+            {/* Profiles config */}
+            <div className="space-y-2 p-3 rounded-lg border bg-muted/20">
+              <Label className="text-sm flex items-center gap-1.5"><Users className="h-3.5 w-3.5" /> Mots-clés de recherche (Profils)</Label>
               <Input
                 value={searchQuery}
                 onChange={(e) => setSearchQueryAP(e.target.value)}
                 placeholder="Ex: CEO startup IA, Growth Marketer, Consultant digital..."
               />
-            </TabsContent>
+            </div>
 
-            <TabsContent value="commenters" className="space-y-2 mt-3">
-              <Label className="text-sm">IDs de posts à surveiller (séparés par des virgules)</Label>
+            {/* Commenters config */}
+            <div className="space-y-2 p-3 rounded-lg border bg-muted/20">
+              <Label className="text-sm flex items-center gap-1.5"><MessageSquare className="h-3.5 w-3.5" /> IDs de posts (Commentaires)</Label>
               <Input
                 value={postIds}
                 onChange={(e) => setPostIds(e.target.value)}
                 placeholder="urn:li:activity:123, urn:li:activity:456..."
               />
               <p className="text-xs text-muted-foreground">Les personnes qui commentent ces posts seront automatiquement contactées</p>
-            </TabsContent>
+            </div>
 
-            <TabsContent value="companies" className="space-y-2 mt-3">
-              <Label className="text-sm">Mots-clés entreprises</Label>
+            {/* Companies config */}
+            <div className="space-y-2 p-3 rounded-lg border bg-muted/20">
+              <Label className="text-sm flex items-center gap-1.5"><Building2 className="h-3.5 w-3.5" /> Mots-clés entreprises</Label>
               <Input
                 value={companyKeywords}
                 onChange={(e) => setCompanyKeywords(e.target.value)}
                 placeholder="Ex: startup IA, agence marketing, cabinet conseil..."
               />
               <p className="text-xs text-muted-foreground">Les décideurs de ces entreprises seront automatiquement contactés</p>
-            </TabsContent>
-          </Tabs>
+            </div>
+          </div>
 
           {/* Daily limit */}
           <div className="space-y-2">
@@ -1114,8 +1156,6 @@ export default function ProspectionPage() {
           </Card>
         )}
 
-        {/* Performance stats */}
-        <ProspectionStats campaigns={campaigns} messages={recentMessages} />
       </div>
     </>
   );

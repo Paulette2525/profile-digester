@@ -19,11 +19,11 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
-    // Fetch all enabled autopilot configs
+    // Fetch all configs that have at least one mode enabled
     const { data: configs, error: cfgErr } = await supabase
       .from("prospection_autopilot_config")
       .select("*")
-      .eq("enabled", true);
+      .or("profiles_enabled.eq.true,commenters_enabled.eq.true,companies_enabled.eq.true");
     if (cfgErr) throw cfgErr;
     if (!configs || configs.length === 0) {
       return new Response(JSON.stringify({ message: "No active autopilot configs" }), {
@@ -38,8 +38,8 @@ serve(async (req) => {
         const userId = config.user_id;
         let prospects: any[] = [];
 
-        // 1. Fetch prospects based on mode
-        if (config.mode === "profiles" && config.search_query) {
+        // 1. Fetch prospects from all enabled modes
+        if (config.profiles_enabled && config.search_query) {
           const res = await fetch(`${SUPABASE_URL}/functions/v1/search-profiles`, {
             method: "POST",
             headers: {
@@ -50,9 +50,11 @@ serve(async (req) => {
           });
           if (res.ok) {
             const data = await res.json();
-            prospects = data.results || [];
+            prospects.push(...(data.results || []));
           }
-        } else if (config.mode === "commenters" && config.post_ids?.length > 0) {
+        }
+
+        if (config.commenters_enabled && config.post_ids?.length > 0) {
           for (const postId of config.post_ids.slice(0, 5)) {
             const res = await fetch(`${SUPABASE_URL}/functions/v1/extract-commenters`, {
               method: "POST",
@@ -67,8 +69,9 @@ serve(async (req) => {
               prospects.push(...(data.results || []));
             }
           }
-        } else if (config.mode === "companies" && config.company_keywords) {
-          // First find companies
+        }
+
+        if (config.companies_enabled && config.company_keywords) {
           const compRes = await fetch(`${SUPABASE_URL}/functions/v1/search-companies`, {
             method: "POST",
             headers: {
@@ -80,7 +83,6 @@ serve(async (req) => {
           if (compRes.ok) {
             const compData = await compRes.json();
             const companies = compData.results || [];
-            // Extract decision-makers from each company
             for (const company of companies.slice(0, 5)) {
               const profRes = await fetch(`${SUPABASE_URL}/functions/v1/search-profiles`, {
                 method: "POST",
@@ -103,7 +105,7 @@ serve(async (req) => {
         }
 
         if (prospects.length === 0) {
-          results.push({ user_id: userId, status: "no_prospects", mode: config.mode });
+          results.push({ user_id: userId, status: "no_prospects" });
           continue;
         }
 
@@ -119,7 +121,7 @@ serve(async (req) => {
         prospects = prospects.slice(0, config.daily_contact_limit);
 
         if (prospects.length === 0) {
-          results.push({ user_id: userId, status: "all_already_contacted", mode: config.mode });
+          results.push({ user_id: userId, status: "all_already_contacted" });
           continue;
         }
 
@@ -194,13 +196,12 @@ INSTRUCTIONS:
         }
 
         // 4. Create campaign
-        const modeLabels: Record<string, string> = {
-          profiles: "Profils",
-          commenters: "Commentaires",
-          companies: "Entreprises",
-        };
+        const enabledModes: string[] = [];
+        if (config.profiles_enabled) enabledModes.push("Profils");
+        if (config.commenters_enabled) enabledModes.push("Commentaires");
+        if (config.companies_enabled) enabledModes.push("Entreprises");
         const now = new Date();
-        const campaignName = `Auto — ${modeLabels[config.mode] || config.mode} — ${now.toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" })}`;
+        const campaignName = `Auto — ${enabledModes.join("+") || "Manuel"} — ${now.toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" })}`;
 
         const { data: campaign, error: campErr } = await supabase
           .from("prospection_campaigns")
@@ -271,7 +272,7 @@ INSTRUCTIONS:
 
         results.push({
           user_id: userId,
-          mode: config.mode,
+          modes: enabledModes,
           campaign_id: campaign.id,
           prospects_found: personalizedMessages.length,
           outreach: outreachData,

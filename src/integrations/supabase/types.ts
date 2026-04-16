@@ -518,18 +518,19 @@ export type Database = {
       }
       prospection_autopilot_config: {
         Row: {
+          commenters_enabled: boolean
+          companies_enabled: boolean
           company_keywords: string | null
           conversation_guidelines: string | null
           created_at: string
           daily_contact_limit: number
           delay_between_messages: number
-          enabled: boolean
           id: string
           last_run_at: string | null
           message_template: string | null
-          mode: string
           offer_description: string | null
           post_ids: string[]
+          profiles_enabled: boolean
           search_query: string | null
           sequence_steps: Json
           updated_at: string
@@ -538,18 +539,19 @@ export type Database = {
           warmup_enabled: boolean
         }
         Insert: {
+          commenters_enabled?: boolean
+          companies_enabled?: boolean
           company_keywords?: string | null
           conversation_guidelines?: string | null
           created_at?: string
           daily_contact_limit?: number
           delay_between_messages?: number
-          enabled?: boolean
           id?: string
           last_run_at?: string | null
           message_template?: string | null
-          mode?: string
           offer_description?: string | null
           post_ids?: string[]
+          profiles_enabled?: boolean
           search_query?: string | null
           sequence_steps?: Json
           updated_at?: string
@@ -558,18 +560,19 @@ export type Database = {
           warmup_enabled?: boolean
         }
         Update: {
+          commenters_enabled?: boolean
+          companies_enabled?: boolean
           company_keywords?: string | null
           conversation_guidelines?: string | null
           created_at?: string
           daily_contact_limit?: number
           delay_between_messages?: number
-          enabled?: boolean
           id?: string
           last_run_at?: string | null
           message_template?: string | null
-          mode?: string
           offer_description?: string | null
           post_ids?: string[]
+          profiles_enabled?: boolean
           search_query?: string | null
           sequence_steps?: Json
           updated_at?: string
