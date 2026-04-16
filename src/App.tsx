@@ -26,6 +26,8 @@ const ResetPasswordPage = lazy(() => import("./pages/ResetPasswordPage"));
 const CalendarPage = lazy(() => import("./pages/CalendarPage"));
 const IdeasPage = lazy(() => import("./pages/IdeasPage"));
 const ProspectionPage = lazy(() => import("./pages/ProspectionPage"));
+const LeadsPage = lazy(() => import("./pages/LeadsPage"));
+const PublicFormPage = lazy(() => import("./pages/PublicFormPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient({
@@ -62,6 +64,7 @@ const App = () => (
             <Routes>
               <Route path="/auth" element={<PublicRoute><AuthPage /></PublicRoute>} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
+              <Route path="/form/:slug" element={<PublicFormPage />} />
 
               {/* All protected routes share a single persistent shell */}
               <Route element={<ProtectedLayout />}>
@@ -79,6 +82,7 @@ const App = () => (
                 <Route path="/calendrier" element={<CalendarPage />} />
                 <Route path="/idees" element={<IdeasPage />} />
                 <Route path="/prospection" element={<ProspectionPage />} />
+                <Route path="/leads" element={<LeadsPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
               </Route>
 
