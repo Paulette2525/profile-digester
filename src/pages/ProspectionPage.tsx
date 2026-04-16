@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -13,7 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Users, Send, Loader2, UserPlus, CheckCircle, XCircle, Clock, BarChart3, CheckSquare, ChevronDown, ChevronUp, Plus, Trash2, RefreshCw, Pause, Play, Building2, MessageSquare, Flame } from "lucide-react";
+import { Search, Users, Send, Loader2, UserPlus, CheckCircle, XCircle, Clock, BarChart3, CheckSquare, ChevronDown, ChevronUp, Plus, Trash2, RefreshCw, Pause, Play, Building2, MessageSquare, Flame, Zap, Settings2, Power } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -190,6 +190,268 @@ function CampaignRow({ campaign: c, userId }: { campaign: any; userId?: string }
         </div>
       )}
     </div>
+  );
+}
+
+function AutopilotPanel({ userId }: { userId: string }) {
+  const qc = useQueryClient();
+  const [showConfig, setShowConfig] = useState(false);
+
+  const { data: config, isLoading } = useQuery({
+    queryKey: ["prospection-autopilot-config", userId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("prospection_autopilot_config" as any)
+        .select("*")
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (error) throw error;
+      return data as any;
+    },
+  });
+
+  const [mode, setMode] = useState("profiles");
+  const [searchQuery, setSearchQueryAP] = useState("");
+  const [postIds, setPostIds] = useState("");
+  const [companyKeywords, setCompanyKeywords] = useState("");
+  const [dailyLimit, setDailyLimit] = useState(20);
+  const [warmup, setWarmup] = useState(true);
+  const [warmupDelay, setWarmupDelay] = useState(2);
+  const [msgTemplate, setMsgTemplate] = useState("Bonjour {name},\n\nJ'ai vu votre profil ({headline}) et j'aimerais échanger avec vous.\n\nBien cordialement");
+  const [offerDesc, setOfferDesc] = useState("");
+  const [convGuidelines, setConvGuidelines] = useState("");
+  const [seqSteps, setSeqSteps] = useState<SequenceStep[]>([]);
+  const [delayMsg, setDelayMsg] = useState(5);
+
+  useEffect(() => {
+    if (config) {
+      setMode(config.mode || "profiles");
+      setSearchQueryAP(config.search_query || "");
+      setPostIds((config.post_ids || []).join(", "));
+      setCompanyKeywords(config.company_keywords || "");
+      setDailyLimit(config.daily_contact_limit || 20);
+      setWarmup(config.warmup_enabled ?? true);
+      setWarmupDelay(config.warmup_delay_hours || 2);
+      setMsgTemplate(config.message_template || "Bonjour {name},\n\nJ'ai vu votre profil ({headline}) et j'aimerais échanger avec vous.\n\nBien cordialement");
+      setOfferDesc(config.offer_description || "");
+      setConvGuidelines(config.conversation_guidelines || "");
+      setSeqSteps(Array.isArray(config.sequence_steps) ? config.sequence_steps : []);
+      setDelayMsg(config.delay_between_messages || 5);
+    }
+  }, [config]);
+
+  const saveMutation = useMutation({
+    mutationFn: async (enabled?: boolean) => {
+      const payload = {
+        user_id: userId,
+        enabled: enabled !== undefined ? enabled : (config?.enabled ?? false),
+        mode,
+        search_query: searchQuery || null,
+        post_ids: postIds.split(",").map((s: string) => s.trim()).filter(Boolean),
+        company_keywords: companyKeywords || null,
+        daily_contact_limit: dailyLimit,
+        warmup_enabled: warmup,
+        warmup_delay_hours: warmupDelay,
+        message_template: msgTemplate || null,
+        sequence_steps: seqSteps,
+        offer_description: offerDesc || null,
+        conversation_guidelines: convGuidelines || null,
+        delay_between_messages: delayMsg,
+      };
+
+      if (config?.id) {
+        const { error } = await supabase
+          .from("prospection_autopilot_config" as any)
+          .update(payload as any)
+          .eq("id", config.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("prospection_autopilot_config" as any)
+          .insert(payload as any);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["prospection-autopilot-config"] });
+      toast({ title: "Configuration sauvegardée ✅" });
+    },
+    onError: (e: any) => {
+      toast({ title: "Erreur", description: e.message, variant: "destructive" });
+    },
+  });
+
+  const toggleEnabled = () => {
+    const newEnabled = !(config?.enabled ?? false);
+    saveMutation.mutate(newEnabled);
+  };
+
+  const isEnabled = config?.enabled ?? false;
+  const lastRun = config?.last_run_at;
+
+  if (isLoading) return null;
+
+  return (
+    <Card className={`border-2 ${isEnabled ? "border-primary/50 bg-primary/5" : "border-dashed"}`}>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Zap className={`h-5 w-5 ${isEnabled ? "text-primary" : "text-muted-foreground"}`} />
+            Prospection automatique
+            {isEnabled && <Badge className="bg-primary/20 text-primary text-[10px]">ACTIF</Badge>}
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            {lastRun && (
+              <span className="text-[10px] text-muted-foreground">
+                Dernière exécution : {format(new Date(lastRun), "dd/MM à HH:mm", { locale: fr })}
+              </span>
+            )}
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setShowConfig(!showConfig)}>
+              <Settings2 className="h-4 w-4" />
+            </Button>
+            <Switch checked={isEnabled} onCheckedChange={toggleEnabled} disabled={saveMutation.isPending} />
+          </div>
+        </div>
+        <CardDescription className="text-xs">
+          Configure une fois, la prospection s'exécute automatiquement chaque jour à 08h00.
+        </CardDescription>
+      </CardHeader>
+
+      {showConfig && (
+        <CardContent className="space-y-5 pt-0">
+          {/* Mode selection */}
+          <Tabs value={mode} onValueChange={setMode}>
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="profiles" className="flex items-center gap-1.5 text-xs">
+                <Users className="h-3 w-3" /> Profils
+              </TabsTrigger>
+              <TabsTrigger value="commenters" className="flex items-center gap-1.5 text-xs">
+                <MessageSquare className="h-3 w-3" /> Commentaires
+              </TabsTrigger>
+              <TabsTrigger value="companies" className="flex items-center gap-1.5 text-xs">
+                <Building2 className="h-3 w-3" /> Entreprises
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="profiles" className="space-y-2 mt-3">
+              <Label className="text-sm">Mots-clés de recherche</Label>
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQueryAP(e.target.value)}
+                placeholder="Ex: CEO startup IA, Growth Marketer, Consultant digital..."
+              />
+            </TabsContent>
+
+            <TabsContent value="commenters" className="space-y-2 mt-3">
+              <Label className="text-sm">IDs de posts à surveiller (séparés par des virgules)</Label>
+              <Input
+                value={postIds}
+                onChange={(e) => setPostIds(e.target.value)}
+                placeholder="urn:li:activity:123, urn:li:activity:456..."
+              />
+              <p className="text-xs text-muted-foreground">Les personnes qui commentent ces posts seront automatiquement contactées</p>
+            </TabsContent>
+
+            <TabsContent value="companies" className="space-y-2 mt-3">
+              <Label className="text-sm">Mots-clés entreprises</Label>
+              <Input
+                value={companyKeywords}
+                onChange={(e) => setCompanyKeywords(e.target.value)}
+                placeholder="Ex: startup IA, agence marketing, cabinet conseil..."
+              />
+              <p className="text-xs text-muted-foreground">Les décideurs de ces entreprises seront automatiquement contactés</p>
+            </TabsContent>
+          </Tabs>
+
+          {/* Daily limit */}
+          <div className="space-y-2">
+            <Label className="text-sm">Contacts par jour : <span className="font-bold text-primary">{dailyLimit}</span></Label>
+            <Slider value={[dailyLimit]} onValueChange={(v) => setDailyLimit(v[0])} min={5} max={100} step={5} />
+          </div>
+
+          {/* Offer description */}
+          <div className="space-y-2">
+            <Label className="text-sm">Ce que vous proposez</Label>
+            <Textarea
+              value={offerDesc}
+              onChange={(e) => setOfferDesc(e.target.value)}
+              rows={2}
+              placeholder="Ex: Nous aidons les startups à automatiser leur prospection LinkedIn et générer 3x plus de leads qualifiés..."
+            />
+            <p className="text-xs text-muted-foreground">Sera injecté dans les messages personnalisés par l'IA</p>
+          </div>
+
+          {/* Conversation guidelines */}
+          <div className="space-y-2">
+            <Label className="text-sm">Comment converser / relancer</Label>
+            <Textarea
+              value={convGuidelines}
+              onChange={(e) => setConvGuidelines(e.target.value)}
+              rows={2}
+              placeholder="Ex: Ton amical et direct. Pas de jargon commercial. Proposer un appel de 15min si intérêt..."
+            />
+          </div>
+
+          {/* Message template */}
+          <div className="space-y-2">
+            <Label className="text-sm flex items-center gap-2">
+              <Badge variant="outline" className="text-[10px]">Étape 1</Badge>
+              Message initial
+            </Label>
+            <Textarea value={msgTemplate} onChange={(e) => setMsgTemplate(e.target.value)} rows={3} />
+            <p className="text-xs text-muted-foreground">Variables : {"{name}"}, {"{headline}"} — L'IA personnalise chaque message</p>
+          </div>
+
+          {/* Sequence steps */}
+          {seqSteps.map((step, i) => (
+            <div key={i} className="space-y-2 p-3 rounded-lg border border-dashed bg-muted/20">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs flex items-center gap-1.5">
+                  <Badge variant="secondary" className="text-[10px]"><RefreshCw className="h-2.5 w-2.5 mr-0.5" />Relance {i + 1}</Badge>
+                  après J+{step.delay_days}
+                </Label>
+                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setSeqSteps(prev => prev.filter((_, j) => j !== i).map((s, j) => ({ ...s, step_order: j + 2 })))}>
+                  <Trash2 className="h-3 w-3 text-destructive" />
+                </Button>
+              </div>
+              <div className="flex items-center gap-2">
+                <Label className="text-[10px]">Délai (jours) :</Label>
+                <Input type="number" min={1} max={30} value={step.delay_days} onChange={(e) => setSeqSteps(prev => prev.map((s, j) => j === i ? { ...s, delay_days: parseInt(e.target.value) || 1 } : s))} className="w-16 h-7 text-xs" />
+              </div>
+              <Textarea value={step.message_template} onChange={(e) => setSeqSteps(prev => prev.map((s, j) => j === i ? { ...s, message_template: e.target.value } : s))} rows={2} className="text-xs" />
+            </div>
+          ))}
+          <Button variant="outline" size="sm" onClick={() => setSeqSteps(prev => [...prev, { step_order: prev.length + 2, delay_days: (prev[prev.length - 1]?.delay_days || 0) + 3, message_template: "Bonjour {name},\n\nJe me permets de revenir vers vous.\n\nBien cordialement" }])} className="w-full border-dashed text-xs">
+            <Plus className="h-3.5 w-3.5 mr-1" /> Ajouter une relance
+          </Button>
+
+          {/* Advanced */}
+          <div className="grid gap-4 md:grid-cols-2 p-3 rounded-lg border bg-muted/30">
+            <div className="space-y-2">
+              <Label className="text-xs">Délai entre messages : <span className="font-bold text-primary">{delayMsg}s</span></Label>
+              <Slider value={[delayMsg]} onValueChange={(v) => setDelayMsg(v[0])} min={3} max={30} step={1} />
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs flex items-center gap-1.5"><Flame className="h-3 w-3 text-orange-500" />Warm-up</Label>
+                <Switch checked={warmup} onCheckedChange={setWarmup} />
+              </div>
+              {warmup && (
+                <div className="space-y-1">
+                  <Label className="text-[10px]">Délai : <span className="font-bold text-primary">{warmupDelay}h</span></Label>
+                  <Slider value={[warmupDelay]} onValueChange={(v) => setWarmupDelay(v[0])} min={1} max={24} step={1} />
+                </div>
+              )}
+            </div>
+          </div>
+
+          <Button onClick={() => saveMutation.mutate(undefined)} disabled={saveMutation.isPending} className="w-full">
+            {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Power className="h-4 w-4 mr-2" />}
+            Sauvegarder la configuration
+          </Button>
+        </CardContent>
+      )}
+    </Card>
   );
 }
 
@@ -475,7 +737,10 @@ export default function ProspectionPage() {
           ))}
         </div>
 
-        {/* Search with tabs */}
+        {/* Autopilot panel */}
+        {user && <AutopilotPanel userId={user.id} />}
+
+
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">

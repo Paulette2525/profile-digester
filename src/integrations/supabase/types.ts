@@ -424,6 +424,69 @@ export type Database = {
         }
         Relationships: []
       }
+      prospection_autopilot_config: {
+        Row: {
+          company_keywords: string | null
+          conversation_guidelines: string | null
+          created_at: string
+          daily_contact_limit: number
+          delay_between_messages: number
+          enabled: boolean
+          id: string
+          last_run_at: string | null
+          message_template: string | null
+          mode: string
+          offer_description: string | null
+          post_ids: string[]
+          search_query: string | null
+          sequence_steps: Json
+          updated_at: string
+          user_id: string
+          warmup_delay_hours: number
+          warmup_enabled: boolean
+        }
+        Insert: {
+          company_keywords?: string | null
+          conversation_guidelines?: string | null
+          created_at?: string
+          daily_contact_limit?: number
+          delay_between_messages?: number
+          enabled?: boolean
+          id?: string
+          last_run_at?: string | null
+          message_template?: string | null
+          mode?: string
+          offer_description?: string | null
+          post_ids?: string[]
+          search_query?: string | null
+          sequence_steps?: Json
+          updated_at?: string
+          user_id: string
+          warmup_delay_hours?: number
+          warmup_enabled?: boolean
+        }
+        Update: {
+          company_keywords?: string | null
+          conversation_guidelines?: string | null
+          created_at?: string
+          daily_contact_limit?: number
+          delay_between_messages?: number
+          enabled?: boolean
+          id?: string
+          last_run_at?: string | null
+          message_template?: string | null
+          mode?: string
+          offer_description?: string | null
+          post_ids?: string[]
+          search_query?: string | null
+          sequence_steps?: Json
+          updated_at?: string
+          user_id?: string
+          warmup_delay_hours?: number
+          warmup_enabled?: boolean
+        }
+        Relationships: []
+      }
       prospection_campaigns: {
         Row: {
           accepted_count: number
