@@ -1,100 +1,86 @@
 
 
-## Plan : Prospection 100% automatisée (zéro intervention)
+## Plan : Statistiques de prospection + Page Formulaire & Gestion de leads
 
-### Concept
+### Vue d'ensemble
 
-Transformer la prospection en pilote automatique : l'utilisateur configure ses critères une seule fois en haut de la page, puis un cron job quotidien exécute tout automatiquement — recherche de prospects, warm-up, envoi des messages, relances.
+Deux ajouts majeurs :
+1. **Section "Statistiques & Performance"** en bas de la page Prospection existante
+2. **Nouvelle page "/leads"** pour créer des formulaires partageables et gérer les leads entrants en temps réel
 
-### 1. Nouvelle table `prospection_autopilot_config`
+---
 
-Stocke la configuration permanente de l'autopilot prospection :
+### 1. Section Statistiques & Performance (bas de ProspectionPage)
 
-```sql
-- user_id uuid (RLS auth.uid())
-- enabled boolean DEFAULT false
-- mode text DEFAULT 'profiles' -- 'profiles' | 'commenters' | 'companies'
-- search_query text -- mots-clés de recherche
-- post_ids text[] DEFAULT '{}' -- IDs de posts pour mode commentaires
-- company_keywords text -- mots-clés entreprises
-- daily_contact_limit integer DEFAULT 20
-- warmup_enabled boolean DEFAULT true
-- warmup_delay_hours integer DEFAULT 2
-- message_template text -- message initial avec {name}, {headline}
-- sequence_steps jsonb DEFAULT '[]' -- [{step_order, delay_days, message_template}]
-- offer_description text -- ce qu'on propose
-- conversation_guidelines text -- comment converser
-- delay_between_messages integer DEFAULT 5
-- last_run_at timestamptz
-- created_at / updated_at
+Ajout d'une section après l'historique des campagnes avec :
+
+**KPIs globaux** (cards en grille) :
+- Taux d'acceptation moyen (accepted / sent)
+- Taux de réponse moyen (replied / sent)
+- Nombre total de prospects contactés
+- Campagnes actives
+
+**Graphique d'évolution** : courbe des messages envoyés/réponses/acceptations par semaine (recharts, déjà installé)
+
+**Notes clés & axes d'amélioration** : analyse automatique basée sur les données :
+- Si taux d'acceptation < 20% → suggestion warm-up
+- Si taux de réponse < 10% → suggestion personnalisation IA
+- Si mode commentaires non utilisé → suggestion diversification
+- Comparaison des performances par mode (profils vs commentaires vs entreprises)
+
+Pas de nouvelle table nécessaire — calcul à la volée depuis `prospection_campaigns` et `prospection_messages`.
+
+---
+
+### 2. Nouvelle page : Formulaire & Gestion de leads (/leads)
+
+**Nouvelle table `lead_forms`** :
+```
+id, user_id, name, description, fields_config (jsonb),
+form_slug (unique, pour URL publique), is_active, created_at, updated_at
 ```
 
-### 2. Nouvelle Edge Function `prospection-autopilot/index.ts`
-
-Orchestrateur principal appelé par cron (quotidien 08:00 UTC). Logique :
-
-1. Récupère tous les `prospection_autopilot_config` où `enabled = true`
-2. Pour chaque config :
-   - **Mode profiles** : appelle `search-profiles` avec `search_query`
-   - **Mode commenters** : appelle `extract-commenters` pour chaque `post_id`
-   - **Mode companies** : appelle `search-companies` puis `search-profiles` avec `company_id`
-3. Déduplique vs les prospects déjà contactés (`prospection_messages`)
-4. Crée automatiquement une campagne + messages
-5. Personnalise les messages avec `{name}`, `{headline}` et les `conversation_guidelines`
-6. Appelle `prospect-outreach` (avec warm-up si activé)
-7. Met à jour `last_run_at`
-
-### 3. Cron job
-
-```sql
--- Quotidien à 08:00 UTC
-SELECT cron.schedule('prospection-autopilot-daily', '0 8 * * *', $$
-  SELECT net.http_post(
-    url:='https://.../functions/v1/prospection-autopilot',
-    headers:='{"Authorization": "Bearer ..."}',
-    body:='{}'
-  );
-$$);
+**Nouvelle table `leads`** :
+```
+id, user_id, form_id (FK lead_forms), data (jsonb — réponses du formulaire),
+status (new/contacted/qualified/converted/lost), notes, source,
+linkedin_url, email, phone, company, created_at, updated_at
 ```
 
-### 4. Frontend — Section configuration en haut de `ProspectionPage.tsx`
+**Edge Function `submit-lead-form`** : endpoint public (pas de JWT) qui reçoit les soumissions de formulaire et insère dans `leads`.
 
-Nouveau panneau "Prospection automatique" en haut de la page avec :
+**Frontend — `/leads`** avec 2 onglets :
+- **Formulaires** : créer/modifier des formulaires (champs personnalisables : texte, email, téléphone, sélection), copier le lien public, toggle actif/inactif
+- **Leads** : tableau temps réel (Supabase Realtime) avec filtres par statut, formulaire source, date. Actions : changer statut, ajouter notes, voir détails
 
-- **Toggle ON/OFF** pour activer/désactiver l'autopilot
-- **3 modes** (onglets) : Profils / Commentaires / Entreprises
-  - Profils : champ mots-clés de recherche
-  - Commentaires : liste d'IDs de posts à surveiller
-  - Entreprises : mots-clés entreprises
-- **Nombre de contacts/jour** (slider 5-100)
-- **Ce que vous proposez** (textarea — injecté dans les messages)
-- **Comment converser** (textarea — guidelines pour les relances)
-- **Message initial** (textarea avec variables)
-- **Relances** (séquences configurables comme actuellement)
-- **Warm-up** (toggle + délai)
-- **Indicateur** : "Dernière exécution : il y a X heures"
+**Page publique du formulaire** : route `/form/:slug` (non protégée) qui affiche le formulaire et envoie les données via l'edge function.
 
-### 5. Personnalisation IA des messages (optionnel mais recommandé)
+---
 
-Utiliser le modèle Lovable AI (Gemini Flash) dans `prospection-autopilot` pour :
-- Personnaliser chaque message en fonction du profil du prospect
-- Varier les formulations pour éviter la détection de spam
-- Intégrer `offer_description` et `conversation_guidelines` dans chaque message
+### 3. Navigation
 
-### Fichiers modifiés / créés
+Ajouter `/leads` dans le sidebar sous "Automation" avec l'icône `ClipboardList` et le label "Leads".
+
+---
+
+### Fichiers à créer / modifier
 
 | Fichier | Action |
 |---------|--------|
-| Migration SQL | Créer table `prospection_autopilot_config` |
-| `supabase/functions/prospection-autopilot/index.ts` | Créer — orchestrateur cron |
-| `src/pages/ProspectionPage.tsx` | Modifier — ajouter panneau config autopilot en haut |
-| Cron job SQL (INSERT via insert tool) | Planifier exécution quotidienne |
+| Migration SQL | Tables `lead_forms` + `leads` + RLS + Realtime |
+| `supabase/functions/submit-lead-form/index.ts` | Créer — soumission publique |
+| `src/pages/LeadsPage.tsx` | Créer — formulaires + gestion leads |
+| `src/pages/PublicFormPage.tsx` | Créer — formulaire public |
+| `src/pages/ProspectionPage.tsx` | Modifier — ajouter section stats en bas |
+| `src/App.tsx` | Ajouter routes `/leads` et `/form/:slug` |
+| `src/components/layout/AppSidebar.tsx` | Ajouter lien Leads |
 
 ### Section technique
 
-- La déduplication se fait via une requête `NOT IN (SELECT prospect_linkedin_url FROM prospection_messages WHERE user_id = ...)` pour ne jamais recontacter un prospect
-- Les campagnes auto-créées sont nommées avec la date : "Auto — Profils — 16 avr 2026"
-- Le cron itère sur tous les users avec `enabled = true` — la fonction utilise `SUPABASE_SERVICE_ROLE_KEY` pour bypasser RLS
-- Rate limiting : respecte le `daily_contact_limit` et `delay_between_messages` configurés
-- Les 3 modes (profils, commentaires, entreprises) peuvent être activés simultanément avec des configs séparées, ou on garde un seul mode actif à la fois (plus simple pour v1)
+- Les stats de prospection sont calculées côté client depuis les données déjà fetchées (campaigns + messages) — pas de nouvelle requête
+- Les "notes clés" sont des règles conditionnelles simples basées sur les taux calculés
+- Le formulaire public utilise `form_slug` comme identifiant URL-friendly (généré automatiquement)
+- Les leads utilisent Supabase Realtime (`ALTER PUBLICATION supabase_realtime ADD TABLE public.leads`) pour mise à jour instantanée
+- L'edge function `submit-lead-form` est publique (pas de JWT) mais valide le `form_slug` et vérifie `is_active`
+- `fields_config` stocke la structure du formulaire en JSON : `[{name, type, label, required}]`
 
