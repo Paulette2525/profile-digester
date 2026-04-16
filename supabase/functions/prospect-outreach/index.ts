@@ -32,10 +32,10 @@ serve(async (req) => {
       });
     }
 
-    // Check campaign is not paused
+    // Check campaign status and warmup config
     const { data: campaignData } = await supabase
       .from("prospection_campaigns")
-      .select("status")
+      .select("status, warmup_enabled, warmup_delay_hours")
       .eq("id", campaign_id)
       .single();
     if (campaignData?.status === "paused") {
@@ -75,6 +75,47 @@ serve(async (req) => {
 
     // Find next step after step 1
     const nextStep = (sequenceSteps || []).find((s: any) => s.step_order === 2);
+
+    // Warmup phase if enabled
+    const warmupEnabled = (campaignData as any)?.warmup_enabled === true;
+    if (warmupEnabled && messages && messages.length > 0) {
+      const prospectIds = messages
+        .filter((m: any) => m.prospect_linkedin_url && (!m.warmup_status || m.warmup_status === null))
+        .map((m: any) => m.prospect_linkedin_url);
+
+      if (prospectIds.length > 0) {
+        try {
+          const warmupRes = await fetch(
+            `${Deno.env.get("SUPABASE_URL")}/functions/v1/prospect-warmup`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+              },
+              body: JSON.stringify({ prospect_ids: prospectIds.slice(0, 10) }),
+            }
+          );
+
+          if (warmupRes.ok) {
+            // Mark messages as warmed
+            for (const msg of messages.filter((m: any) => prospectIds.includes(m.prospect_linkedin_url))) {
+              await supabase
+                .from("prospection_messages")
+                .update({ warmup_status: "warmed" })
+                .eq("id", msg.id);
+            }
+          }
+        } catch (e) {
+          console.error("Warmup error (non-blocking):", e);
+        }
+
+        // Wait warmup delay
+        const delayHours = (campaignData as any)?.warmup_delay_hours || 2;
+        // For now, log the intended delay - actual delay would be via cron
+        console.log(`Warmup done. Intended delay: ${delayHours}h before sending.`);
+      }
+    }
 
     for (const msg of (messages || []).slice(0, daily_limit)) {
       try {

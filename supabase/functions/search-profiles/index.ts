@@ -31,7 +31,7 @@ serve(async (req) => {
     }
 
     const body = await req.json();
-    const { query, limit: requestedLimit } = body;
+    const { query, limit: requestedLimit, company_id } = body;
     const totalLimit = Math.max(Number(requestedLimit) || 10, 1);
     if (!query || typeof query !== "string") {
       return new Response(
@@ -52,6 +52,15 @@ serve(async (req) => {
       url.searchParams.set("limit", String(PAGE_SIZE));
       if (cursor) url.searchParams.set("cursor", cursor);
 
+      const searchBody: any = {
+        api: "classic",
+        category: "people",
+        keywords: query,
+      };
+      if (company_id) {
+        searchBody.company_id = company_id;
+      }
+
       const searchResponse = await fetch(url.toString(), {
         method: "POST",
         headers: {
@@ -59,11 +68,7 @@ serve(async (req) => {
           Accept: "application/json",
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          api: "classic",
-          category: "people",
-          keywords: query,
-        }),
+        body: JSON.stringify(searchBody),
       });
 
       if (!searchResponse.ok) {
