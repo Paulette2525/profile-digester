@@ -17,7 +17,7 @@ import { Search, Users, Send, Loader2, UserPlus, CheckCircle, XCircle, Clock, Ba
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
-import { ProspectionStats } from "@/components/prospection/ProspectionStats";
+
 
 interface SearchResult {
   id: string;
@@ -1114,8 +1114,6 @@ export default function ProspectionPage() {
           </Card>
         )}
 
-        {/* Performance stats */}
-        <ProspectionStats campaigns={campaigns} messages={recentMessages} />
       </div>
     </>
   );
