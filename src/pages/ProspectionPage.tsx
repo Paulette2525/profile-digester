@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -13,7 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Users, Send, Loader2, UserPlus, CheckCircle, XCircle, Clock, BarChart3, CheckSquare, ChevronDown, ChevronUp, Plus, Trash2, RefreshCw, Pause, Play, Building2, MessageSquare, Flame } from "lucide-react";
+import { Search, Users, Send, Loader2, UserPlus, CheckCircle, XCircle, Clock, BarChart3, CheckSquare, ChevronDown, ChevronUp, Plus, Trash2, RefreshCw, Pause, Play, Building2, MessageSquare, Flame, Zap, Settings2, Power } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
