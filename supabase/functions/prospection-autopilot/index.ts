@@ -196,13 +196,12 @@ INSTRUCTIONS:
         }
 
         // 4. Create campaign
-        const modeLabels: Record<string, string> = {
-          profiles: "Profils",
-          commenters: "Commentaires",
-          companies: "Entreprises",
-        };
+        const enabledModes: string[] = [];
+        if (config.profiles_enabled) enabledModes.push("Profils");
+        if (config.commenters_enabled) enabledModes.push("Commentaires");
+        if (config.companies_enabled) enabledModes.push("Entreprises");
         const now = new Date();
-        const campaignName = `Auto — ${modeLabels[config.mode] || config.mode} — ${now.toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" })}`;
+        const campaignName = `Auto — ${enabledModes.join("+") || "Manuel"} — ${now.toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" })}`;
 
         const { data: campaign, error: campErr } = await supabase
           .from("prospection_campaigns")
