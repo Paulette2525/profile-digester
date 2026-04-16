@@ -1,99 +1,100 @@
 
 
-## Plan : Nouvelles fonctionnalités de prospection avancée
+## Plan : Prospection 100% automatisée (zéro intervention)
 
-### Vue d'ensemble
+### Concept
 
-Trois nouvelles capacités exploitant les endpoints Unipile non encore utilisés :
+Transformer la prospection en pilote automatique : l'utilisateur configure ses critères une seule fois en haut de la page, puis un cron job quotidien exécute tout automatiquement — recherche de prospects, warm-up, envoi des messages, relances.
 
-1. **Warm-up automatisé** — Visite de profil + like de posts avant l'invitation
-2. **Extraction de leads depuis les commentaires** — Récupérer les personnes qui commentent un post donné
-3. **Recherche d'entreprises** — Trouver des sociétés puis extraire les décideurs
+### 1. Nouvelle table `prospection_autopilot_config`
 
----
+Stocke la configuration permanente de l'autopilot prospection :
 
-### 1. Warm-up automatisé
+```sql
+- user_id uuid (RLS auth.uid())
+- enabled boolean DEFAULT false
+- mode text DEFAULT 'profiles' -- 'profiles' | 'commenters' | 'companies'
+- search_query text -- mots-clés de recherche
+- post_ids text[] DEFAULT '{}' -- IDs de posts pour mode commentaires
+- company_keywords text -- mots-clés entreprises
+- daily_contact_limit integer DEFAULT 20
+- warmup_enabled boolean DEFAULT true
+- warmup_delay_hours integer DEFAULT 2
+- message_template text -- message initial avec {name}, {headline}
+- sequence_steps jsonb DEFAULT '[]' -- [{step_order, delay_days, message_template}]
+- offer_description text -- ce qu'on propose
+- conversation_guidelines text -- comment converser
+- delay_between_messages integer DEFAULT 5
+- last_run_at timestamptz
+- created_at / updated_at
+```
 
-**Principe** : Avant d'envoyer l'invitation/message, le système visite le profil du prospect et like 1-2 de ses posts récents. Cela déclenche une notification LinkedIn et augmente le taux d'acceptation.
+### 2. Nouvelle Edge Function `prospection-autopilot/index.ts`
 
-**Edge Function — `prospect-warmup/index.ts`** (nouvelle)
-- Reçoit une liste de `prospect_ids` (provider IDs Unipile)
-- Pour chaque prospect :
-  - `GET /api/v1/users/{id}` (visite de profil, déclenche la notification)
-  - `GET /api/v1/users/{id}/posts` (récupère les 2 derniers posts)
-  - `POST /api/v1/posts/{post_id}/reactions` avec `{ type: "LIKE" }` sur 1-2 posts
-  - Délai configurable entre chaque action (5-10s)
-- Retourne le résultat par prospect
+Orchestrateur principal appelé par cron (quotidien 08:00 UTC). Logique :
 
-**Modification de `prospect-outreach/index.ts`**
-- Ajouter un flag `warmup_enabled` dans le body de la requête
-- Si activé, appeler `prospect-warmup` pour chaque batch avant l'envoi des messages
-- Ajouter un délai configurable entre le warm-up et l'envoi (ex: 30min-24h)
+1. Récupère tous les `prospection_autopilot_config` où `enabled = true`
+2. Pour chaque config :
+   - **Mode profiles** : appelle `search-profiles` avec `search_query`
+   - **Mode commenters** : appelle `extract-commenters` pour chaque `post_id`
+   - **Mode companies** : appelle `search-companies` puis `search-profiles` avec `company_id`
+3. Déduplique vs les prospects déjà contactés (`prospection_messages`)
+4. Crée automatiquement une campagne + messages
+5. Personnalise les messages avec `{name}`, `{headline}` et les `conversation_guidelines`
+6. Appelle `prospect-outreach` (avec warm-up si activé)
+7. Met à jour `last_run_at`
 
-**Base de données** — Migration
-- Ajouter `warmup_enabled boolean DEFAULT false` et `warmup_delay_hours integer DEFAULT 2` à `prospection_campaigns`
-- Ajouter `warmup_status text DEFAULT null` à `prospection_messages` (valeurs: `null`, `warming`, `warmed`, `warmup_error`)
+### 3. Cron job
 
-**Frontend — `ProspectionPage.tsx`**
-- Toggle "Warm-up avant contact" dans les paramètres avancés de la campagne
-- Slider "Délai après warm-up" (1h-24h)
-- Badge de statut warm-up dans l'historique des messages
+```sql
+-- Quotidien à 08:00 UTC
+SELECT cron.schedule('prospection-autopilot-daily', '0 8 * * *', $$
+  SELECT net.http_post(
+    url:='https://.../functions/v1/prospection-autopilot',
+    headers:='{"Authorization": "Bearer ..."}',
+    body:='{}'
+  );
+$$);
+```
 
----
+### 4. Frontend — Section configuration en haut de `ProspectionPage.tsx`
 
-### 2. Extraction de leads depuis les commentaires
+Nouveau panneau "Prospection automatique" en haut de la page avec :
 
-**Edge Function — `extract-commenters/index.ts`** (nouvelle)
-- Reçoit un `post_url` ou `post_id` LinkedIn
-- `GET /api/v1/posts/{id}/comments` — récupère tous les commentaires (pagination par curseur)
-- `GET /api/v1/posts/{id}/reactions` — récupère les réactions
-- Déduplique les auteurs, enrichit avec `GET /api/v1/users/{id}` si nécessaire
-- Retourne une liste de profils au format `SearchResult`
+- **Toggle ON/OFF** pour activer/désactiver l'autopilot
+- **3 modes** (onglets) : Profils / Commentaires / Entreprises
+  - Profils : champ mots-clés de recherche
+  - Commentaires : liste d'IDs de posts à surveiller
+  - Entreprises : mots-clés entreprises
+- **Nombre de contacts/jour** (slider 5-100)
+- **Ce que vous proposez** (textarea — injecté dans les messages)
+- **Comment converser** (textarea — guidelines pour les relances)
+- **Message initial** (textarea avec variables)
+- **Relances** (séquences configurables comme actuellement)
+- **Warm-up** (toggle + délai)
+- **Indicateur** : "Dernière exécution : il y a X heures"
 
-**Frontend — `ProspectionPage.tsx`**
-- Nouveau mode de recherche : onglet "Commentaires d'un post" à côté de "Rechercher des profils"
-- Champ URL de post LinkedIn
-- Affiche les résultats dans le même format que la recherche classique
-- Les profils extraits sont sélectionnables pour créer une campagne
+### 5. Personnalisation IA des messages (optionnel mais recommandé)
 
----
-
-### 3. Recherche d'entreprises + extraction décideurs
-
-**Edge Function — `search-companies/index.ts`** (nouvelle)
-- Utilise `POST /api/v1/linkedin/search` avec `category: "companies"`
-- Paramètres : mots-clés, industrie, taille
-- Retourne les entreprises trouvées
-
-**Edge Function — Modification de `search-profiles/index.ts`**
-- Ajouter un paramètre optionnel `company_id` pour filtrer les personnes par entreprise
-- Permet d'extraire les décideurs d'une entreprise spécifique
-
-**Frontend — `ProspectionPage.tsx`**
-- Nouveau mode : onglet "Entreprises" 
-- Recherche d'entreprises avec résultats affichés (nom, secteur, taille, logo)
-- Bouton "Extraire les décideurs" sur chaque entreprise → lance une recherche de profils filtrée
-- Les profils extraits rejoignent la sélection de prospects existante
-
----
+Utiliser le modèle Lovable AI (Gemini Flash) dans `prospection-autopilot` pour :
+- Personnaliser chaque message en fonction du profil du prospect
+- Varier les formulations pour éviter la détection de spam
+- Intégrer `offer_description` et `conversation_guidelines` dans chaque message
 
 ### Fichiers modifiés / créés
 
 | Fichier | Action |
 |---------|--------|
-| `supabase/functions/prospect-warmup/index.ts` | Créer — visite profil + likes |
-| `supabase/functions/extract-commenters/index.ts` | Créer — extraction leads commentaires |
-| `supabase/functions/search-companies/index.ts` | Créer — recherche entreprises |
-| `supabase/functions/prospect-outreach/index.ts` | Modifier — intégrer warm-up |
-| `supabase/functions/search-profiles/index.ts` | Modifier — filtre company_id |
-| `src/pages/ProspectionPage.tsx` | Modifier — 3 onglets, warm-up toggle, UI entreprises |
-| Migration SQL | 2 colonnes sur `prospection_campaigns`, 1 sur `prospection_messages` |
+| Migration SQL | Créer table `prospection_autopilot_config` |
+| `supabase/functions/prospection-autopilot/index.ts` | Créer — orchestrateur cron |
+| `src/pages/ProspectionPage.tsx` | Modifier — ajouter panneau config autopilot en haut |
+| Cron job SQL (INSERT via insert tool) | Planifier exécution quotidienne |
 
 ### Section technique
 
-- Les endpoints Unipile utilisés sont documentés et disponibles : `/users/{id}`, `/users/{id}/posts`, `/posts/{id}/reactions`, `/posts/{id}/comments`, `/linkedin/search` avec `category: "companies"`
-- Le warm-up est découplé dans une edge function séparée pour pouvoir être appelé indépendamment (ex: cron pour warm-up la veille)
-- Le délai entre warm-up et envoi peut être géré via `warmup_delay_hours` : le message reste en statut `warming` jusqu'à ce que le délai soit écoulé, puis `prospect-outreach` l'envoie
-- Rate limiting : 5-10s entre chaque action Unipile pour éviter les restrictions LinkedIn
-- L'extraction de commentaires utilise la pagination par curseur pour gérer les posts à forte audience
+- La déduplication se fait via une requête `NOT IN (SELECT prospect_linkedin_url FROM prospection_messages WHERE user_id = ...)` pour ne jamais recontacter un prospect
+- Les campagnes auto-créées sont nommées avec la date : "Auto — Profils — 16 avr 2026"
+- Le cron itère sur tous les users avec `enabled = true` — la fonction utilise `SUPABASE_SERVICE_ROLE_KEY` pour bypasser RLS
+- Rate limiting : respecte le `daily_contact_limit` et `delay_between_messages` configurés
+- Les 3 modes (profils, commentaires, entreprises) peuvent être activés simultanément avec des configs séparées, ou on garde un seul mode actif à la fois (plus simple pour v1)
 
