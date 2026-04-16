@@ -105,7 +105,7 @@ serve(async (req) => {
         }
 
         if (prospects.length === 0) {
-          results.push({ user_id: userId, status: "no_prospects", mode: config.mode });
+          results.push({ user_id: userId, status: "no_prospects" });
           continue;
         }
 
@@ -121,7 +121,7 @@ serve(async (req) => {
         prospects = prospects.slice(0, config.daily_contact_limit);
 
         if (prospects.length === 0) {
-          results.push({ user_id: userId, status: "all_already_contacted", mode: config.mode });
+          results.push({ user_id: userId, status: "all_already_contacted" });
           continue;
         }
 
@@ -272,7 +272,7 @@ INSTRUCTIONS:
 
         results.push({
           user_id: userId,
-          mode: config.mode,
+          modes: enabledModes,
           campaign_id: campaign.id,
           prospects_found: personalizedMessages.length,
           outreach: outreachData,
