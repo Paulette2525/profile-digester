@@ -13,7 +13,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Users, Send, Loader2, UserPlus, CheckCircle, XCircle, Clock, BarChart3, CheckSquare, ChevronDown, ChevronUp, Plus, Trash2, RefreshCw, Pause, Play, Building2, MessageSquare, Flame, Zap, Settings2, Power } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Search, Users, Send, Loader2, UserPlus, CheckCircle, XCircle, Clock, BarChart3, CheckSquare, ChevronDown, ChevronUp, Plus, Trash2, RefreshCw, Pause, Play, Building2, MessageSquare, Flame, Zap, Settings2, Power, Filter } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -218,6 +219,19 @@ function AutopilotPanel({ userId }: { userId: string }) {
   const [postIds, setPostIds] = useState("");
   const [companyKeywords, setCompanyKeywords] = useState("");
   const [dailyLimit, setDailyLimit] = useState(20);
+
+  // Advanced filters
+  const [profilesLocation, setProfilesLocation] = useState("");
+  const [profilesIndustry, setProfilesIndustry] = useState("");
+  const [profilesTitleFilter, setProfilesTitleFilter] = useState("");
+  const [profilesCompanySize, setProfilesCompanySize] = useState("");
+  const [commentersMinLikes, setCommentersMinLikes] = useState(0);
+  const [commentersFilterHeadline, setCommentersFilterHeadline] = useState("");
+  const [commentersExcludeKeywords, setCommentersExcludeKeywords] = useState("");
+  const [companiesLocation, setCompaniesLocation] = useState("");
+  const [companiesSizeMin, setCompaniesSizeMin] = useState<number | undefined>();
+  const [companiesSizeMax, setCompaniesSizeMax] = useState<number | undefined>();
+  const [companiesIndustryFilter, setCompaniesIndustryFilter] = useState("");
   const [warmup, setWarmup] = useState(true);
   const [warmupDelay, setWarmupDelay] = useState(2);
   const [msgTemplate, setMsgTemplate] = useState("Bonjour {name},\n\nJ'ai vu votre profil ({headline}) et j'aimerais échanger avec vous.\n\nBien cordialement");
@@ -242,6 +256,18 @@ function AutopilotPanel({ userId }: { userId: string }) {
       setConvGuidelines(config.conversation_guidelines || "");
       setSeqSteps(Array.isArray(config.sequence_steps) ? config.sequence_steps : []);
       setDelayMsg(config.delay_between_messages || 5);
+      // Advanced filters
+      setProfilesLocation(config.profiles_location || "");
+      setProfilesIndustry(config.profiles_industry || "");
+      setProfilesTitleFilter(config.profiles_title_filter || "");
+      setProfilesCompanySize(config.profiles_company_size || "");
+      setCommentersMinLikes(config.commenters_min_likes || 0);
+      setCommentersFilterHeadline(config.commenters_filter_headline || "");
+      setCommentersExcludeKeywords(config.commenters_exclude_keywords || "");
+      setCompaniesLocation(config.companies_location || "");
+      setCompaniesSizeMin(config.companies_size_min ?? undefined);
+      setCompaniesSizeMax(config.companies_size_max ?? undefined);
+      setCompaniesIndustryFilter(config.companies_industry_filter || "");
     }
   }, [config]);
 
@@ -263,6 +289,17 @@ function AutopilotPanel({ userId }: { userId: string }) {
         offer_description: offerDesc || null,
         conversation_guidelines: convGuidelines || null,
         delay_between_messages: delayMsg,
+        profiles_location: profilesLocation || null,
+        profiles_industry: profilesIndustry || null,
+        profiles_title_filter: profilesTitleFilter || null,
+        profiles_company_size: profilesCompanySize || null,
+        commenters_min_likes: commentersMinLikes,
+        commenters_filter_headline: commentersFilterHeadline || null,
+        commenters_exclude_keywords: commentersExcludeKeywords || null,
+        companies_location: companiesLocation || null,
+        companies_size_min: companiesSizeMin ?? null,
+        companies_size_max: companiesSizeMax ?? null,
+        companies_industry_filter: companiesIndustryFilter || null,
       };
 
       if (config?.id) {
@@ -381,6 +418,39 @@ function AutopilotPanel({ userId }: { userId: string }) {
                 onChange={(e) => setSearchQueryAP(e.target.value)}
                 placeholder="Ex: CEO startup IA, Growth Marketer, Consultant digital..."
               />
+              <Collapsible>
+                <CollapsibleTrigger className="text-xs text-primary hover:underline mt-1 flex items-center gap-1">
+                  <Filter className="h-3 w-3" /> Filtres avancés
+                </CollapsibleTrigger>
+                <CollapsibleContent className="space-y-2 mt-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Localisation</Label>
+                      <Input value={profilesLocation} onChange={(e) => setProfilesLocation(e.target.value)} placeholder="Ex: France, Paris" className="h-8 text-xs" />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Secteur</Label>
+                      <Input value={profilesIndustry} onChange={(e) => setProfilesIndustry(e.target.value)} placeholder="Ex: SaaS, IA" className="h-8 text-xs" />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Titre / poste ciblé</Label>
+                      <Input value={profilesTitleFilter} onChange={(e) => setProfilesTitleFilter(e.target.value)} placeholder="Ex: CEO, CTO, VP Sales" className="h-8 text-xs" />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Taille entreprise</Label>
+                      <select value={profilesCompanySize} onChange={(e) => setProfilesCompanySize(e.target.value)} className="w-full h-8 text-xs rounded-md border border-input bg-background px-2">
+                        <option value="">Toutes</option>
+                        <option value="1-10">1-10</option>
+                        <option value="11-50">11-50</option>
+                        <option value="51-200">51-200</option>
+                        <option value="201-500">201-500</option>
+                        <option value="501-1000">501-1000</option>
+                        <option value="1001+">1001+</option>
+                      </select>
+                    </div>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
             </div>
 
             {/* Commenters config */}
@@ -392,6 +462,27 @@ function AutopilotPanel({ userId }: { userId: string }) {
                 placeholder="urn:li:activity:123, urn:li:activity:456..."
               />
               <p className="text-xs text-muted-foreground">Les personnes qui commentent ces posts seront automatiquement contactées</p>
+              <Collapsible>
+                <CollapsibleTrigger className="text-xs text-primary hover:underline mt-1 flex items-center gap-1">
+                  <Filter className="h-3 w-3" /> Filtres avancés
+                </CollapsibleTrigger>
+                <CollapsibleContent className="space-y-2 mt-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Filtrer par headline</Label>
+                      <Input value={commentersFilterHeadline} onChange={(e) => setCommentersFilterHeadline(e.target.value)} placeholder="Ex: CEO, Directeur" className="h-8 text-xs" />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Likes minimum</Label>
+                      <Input type="number" min={0} value={commentersMinLikes} onChange={(e) => setCommentersMinLikes(parseInt(e.target.value) || 0)} className="h-8 text-xs" />
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Exclure mots-clés</Label>
+                    <Input value={commentersExcludeKeywords} onChange={(e) => setCommentersExcludeKeywords(e.target.value)} placeholder="Ex: étudiant, stagiaire" className="h-8 text-xs" />
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
             </div>
 
             {/* Companies config */}
@@ -403,6 +494,31 @@ function AutopilotPanel({ userId }: { userId: string }) {
                 placeholder="Ex: startup IA, agence marketing, cabinet conseil..."
               />
               <p className="text-xs text-muted-foreground">Les décideurs de ces entreprises seront automatiquement contactés</p>
+              <Collapsible>
+                <CollapsibleTrigger className="text-xs text-primary hover:underline mt-1 flex items-center gap-1">
+                  <Filter className="h-3 w-3" /> Filtres avancés
+                </CollapsibleTrigger>
+                <CollapsibleContent className="space-y-2 mt-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Localisation</Label>
+                      <Input value={companiesLocation} onChange={(e) => setCompaniesLocation(e.target.value)} placeholder="Ex: France" className="h-8 text-xs" />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Secteur</Label>
+                      <Input value={companiesIndustryFilter} onChange={(e) => setCompaniesIndustryFilter(e.target.value)} placeholder="Ex: Tech, Marketing" className="h-8 text-xs" />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Taille min employés</Label>
+                      <Input type="number" min={0} value={companiesSizeMin ?? ""} onChange={(e) => setCompaniesSizeMin(e.target.value ? parseInt(e.target.value) : undefined)} className="h-8 text-xs" />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Taille max employés</Label>
+                      <Input type="number" min={0} value={companiesSizeMax ?? ""} onChange={(e) => setCompaniesSizeMax(e.target.value ? parseInt(e.target.value) : undefined)} className="h-8 text-xs" />
+                    </div>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
             </div>
           </div>
 

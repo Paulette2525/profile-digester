@@ -40,17 +40,27 @@ serve(async (req) => {
 
         // 1. Fetch prospects from all enabled modes
         if (config.profiles_enabled && config.search_query) {
+          const searchBody: any = { query: config.search_query, limit: config.daily_contact_limit * 2 };
+          if (config.profiles_location) searchBody.location = config.profiles_location;
+          if (config.profiles_industry) searchBody.industry = config.profiles_industry;
+          if (config.profiles_company_size) searchBody.company_size = config.profiles_company_size;
           const res = await fetch(`${SUPABASE_URL}/functions/v1/search-profiles`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
               Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
             },
-            body: JSON.stringify({ query: config.search_query, limit: config.daily_contact_limit * 2 }),
+            body: JSON.stringify(searchBody),
           });
           if (res.ok) {
             const data = await res.json();
-            prospects.push(...(data.results || []));
+            let results = data.results || [];
+            // Post-filter by title
+            if (config.profiles_title_filter) {
+              const titles = config.profiles_title_filter.split(",").map((t: string) => t.trim().toLowerCase()).filter(Boolean);
+              results = results.filter((p: any) => titles.some((t: string) => (p.headline || "").toLowerCase().includes(t)));
+            }
+            prospects.push(...results);
           }
         }
 
@@ -66,19 +76,39 @@ serve(async (req) => {
             });
             if (res.ok) {
               const data = await res.json();
-              prospects.push(...(data.results || []));
+              let results = data.results || [];
+              // Filter by headline
+              if (config.commenters_filter_headline) {
+                const headlines = config.commenters_filter_headline.split(",").map((h: string) => h.trim().toLowerCase()).filter(Boolean);
+                results = results.filter((p: any) => headlines.some((h: string) => (p.headline || "").toLowerCase().includes(h)));
+              }
+              // Filter by min likes
+              if (config.commenters_min_likes > 0) {
+                results = results.filter((p: any) => (p.likes || 0) >= config.commenters_min_likes);
+              }
+              // Exclude keywords
+              if (config.commenters_exclude_keywords) {
+                const excludes = config.commenters_exclude_keywords.split(",").map((k: string) => k.trim().toLowerCase()).filter(Boolean);
+                results = results.filter((p: any) => !excludes.some((k: string) => (p.headline || "").toLowerCase().includes(k)));
+              }
+              prospects.push(...results);
             }
           }
         }
 
         if (config.companies_enabled && config.company_keywords) {
+          const compSearchBody: any = { query: config.company_keywords, limit: 10 };
+          if (config.companies_location) compSearchBody.location = config.companies_location;
+          if (config.companies_industry_filter) compSearchBody.industry = config.companies_industry_filter;
+          if (config.companies_size_min) compSearchBody.size_min = config.companies_size_min;
+          if (config.companies_size_max) compSearchBody.size_max = config.companies_size_max;
           const compRes = await fetch(`${SUPABASE_URL}/functions/v1/search-companies`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
               Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
             },
-            body: JSON.stringify({ query: config.company_keywords, limit: 10 }),
+            body: JSON.stringify(compSearchBody),
           });
           if (compRes.ok) {
             const compData = await compRes.json();

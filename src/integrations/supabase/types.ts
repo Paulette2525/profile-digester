@@ -519,7 +519,14 @@ export type Database = {
       prospection_autopilot_config: {
         Row: {
           commenters_enabled: boolean
+          commenters_exclude_keywords: string | null
+          commenters_filter_headline: string | null
+          commenters_min_likes: number | null
           companies_enabled: boolean
+          companies_industry_filter: string | null
+          companies_location: string | null
+          companies_size_max: number | null
+          companies_size_min: number | null
           company_keywords: string | null
           conversation_guidelines: string | null
           created_at: string
@@ -530,7 +537,11 @@ export type Database = {
           message_template: string | null
           offer_description: string | null
           post_ids: string[]
+          profiles_company_size: string | null
           profiles_enabled: boolean
+          profiles_industry: string | null
+          profiles_location: string | null
+          profiles_title_filter: string | null
           search_query: string | null
           sequence_steps: Json
           updated_at: string
@@ -540,7 +551,14 @@ export type Database = {
         }
         Insert: {
           commenters_enabled?: boolean
+          commenters_exclude_keywords?: string | null
+          commenters_filter_headline?: string | null
+          commenters_min_likes?: number | null
           companies_enabled?: boolean
+          companies_industry_filter?: string | null
+          companies_location?: string | null
+          companies_size_max?: number | null
+          companies_size_min?: number | null
           company_keywords?: string | null
           conversation_guidelines?: string | null
           created_at?: string
@@ -551,7 +569,11 @@ export type Database = {
           message_template?: string | null
           offer_description?: string | null
           post_ids?: string[]
+          profiles_company_size?: string | null
           profiles_enabled?: boolean
+          profiles_industry?: string | null
+          profiles_location?: string | null
+          profiles_title_filter?: string | null
           search_query?: string | null
           sequence_steps?: Json
           updated_at?: string
@@ -561,7 +583,14 @@ export type Database = {
         }
         Update: {
           commenters_enabled?: boolean
+          commenters_exclude_keywords?: string | null
+          commenters_filter_headline?: string | null
+          commenters_min_likes?: number | null
           companies_enabled?: boolean
+          companies_industry_filter?: string | null
+          companies_location?: string | null
+          companies_size_max?: number | null
+          companies_size_min?: number | null
           company_keywords?: string | null
           conversation_guidelines?: string | null
           created_at?: string
@@ -572,7 +601,11 @@ export type Database = {
           message_template?: string | null
           offer_description?: string | null
           post_ids?: string[]
+          profiles_company_size?: string | null
           profiles_enabled?: boolean
+          profiles_industry?: string | null
+          profiles_location?: string | null
+          profiles_title_filter?: string | null
           search_query?: string | null
           sequence_steps?: Json
           updated_at?: string
