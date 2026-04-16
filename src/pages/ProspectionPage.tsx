@@ -10,8 +10,10 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Users, Send, Loader2, UserPlus, CheckCircle, XCircle, Clock, BarChart3, CheckSquare, ChevronDown, ChevronUp, Plus, Trash2, RefreshCw, Pause, Play } from "lucide-react";
+import { Search, Users, Send, Loader2, UserPlus, CheckCircle, XCircle, Clock, BarChart3, CheckSquare, ChevronDown, ChevronUp, Plus, Trash2, RefreshCw, Pause, Play, Building2, MessageSquare, Flame } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -24,6 +26,16 @@ interface SearchResult {
   linkedin_url: string;
 }
 
+interface CompanyResult {
+  id: string;
+  name: string;
+  industry: string;
+  logo_url: string;
+  employee_count: number | null;
+  linkedin_url: string;
+  description: string;
+}
+
 interface SequenceStep {
   step_order: number;
   delay_days: number;
@@ -33,6 +45,18 @@ interface SequenceStep {
 function StepBadge({ stepOrder }: { stepOrder: number }) {
   if (stepOrder === 1) return <Badge variant="outline" className="text-[10px]">Message initial</Badge>;
   return <Badge variant="secondary" className="text-[10px]"><RefreshCw className="h-2.5 w-2.5 mr-1" />Relance {stepOrder - 1}</Badge>;
+}
+
+function WarmupBadge({ status }: { status: string | null }) {
+  if (!status) return null;
+  const config: Record<string, { label: string; className: string }> = {
+    warming: { label: "Warm-up...", className: "border-orange-400 text-orange-600" },
+    warmed: { label: "Warmé ✓", className: "border-green-400 text-green-600" },
+    warmup_error: { label: "Warm-up ✗", className: "border-red-400 text-red-600" },
+  };
+  const c = config[status];
+  if (!c) return null;
+  return <Badge variant="outline" className={`text-[10px] ${c.className}`}><Flame className="h-2.5 w-2.5 mr-1" />{c.label}</Badge>;
 }
 
 function CampaignRow({ campaign: c, userId }: { campaign: any; userId?: string }) {
@@ -88,6 +112,11 @@ function CampaignRow({ campaign: c, userId }: { campaign: any; userId?: string }
             {c.status === "paused" && <Pause className="h-3 w-3 mr-1" />}
             {c.status === "active" ? "Active" : c.status === "completed" ? "Terminée" : c.status === "paused" ? "En pause" : c.status}
           </Badge>
+          {c.warmup_enabled && (
+            <Badge variant="outline" className="shrink-0 text-[10px] border-orange-300 text-orange-500">
+              <Flame className="h-2.5 w-2.5 mr-1" />Warm-up
+            </Badge>
+          )}
         </div>
         <div className="flex items-center gap-4 text-xs text-muted-foreground shrink-0">
           <span>{c.total_prospects} prospects</span>
@@ -129,6 +158,7 @@ function CampaignRow({ campaign: c, userId }: { campaign: any; userId?: string }
                     <p className="text-sm font-medium">{msg.prospect_name}</p>
                     <p className="text-xs text-muted-foreground truncate">{msg.prospect_headline}</p>
                   </div>
+                  <WarmupBadge status={msg.warmup_status} />
                   <StepBadge stepOrder={msg.step_order || 1} />
                   <Badge
                     variant={
@@ -166,45 +196,50 @@ function CampaignRow({ campaign: c, userId }: { campaign: any; userId?: string }
 export default function ProspectionPage() {
   const { user } = useAuth();
   const qc = useQueryClient();
+
+  // Search state
+  const [searchTab, setSearchTab] = useState("profiles");
   const [searchQuery, setSearchQuery] = useState("");
   const [searching, setSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [selectedProspects, setSelectedProspects] = useState<SearchResult[]>([]);
-  const [campaignName, setCampaignName] = useState("");
   const [maxResults, setMaxResults] = useState(25);
+
+  // Comment extraction state
+  const [postIdInput, setPostIdInput] = useState("");
+  const [extracting, setExtracting] = useState(false);
+
+  // Company search state
+  const [companyQuery, setCompanyQuery] = useState("");
+  const [companyResults, setCompanyResults] = useState<CompanyResult[]>([]);
+  const [searchingCompanies, setSearchingCompanies] = useState(false);
+  const [extractingDeciders, setExtractingDeciders] = useState<string | null>(null);
+
+  // Campaign config state
+  const [campaignName, setCampaignName] = useState("");
   const [dailyContactLimit, setDailyContactLimit] = useState(20);
   const [delayBetweenMessages, setDelayBetweenMessages] = useState(5);
+  const [warmupEnabled, setWarmupEnabled] = useState(false);
+  const [warmupDelayHours, setWarmupDelayHours] = useState(2);
   const [messageTemplate, setMessageTemplate] = useState(
     "Bonjour {name},\n\nJ'ai vu votre profil ({headline}) et j'aimerais échanger avec vous.\n\nBien cordialement"
   );
-
-  // Sequence steps state
   const [sequenceSteps, setSequenceSteps] = useState<SequenceStep[]>([]);
 
   const addSequenceStep = () => {
-    const lastDelay = sequenceSteps.length > 0
-      ? sequenceSteps[sequenceSteps.length - 1].delay_days
-      : 0;
+    const lastDelay = sequenceSteps.length > 0 ? sequenceSteps[sequenceSteps.length - 1].delay_days : 0;
     setSequenceSteps([
       ...sequenceSteps,
-      {
-        step_order: sequenceSteps.length + 2, // +2 because step 1 is the initial message
-        delay_days: lastDelay + 3,
-        message_template: `Bonjour {name},\n\nJe me permets de revenir vers vous suite à mon précédent message.\n\nBien cordialement`,
-      },
+      { step_order: sequenceSteps.length + 2, delay_days: lastDelay + 3, message_template: `Bonjour {name},\n\nJe me permets de revenir vers vous suite à mon précédent message.\n\nBien cordialement` },
     ]);
   };
 
   const removeSequenceStep = (index: number) => {
-    setSequenceSteps((prev) =>
-      prev.filter((_, i) => i !== index).map((s, i) => ({ ...s, step_order: i + 2 }))
-    );
+    setSequenceSteps((prev) => prev.filter((_, i) => i !== index).map((s, i) => ({ ...s, step_order: i + 2 })));
   };
 
   const updateSequenceStep = (index: number, field: keyof SequenceStep, value: any) => {
-    setSequenceSteps((prev) =>
-      prev.map((s, i) => (i === index ? { ...s, [field]: value } : s))
-    );
+    setSequenceSteps((prev) => prev.map((s, i) => (i === index ? { ...s, [field]: value } : s)));
   };
 
   // Fetch campaigns
@@ -238,6 +273,7 @@ export default function ProspectionPage() {
     },
   });
 
+  // Profile search
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
     setSearching(true);
@@ -254,11 +290,62 @@ export default function ProspectionPage() {
     }
   };
 
+  // Extract commenters
+  const handleExtractCommenters = async () => {
+    if (!postIdInput.trim()) return;
+    setExtracting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("extract-commenters", {
+        body: { post_id: postIdInput.trim(), limit: maxResults },
+      });
+      if (error) throw error;
+      setSearchResults(data?.results || []);
+      toast({ title: `${data?.results?.length || 0} profil(s) extraits` });
+    } catch (e: any) {
+      toast({ title: "Erreur d'extraction", description: e.message, variant: "destructive" });
+    } finally {
+      setExtracting(false);
+    }
+  };
+
+  // Company search
+  const handleSearchCompanies = async () => {
+    if (!companyQuery.trim()) return;
+    setSearchingCompanies(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("search-companies", {
+        body: { query: companyQuery.trim(), limit: maxResults },
+      });
+      if (error) throw error;
+      setCompanyResults(data?.results || []);
+    } catch (e: any) {
+      toast({ title: "Erreur de recherche", description: e.message, variant: "destructive" });
+    } finally {
+      setSearchingCompanies(false);
+    }
+  };
+
+  // Extract decision-makers from company
+  const handleExtractDeciders = async (company: CompanyResult) => {
+    setExtractingDeciders(company.id);
+    try {
+      const { data, error } = await supabase.functions.invoke("search-profiles", {
+        body: { query: company.name, company_id: company.id, limit: maxResults },
+      });
+      if (error) throw error;
+      setSearchResults(data?.results || []);
+      setSearchTab("profiles"); // Switch to profiles tab to show results
+      toast({ title: `${data?.results?.length || 0} décideur(s) trouvé(s) chez ${company.name}` });
+    } catch (e: any) {
+      toast({ title: "Erreur", description: e.message, variant: "destructive" });
+    } finally {
+      setExtractingDeciders(null);
+    }
+  };
+
   const toggleProspect = (prospect: SearchResult) => {
     setSelectedProspects((prev) =>
-      prev.some((p) => p.id === prospect.id)
-        ? prev.filter((p) => p.id !== prospect.id)
-        : [...prev, prospect]
+      prev.some((p) => p.id === prospect.id) ? prev.filter((p) => p.id !== prospect.id) : [...prev, prospect]
     );
   };
 
@@ -282,12 +369,13 @@ export default function ProspectionPage() {
           message_template: messageTemplate,
           status: "active",
           total_prospects: selectedProspects.length,
+          warmup_enabled: warmupEnabled,
+          warmup_delay_hours: warmupDelayHours,
         } as any)
         .select("*")
         .single();
       if (campErr) throw campErr;
 
-      // Insert sequence steps (step 1 = initial message + follow-ups)
       const allSteps: SequenceStep[] = [
         { step_order: 1, delay_days: 0, message_template: messageTemplate },
         ...sequenceSteps,
@@ -312,9 +400,7 @@ export default function ProspectionPage() {
         prospect_headline: p.headline,
         prospect_linkedin_url: p.linkedin_url,
         prospect_avatar_url: p.avatar_url,
-        message_sent: messageTemplate
-          .replace("{name}", p.name)
-          .replace("{headline}", p.headline),
+        message_sent: messageTemplate.replace("{name}", p.name).replace("{headline}", p.headline),
         status: "pending",
         step_order: 1,
       }));
@@ -341,6 +427,7 @@ export default function ProspectionPage() {
       setSelectedProspects([]);
       setSearchResults([]);
       setSequenceSteps([]);
+      setWarmupEnabled(false);
       qc.invalidateQueries({ queryKey: ["prospection-campaigns"] });
       qc.invalidateQueries({ queryKey: ["prospection-messages"] });
     },
@@ -354,7 +441,6 @@ export default function ProspectionPage() {
   const totalReplies = campaigns.reduce((s: number, c: any) => s + (c.reply_count || 0), 0);
   const totalAccepted = campaigns.reduce((s: number, c: any) => s + (c.accepted_count || 0), 0);
   const replyRate = totalSent > 0 ? Math.round((totalReplies / totalSent) * 100) : 0;
-
   const allSelected = searchResults.length > 0 && selectedProspects.length === searchResults.length;
 
   return (
@@ -389,42 +475,135 @@ export default function ProspectionPage() {
           ))}
         </div>
 
-        {/* Search */}
+        {/* Search with tabs */}
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
-              <Search className="h-4 w-4" /> Rechercher des profils
+              <Search className="h-4 w-4" /> Trouver des prospects
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex gap-2">
-              <Input
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Ex: CEO startup IA, Growth Marketer, Consultant digital..."
-                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                className="flex-1"
-              />
-              <Select value={String(maxResults)} onValueChange={(v) => setMaxResults(Number(v))}>
-                <SelectTrigger className="w-[130px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="10">10 profils</SelectItem>
-                  <SelectItem value="25">25 profils</SelectItem>
-                  <SelectItem value="50">50 profils</SelectItem>
-                  <SelectItem value="100">100 profils</SelectItem>
-                  <SelectItem value="200">200 profils</SelectItem>
-                  <SelectItem value="500">500 profils</SelectItem>
-                  <SelectItem value="1000">1000 profils</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button onClick={handleSearch} disabled={searching || !searchQuery.trim()}>
-                {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-              </Button>
-            </div>
+            <Tabs value={searchTab} onValueChange={setSearchTab}>
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="profiles" className="flex items-center gap-1.5">
+                  <Users className="h-3.5 w-3.5" /> Profils
+                </TabsTrigger>
+                <TabsTrigger value="commenters" className="flex items-center gap-1.5">
+                  <MessageSquare className="h-3.5 w-3.5" /> Commentaires
+                </TabsTrigger>
+                <TabsTrigger value="companies" className="flex items-center gap-1.5">
+                  <Building2 className="h-3.5 w-3.5" /> Entreprises
+                </TabsTrigger>
+              </TabsList>
 
-            {searchResults.length > 0 && (
+              {/* Profile search tab */}
+              <TabsContent value="profiles" className="space-y-4">
+                <div className="flex gap-2">
+                  <Input
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Ex: CEO startup IA, Growth Marketer, Consultant digital..."
+                    onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                    className="flex-1"
+                  />
+                  <Select value={String(maxResults)} onValueChange={(v) => setMaxResults(Number(v))}>
+                    <SelectTrigger className="w-[130px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="10">10 profils</SelectItem>
+                      <SelectItem value="25">25 profils</SelectItem>
+                      <SelectItem value="50">50 profils</SelectItem>
+                      <SelectItem value="100">100 profils</SelectItem>
+                      <SelectItem value="200">200 profils</SelectItem>
+                      <SelectItem value="500">500 profils</SelectItem>
+                      <SelectItem value="1000">1000 profils</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button onClick={handleSearch} disabled={searching || !searchQuery.trim()}>
+                    {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </TabsContent>
+
+              {/* Commenters extraction tab */}
+              <TabsContent value="commenters" className="space-y-4">
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">
+                    Extrayez les personnes qui ont commenté ou réagi à un post LinkedIn.
+                    Entrez l'ID du post Unipile ou l'URN LinkedIn.
+                  </p>
+                  <div className="flex gap-2">
+                    <Input
+                      value={postIdInput}
+                      onChange={(e) => setPostIdInput(e.target.value)}
+                      placeholder="ID du post LinkedIn (ex: urn:li:activity:1234567890)"
+                      onKeyDown={(e) => e.key === "Enter" && handleExtractCommenters()}
+                      className="flex-1"
+                    />
+                    <Button onClick={handleExtractCommenters} disabled={extracting || !postIdInput.trim()}>
+                      {extracting ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
+                      <span className="ml-1.5">Extraire</span>
+                    </Button>
+                  </div>
+                </div>
+              </TabsContent>
+
+              {/* Companies search tab */}
+              <TabsContent value="companies" className="space-y-4">
+                <div className="flex gap-2">
+                  <Input
+                    value={companyQuery}
+                    onChange={(e) => setCompanyQuery(e.target.value)}
+                    placeholder="Ex: startup IA, agence marketing, cabinet conseil..."
+                    onKeyDown={(e) => e.key === "Enter" && handleSearchCompanies()}
+                    className="flex-1"
+                  />
+                  <Button onClick={handleSearchCompanies} disabled={searchingCompanies || !companyQuery.trim()}>
+                    {searchingCompanies ? <Loader2 className="h-4 w-4 animate-spin" /> : <Building2 className="h-4 w-4" />}
+                  </Button>
+                </div>
+
+                {companyResults.length > 0 && (
+                  <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                    {companyResults.map((c) => (
+                      <div key={c.id} className="flex items-center gap-3 p-3 rounded-lg border hover:bg-accent/50 transition-colors">
+                        {c.logo_url ? (
+                          <img src={c.logo_url} alt="" className="h-10 w-10 rounded object-cover" />
+                        ) : (
+                          <div className="h-10 w-10 rounded bg-muted flex items-center justify-center">
+                            <Building2 className="h-5 w-5 text-muted-foreground" />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium">{c.name}</p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {c.industry}{c.employee_count ? ` · ${c.employee_count} employés` : ""}
+                          </p>
+                          {c.description && <p className="text-xs text-muted-foreground truncate mt-0.5">{c.description}</p>}
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleExtractDeciders(c)}
+                          disabled={extractingDeciders === c.id}
+                        >
+                          {extractingDeciders === c.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+                          ) : (
+                            <Users className="h-3.5 w-3.5 mr-1" />
+                          )}
+                          Décideurs
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
+
+            {/* Shared results display (profiles from any source) */}
+            {searchResults.length > 0 && searchTab !== "companies" && (
               <>
                 <div className="flex items-center justify-between">
                   <p className="text-sm text-muted-foreground">
@@ -512,12 +691,7 @@ export default function ProspectionPage() {
                       </Badge>
                       après J+{step.delay_days}
                     </Label>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7"
-                      onClick={() => removeSequenceStep(index)}
-                    >
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeSequenceStep(index)}>
                       <Trash2 className="h-3.5 w-3.5 text-destructive" />
                     </Button>
                   </div>
@@ -541,39 +715,63 @@ export default function ProspectionPage() {
                 </div>
               ))}
 
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={addSequenceStep}
-                className="w-full border-dashed"
-              >
+              <Button variant="outline" size="sm" onClick={addSequenceStep} className="w-full border-dashed">
                 <Plus className="h-4 w-4 mr-1" />
                 Ajouter une relance
               </Button>
 
               {/* Advanced settings */}
-              <div className="grid gap-4 md:grid-cols-2 p-4 rounded-lg border bg-muted/30">
-                <div className="space-y-3">
-                  <Label className="text-sm">Contacts par jour : <span className="font-bold text-primary">{dailyContactLimit}</span></Label>
-                  <Slider
-                    value={[dailyContactLimit]}
-                    onValueChange={(v) => setDailyContactLimit(v[0])}
-                    min={5}
-                    max={500}
-                    step={5}
-                  />
-                  <p className="text-xs text-muted-foreground">Limite quotidienne (5-500)</p>
+              <div className="space-y-4 p-4 rounded-lg border bg-muted/30">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-3">
+                    <Label className="text-sm">Contacts par jour : <span className="font-bold text-primary">{dailyContactLimit}</span></Label>
+                    <Slider
+                      value={[dailyContactLimit]}
+                      onValueChange={(v) => setDailyContactLimit(v[0])}
+                      min={5}
+                      max={500}
+                      step={5}
+                    />
+                    <p className="text-xs text-muted-foreground">Limite quotidienne (5-500)</p>
+                  </div>
+                  <div className="space-y-3">
+                    <Label className="text-sm">Délai entre messages : <span className="font-bold text-primary">{delayBetweenMessages}s</span></Label>
+                    <Slider
+                      value={[delayBetweenMessages]}
+                      onValueChange={(v) => setDelayBetweenMessages(v[0])}
+                      min={3}
+                      max={30}
+                      step={1}
+                    />
+                    <p className="text-xs text-muted-foreground">Temps d'attente entre chaque envoi (secondes)</p>
+                  </div>
                 </div>
-                <div className="space-y-3">
-                  <Label className="text-sm">Délai entre messages : <span className="font-bold text-primary">{delayBetweenMessages}s</span></Label>
-                  <Slider
-                    value={[delayBetweenMessages]}
-                    onValueChange={(v) => setDelayBetweenMessages(v[0])}
-                    min={3}
-                    max={30}
-                    step={1}
-                  />
-                  <p className="text-xs text-muted-foreground">Temps d'attente entre chaque envoi (secondes)</p>
+
+                {/* Warm-up settings */}
+                <div className="border-t pt-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Flame className="h-4 w-4 text-orange-500" />
+                      <Label className="text-sm font-medium">Warm-up avant contact</Label>
+                    </div>
+                    <Switch checked={warmupEnabled} onCheckedChange={setWarmupEnabled} />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Visite le profil et like 1-2 posts du prospect avant d'envoyer le message. Augmente le taux d'acceptation de 30-40%.
+                  </p>
+                  {warmupEnabled && (
+                    <div className="space-y-2 pt-2">
+                      <Label className="text-sm">Délai après warm-up : <span className="font-bold text-primary">{warmupDelayHours}h</span></Label>
+                      <Slider
+                        value={[warmupDelayHours]}
+                        onValueChange={(v) => setWarmupDelayHours(v[0])}
+                        min={1}
+                        max={24}
+                        step={1}
+                      />
+                      <p className="text-xs text-muted-foreground">Temps d'attente entre le warm-up et l'envoi du message (1-24h)</p>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -587,7 +785,7 @@ export default function ProspectionPage() {
                 ) : (
                   <Send className="h-4 w-4 mr-2" />
                 )}
-                Lancer ({selectedProspects.length} prospects — {sequenceSteps.length > 0 ? `${sequenceSteps.length + 1} étapes — ` : ""}{Math.ceil(selectedProspects.length / dailyContactLimit)} jour(s))
+                Lancer ({selectedProspects.length} prospects{sequenceSteps.length > 0 ? ` — ${sequenceSteps.length + 1} étapes` : ""}{warmupEnabled ? " — warm-up activé" : ""} — {Math.ceil(selectedProspects.length / dailyContactLimit)} jour(s))
               </Button>
             </CardContent>
           </Card>
@@ -629,6 +827,7 @@ export default function ProspectionPage() {
                       <p className="text-sm font-medium">{msg.prospect_name}</p>
                       <p className="text-xs text-muted-foreground truncate">{msg.prospect_headline}</p>
                     </div>
+                    <WarmupBadge status={msg.warmup_status} />
                     <StepBadge stepOrder={msg.step_order || 1} />
                     <Badge
                       variant={

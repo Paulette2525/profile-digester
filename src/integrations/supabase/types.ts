@@ -437,6 +437,8 @@ export type Database = {
           total_prospects: number
           updated_at: string
           user_id: string
+          warmup_delay_hours: number
+          warmup_enabled: boolean
         }
         Insert: {
           accepted_count?: number
@@ -450,6 +452,8 @@ export type Database = {
           total_prospects?: number
           updated_at?: string
           user_id: string
+          warmup_delay_hours?: number
+          warmup_enabled?: boolean
         }
         Update: {
           accepted_count?: number
@@ -463,6 +467,8 @@ export type Database = {
           total_prospects?: number
           updated_at?: string
           user_id?: string
+          warmup_delay_hours?: number
+          warmup_enabled?: boolean
         }
         Relationships: []
       }
@@ -482,6 +488,7 @@ export type Database = {
           status: string
           step_order: number
           user_id: string
+          warmup_status: string | null
         }
         Insert: {
           campaign_id: string
@@ -498,6 +505,7 @@ export type Database = {
           status?: string
           step_order?: number
           user_id: string
+          warmup_status?: string | null
         }
         Update: {
           campaign_id?: string
@@ -514,6 +522,7 @@ export type Database = {
           status?: string
           step_order?: number
           user_id?: string
+          warmup_status?: string | null
         }
         Relationships: [
           {

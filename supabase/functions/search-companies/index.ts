@@ -12,8 +12,7 @@ async function getLinkedInAccountId(dsn: string, apiKey: string): Promise<string
   });
   if (!res.ok) throw new Error(`Failed to list accounts: ${res.status}`);
   const data = await res.json();
-  const items = data.items || [];
-  const linkedin = items.find((a: any) => a.type === "LINKEDIN");
+  const linkedin = (data.items || []).find((a: any) => a.type === "LINKEDIN");
   if (!linkedin) throw new Error("No LinkedIn account connected in Unipile");
   return linkedin.id;
 }
@@ -31,8 +30,9 @@ serve(async (req) => {
     }
 
     const body = await req.json();
-    const { query, limit: requestedLimit, company_id } = body;
+    const { query, limit: requestedLimit } = body;
     const totalLimit = Math.max(Number(requestedLimit) || 10, 1);
+
     if (!query || typeof query !== "string") {
       return new Response(
         JSON.stringify({ error: "Missing 'query' parameter" }),
@@ -52,32 +52,27 @@ serve(async (req) => {
       url.searchParams.set("limit", String(PAGE_SIZE));
       if (cursor) url.searchParams.set("cursor", cursor);
 
-      const searchBody: any = {
-        api: "classic",
-        category: "people",
-        keywords: query,
-      };
-      if (company_id) {
-        searchBody.company_id = company_id;
-      }
-
-      const searchResponse = await fetch(url.toString(), {
+      const searchRes = await fetch(url.toString(), {
         method: "POST",
         headers: {
           "X-API-KEY": UNIPILE_API_KEY,
           Accept: "application/json",
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(searchBody),
+        body: JSON.stringify({
+          api: "classic",
+          category: "companies",
+          keywords: query,
+        }),
       });
 
-      if (!searchResponse.ok) {
-        const errorText = await searchResponse.text();
-        console.error("Unipile search error:", errorText);
-        throw new Error(`Unipile search failed: ${searchResponse.status} ${searchResponse.statusText}`);
+      if (!searchRes.ok) {
+        const errText = await searchRes.text();
+        console.error("Company search error:", errText);
+        throw new Error(`Company search failed: ${searchRes.status}`);
       }
 
-      const data = await searchResponse.json();
+      const data = await searchRes.json();
       const items = data.items || data.data || [];
       allResults.push(...items);
 
@@ -85,19 +80,21 @@ serve(async (req) => {
       if (!cursor || items.length < PAGE_SIZE) break;
     }
 
-    const results = allResults.slice(0, totalLimit).map((user: any) => ({
-      id: user.id || user.provider_id || "",
-      name: user.name || `${user.first_name || ""} ${user.last_name || ""}`.trim(),
-      headline: user.headline || user.title || "",
-      avatar_url: user.profile_picture_url || user.avatar_url || "",
-      linkedin_url: user.public_profile_url || user.url || `https://linkedin.com/in/${user.public_identifier || user.id}`,
+    const results = allResults.slice(0, totalLimit).map((company: any) => ({
+      id: company.id || company.provider_id || "",
+      name: company.name || "",
+      industry: company.industry || company.headline || "",
+      logo_url: company.logo_url || company.profile_picture_url || company.avatar_url || "",
+      employee_count: company.employee_count || company.staff_count || null,
+      linkedin_url: company.public_profile_url || company.url || "",
+      description: company.description || company.tagline || "",
     }));
 
     return new Response(JSON.stringify({ results }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
-    console.error("Search error:", error);
+    console.error("Search companies error:", error);
     return new Response(JSON.stringify({ error: String(error) }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
