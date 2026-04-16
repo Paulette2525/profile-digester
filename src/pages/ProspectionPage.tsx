@@ -737,7 +737,10 @@ export default function ProspectionPage() {
           ))}
         </div>
 
-        {/* Search with tabs */}
+        {/* Autopilot panel */}
+        {user && <AutopilotPanel userId={user.id} />}
+
+
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
