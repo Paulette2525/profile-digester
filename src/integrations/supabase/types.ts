@@ -247,6 +247,143 @@ export type Database = {
         }
         Relationships: []
       }
+      engaged_config: {
+        Row: {
+          check_frequency_minutes: number
+          comment_prompt: string
+          created_at: string
+          daily_comment_limit: number
+          delay_between_actions_seconds: number
+          enabled: boolean
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          check_frequency_minutes?: number
+          comment_prompt?: string
+          created_at?: string
+          daily_comment_limit?: number
+          delay_between_actions_seconds?: number
+          enabled?: boolean
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          check_frequency_minutes?: number
+          comment_prompt?: string
+          created_at?: string
+          daily_comment_limit?: number
+          delay_between_actions_seconds?: number
+          enabled?: boolean
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      engaged_interactions: {
+        Row: {
+          action_type: string
+          comment_text: string | null
+          created_at: string
+          engaged_profile_id: string
+          error_message: string | null
+          id: string
+          linkedin_post_id: string
+          post_content_preview: string | null
+          post_url: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          action_type: string
+          comment_text?: string | null
+          created_at?: string
+          engaged_profile_id: string
+          error_message?: string | null
+          id?: string
+          linkedin_post_id: string
+          post_content_preview?: string | null
+          post_url?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          action_type?: string
+          comment_text?: string | null
+          created_at?: string
+          engaged_profile_id?: string
+          error_message?: string | null
+          id?: string
+          linkedin_post_id?: string
+          post_content_preview?: string | null
+          post_url?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "engaged_interactions_engaged_profile_id_fkey"
+            columns: ["engaged_profile_id"]
+            isOneToOne: false
+            referencedRelation: "engaged_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      engaged_profiles: {
+        Row: {
+          auto_comment: boolean
+          auto_like: boolean
+          avatar_url: string | null
+          comment_tone: string
+          created_at: string
+          headline: string | null
+          id: string
+          is_active: boolean
+          last_checked_at: string | null
+          linkedin_url: string
+          name: string
+          unipile_provider_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          auto_comment?: boolean
+          auto_like?: boolean
+          avatar_url?: string | null
+          comment_tone?: string
+          created_at?: string
+          headline?: string | null
+          id?: string
+          is_active?: boolean
+          last_checked_at?: string | null
+          linkedin_url: string
+          name: string
+          unipile_provider_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          auto_comment?: boolean
+          auto_like?: boolean
+          avatar_url?: string | null
+          comment_tone?: string
+          created_at?: string
+          headline?: string | null
+          id?: string
+          is_active?: boolean
+          last_checked_at?: string | null
+          linkedin_url?: string
+          name?: string
+          unipile_provider_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       lead_forms: {
         Row: {
           created_at: string
