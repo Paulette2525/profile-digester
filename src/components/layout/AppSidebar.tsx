@@ -1,6 +1,6 @@
 import { useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { LayoutDashboard, Zap, Lightbulb, PenLine, Calendar, BarChart3, UserPlus, Settings, Linkedin, MessageSquareHeart, Brain, LogOut, Rocket, CalendarDays, Target, ClipboardList } from "lucide-react";
+import { LayoutDashboard, Zap, Lightbulb, PenLine, Calendar, BarChart3, UserPlus, Settings, Linkedin, MessageSquareHeart, Brain, LogOut, Rocket, CalendarDays, Target, ClipboardList, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NavLink } from "@/components/NavLink";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,6 +30,7 @@ const workflowItems = [
 
 const automationItems = [
   { to: "/engagement", label: "Engagement", icon: MessageSquareHeart },
+  { to: "/engage", label: "Engagé", icon: Heart },
   { to: "/prospection", label: "Prospection", icon: Target },
   { to: "/prospection/stats", label: "Stats Prospection", icon: BarChart3 },
   { to: "/leads", label: "Leads", icon: ClipboardList },
