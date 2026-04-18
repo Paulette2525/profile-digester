@@ -28,6 +28,7 @@ const IdeasPage = lazy(() => import("./pages/IdeasPage"));
 const ProspectionPage = lazy(() => import("./pages/ProspectionPage"));
 const ProspectionStatsPage = lazy(() => import("./pages/ProspectionStatsPage"));
 const LeadsPage = lazy(() => import("./pages/LeadsPage"));
+const EngagePage = lazy(() => import("./pages/EngagePage"));
 const PublicFormPage = lazy(() => import("./pages/PublicFormPage"));
 const PublicIdeaPage = lazy(() => import("./pages/PublicIdeaPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -87,6 +88,7 @@ const App = () => (
                 <Route path="/prospection" element={<ProspectionPage />} />
                 <Route path="/prospection/stats" element={<ProspectionStatsPage />} />
                 <Route path="/leads" element={<LeadsPage />} />
+                <Route path="/engage" element={<EngagePage />} />
                 <Route path="/settings" element={<SettingsPage />} />
               </Route>
 
