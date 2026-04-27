@@ -19,9 +19,9 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
     const PERPLEXITY_API_KEY = Deno.env.get("PERPLEXITY_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+    if (!OPENROUTER_API_KEY) throw new Error("OPENROUTER_API_KEY not configured");
 
     // Check if this is a forced manual execution
     let forceRun = false;
@@ -371,14 +371,14 @@ Si tu ne trouves pas de news des dernières 24h, cherche celles des 48h-72h dern
         await updateProgress(config.id, "generating_posts", 50, "Génération IA des posts...");
 
         // 9. Call AI
-        const aiRes = await fetchWithRetry("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        const aiRes = await fetchWithRetry("https://openrouter.ai/api/v1/chat/completions", {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            Authorization: `Bearer ${OPENROUTER_API_KEY}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            model: "google/gemini-3-flash-preview",
+            model: "anthropic/claude-sonnet-4.5",
             messages: [
               { role: "system", content: systemMessage },
               { role: "user", content: userPrompt },
