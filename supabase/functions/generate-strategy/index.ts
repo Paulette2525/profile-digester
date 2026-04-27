@@ -10,8 +10,8 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+    if (!OPENROUTER_API_KEY) throw new Error("OPENROUTER_API_KEY not configured");
 
     const authHeader = req.headers.get("authorization");
     const supabase = createClient(
@@ -71,7 +71,7 @@ Génère exactement 3 variantes de stratégie :
 Chaque variante doit inclure des types de contenu diversifiés : Storytelling, Viral (hooks forts), Tuto/How-to, News/Actualités, Social Proof (résultats, témoignages).`;
 
     const aiBody = JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "anthropic/claude-3.5-sonnet",
         messages: [
           { role: "system", content: "Tu génères des stratégies de contenu LinkedIn en JSON structuré." },
           { role: "user", content: prompt },
@@ -158,10 +158,10 @@ Chaque variante doit inclure des types de contenu diversifiés : Storytelling, V
     // Retry up to 2 times on 502/503
     let response: Response | null = null;
     for (let attempt = 0; attempt < 3; attempt++) {
-      response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
           "Content-Type": "application/json",
         },
         body: aiBody,
