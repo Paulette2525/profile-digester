@@ -53,7 +53,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "anthropic/claude-3.5-sonnet",
+        model: "anthropic/claude-sonnet-4.5",
         messages: [
           { role: "system", content: "Tu analyses les publications LinkedIn d'un créateur pour identifier ses patterns de viralité. Réponds en JSON structuré." },
           { role: "user", content: `Analyse les top publications de ${profile.name} (${profile.headline || ""}):\n\n${postsText}\n\nIdentifie les patterns de viralité uniques à ce profil.` },

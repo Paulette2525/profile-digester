@@ -26,7 +26,7 @@ async function generateComment(postContent: string, tone: string, basePrompt: st
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "anthropic/claude-3.5-sonnet",
+        model: "anthropic/claude-sonnet-4.5",
         messages: [
           { role: "system", content: `${basePrompt}\n\n${toneInstructions[tone] || toneInstructions.professionnel}` },
           { role: "user", content: `Génère un commentaire LinkedIn court et naturel pour ce post:\n\n"${postContent.slice(0, 1500)}"` },

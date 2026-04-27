@@ -71,7 +71,7 @@ Génère exactement 3 variantes de stratégie :
 Chaque variante doit inclure des types de contenu diversifiés : Storytelling, Viral (hooks forts), Tuto/How-to, News/Actualités, Social Proof (résultats, témoignages).`;
 
     const aiBody = JSON.stringify({
-        model: "anthropic/claude-3.5-sonnet",
+        model: "anthropic/claude-sonnet-4.5",
         messages: [
           { role: "system", content: "Tu génères des stratégies de contenu LinkedIn en JSON structuré." },
           { role: "user", content: prompt },

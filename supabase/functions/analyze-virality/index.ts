@@ -152,7 +152,7 @@ Réponds avec un JSON structuré.`;
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "anthropic/claude-3.5-sonnet",
+        model: "anthropic/claude-sonnet-4.5",
         messages: [
           { role: "system", content: "Tu es un analyste expert en viralité LinkedIn. Réponds toujours en JSON valide." },
           { role: "user", content: prompt },
