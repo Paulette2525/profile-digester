@@ -158,7 +158,7 @@ serve(async (req) => {
         // 3. Personalize messages with AI if guidelines exist
         const personalizedMessages: { prospect: any; message: string }[] = [];
 
-        if (LOVABLE_API_KEY && (config.offer_description || config.conversation_guidelines)) {
+        if (OPENROUTER_API_KEY && (config.offer_description || config.conversation_guidelines)) {
           // Batch personalize with AI
           for (const prospect of prospects) {
             try {
